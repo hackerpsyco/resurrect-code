@@ -1,8 +1,11 @@
 import { Button } from "@/components/ui/button";
-import { Cpu, Github } from "lucide-react";
+import { Cpu, Github, LogOut } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
 
 export function Navbar() {
+  const { user, signOut } = useAuth();
+
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-xl">
       <div className="container mx-auto px-6 h-16 flex items-center justify-between">
@@ -24,8 +27,8 @@ export function Navbar() {
           <a href="#how-it-works" className="text-muted-foreground hover:text-foreground transition-colors">
             How It Works
           </a>
-          <a href="#pricing" className="text-muted-foreground hover:text-foreground transition-colors">
-            Pricing
+          <a href="#tech" className="text-muted-foreground hover:text-foreground transition-colors">
+            Tech Stack
           </a>
         </div>
         
@@ -34,11 +37,37 @@ export function Navbar() {
           <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
             <Github className="w-5 h-5" />
           </Button>
-          <Link to="/dashboard">
-            <Button className="bg-primary hover:bg-primary/90 text-primary-foreground">
-              Dashboard
-            </Button>
-          </Link>
+          
+          {user ? (
+            <>
+              <Link to="/dashboard">
+                <Button className="bg-primary hover:bg-primary/90 text-primary-foreground">
+                  Dashboard
+                </Button>
+              </Link>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => signOut()}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                <LogOut className="w-5 h-5" />
+              </Button>
+            </>
+          ) : (
+            <>
+              <Link to="/auth">
+                <Button variant="ghost" className="text-muted-foreground hover:text-foreground">
+                  Sign In
+                </Button>
+              </Link>
+              <Link to="/auth">
+                <Button className="bg-primary hover:bg-primary/90 text-primary-foreground">
+                  Get Started
+                </Button>
+              </Link>
+            </>
+          )}
         </div>
       </div>
     </nav>

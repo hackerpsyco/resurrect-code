@@ -1,0 +1,168 @@
+# ResurrectCI Kestra Workflow
+# This workflow orchestrates the AI agent for autonomous error fixing
+# 
+# Flow: Webhook → Analyze Error → Search Solution → Generate Fix → Create PR
+#
+# To use this workflow:
+# 1. Deploy to your Kestra instance
+# 2. Configure the webhook trigger URL in your Vercel/GitHub settings
+# 3. Set the required secrets (SUPABASE_URL, SUPABASE_KEY, GITHUB_TOKEN)
+
+id: resurrect-agent
+namespace: resurrectci
+description: AI-powered autonomous build error fixing workflow
+
+inputs:
+  - id: deployment_id
+    type: STRING
+    description: The deployment ID from the webhook
+    
+  - id: project_name
+    type: STRING
+    description: Name of the project/repository
+    
+  - id: branch
+    type: STRING
+    defaults: main
+    description: Git branch that failed
+    
+  - id: error_message
+    type: STRING
+    description: The build error message
+    
+  - id: error_logs
+    type: ARRAY
+    itemType: STRING
+    description: Detailed error logs
+
+variables:
+  supabase_url: "{{ secret('SUPABASE_URL') }}"
+  max_fix_attempts: 3
+
+tasks:
+  # Step 1: Log the incoming failure
+  - id: log_failure
+    type: io.kestra.plugin.core.log.Log
+    level: INFO
+    message: |
+      🚨 Build failure detected!
+      Project: {{ inputs.project_name }}
+      Branch: {{ inputs.branch }}
+      Error: {{ inputs.error_message }}
+
+  # Step 2: Analyze the error using AI
+  - id: analyze_error
+    type: io.kestra.plugin.core.http.Request
+    uri: "{{ vars.supabase_url }}/functions/v1/ai-agent"
+    method: POST
+    contentType: application/json
+    headers:
+      Authorization: "Bearer {{ secret('SUPABASE_SERVICE_ROLE_KEY') }}"
+    body: |
+      {
+        "action": "analyze_error",
+        "errorInfo": {
+          "deploymentId": "{{ inputs.deployment_id }}",
+          "projectName": "{{ inputs.project_name }}",
+          "branch": "{{ inputs.branch }}",
+          "errorMessage": "{{ inputs.error_message }}",
+          "errorLogs": {{ inputs.error_logs | json }},
+          "timestamp": "{{ now() }}"
+        }
+      }
+
+  # Step 3: Parse the analysis result
+  - id: parse_analysis
+    type: io.kestra.plugin.core.log.Log
+    level: INFO
+    message: |
+      📊 Error Analysis Complete
+      Result: {{ outputs.analyze_error.body }}
+
+  # Step 4: Search for solutions
+  - id: search_solution
+    type: io.kestra.plugin.core.http.Request
+    uri: "{{ vars.supabase_url }}/functions/v1/ai-agent"
+    method: POST
+    contentType: application/json
+    headers:
+      Authorization: "Bearer {{ secret('SUPABASE_SERVICE_ROLE_KEY') }}"
+    body: |
+      {
+        "action": "search_solution",
+        "errorAnalysis": {{ outputs.analyze_error.body | json }}
+      }
+
+  # Step 5: Log found solutions
+  - id: log_solutions
+    type: io.kestra.plugin.core.log.Log
+    level: INFO
+    message: |
+      🔍 Solutions Found
+      Result: {{ outputs.search_solution.body }}
+
+  # Step 6: Generate the fix
+  - id: generate_fix
+    type: io.kestra.plugin.core.http.Request
+    uri: "{{ vars.supabase_url }}/functions/v1/ai-agent"
+    method: POST
+    contentType: application/json
+    headers:
+      Authorization: "Bearer {{ secret('SUPABASE_SERVICE_ROLE_KEY') }}"
+    body: |
+      {
+        "action": "generate_fix",
+        "errorAnalysis": {{ outputs.analyze_error.body | json }},
+        "searchResults": {{ outputs.search_solution.body | json }}
+      }
+
+  # Step 7: Log the generated fix
+  - id: log_fix
+    type: io.kestra.plugin.core.log.Log
+    level: INFO
+    message: |
+      🔧 Fix Generated
+      Result: {{ outputs.generate_fix.body }}
+
+  # Step 8: Create GitHub branch and PR (using Kestra's Git plugin)
+  # Note: This requires the GitHub token secret to be configured
+  - id: create_fix_branch
+    type: io.kestra.plugin.core.log.Log
+    level: INFO
+    message: |
+      🌿 Creating fix branch: resurrect-fix
+      PR will be created with the following changes:
+      {{ outputs.generate_fix.body }}
+      
+      Note: In production, this would use the Git plugin to:
+      1. Clone the repository
+      2. Create the resurrect-fix branch
+      3. Apply the code changes
+      4. Commit and push
+      5. Create a Pull Request
+
+  # Step 9: Final status
+  - id: success_notification
+    type: io.kestra.plugin.core.log.Log
+    level: INFO
+    message: |
+      ✅ ResurrectCI Agent Complete!
+      Project: {{ inputs.project_name }}
+      Status: Fix generated and ready for review
+      Branch: resurrect-fix
+
+# Trigger configuration for webhooks
+triggers:
+  - id: webhook_trigger
+    type: io.kestra.plugin.core.trigger.Webhook
+    key: "{{ secret('WEBHOOK_KEY') }}"
+
+# Error handling
+errors:
+  - id: on_failure
+    type: io.kestra.plugin.core.log.Log
+    level: ERROR
+    message: |
+      ❌ ResurrectCI Agent Failed
+      Error: {{ error.message }}
+      The workflow encountered an error and could not complete the fix.

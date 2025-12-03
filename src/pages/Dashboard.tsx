@@ -3,7 +3,10 @@ import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import { ProjectCard } from "@/components/dashboard/ProjectCard";
 import { StatsCard } from "@/components/dashboard/StatsCard";
 import { ActivityFeed } from "@/components/dashboard/ActivityFeed";
-import { AlertCircle, CheckCircle, Zap, GitPullRequest } from "lucide-react";
+import { ConnectProjectDialog } from "@/components/dashboard/ConnectProjectDialog";
+import { ProjectDetailPanel } from "@/components/dashboard/ProjectDetailPanel";
+import { Button } from "@/components/ui/button";
+import { AlertCircle, CheckCircle, Zap, GitPullRequest, Plus } from "lucide-react";
 import { toast } from "sonner";
 
 interface Project {
@@ -24,7 +27,7 @@ const initialProjects: Project[] = [
     status: "crashed",
     lastCommit: "feat: add user authentication flow",
     timeAgo: "5 minutes ago",
-    errorPreview: "Error: Module not found: Can't resolve './components/Button'",
+    errorPreview: "Error: Module not found: Can't resolve './styles.css'\n  at ./src/components/Button.tsx\n  at ./src/App.tsx",
   },
   {
     id: "2",
@@ -54,9 +57,10 @@ const initialProjects: Project[] = [
 
 export default function Dashboard() {
   const [projects, setProjects] = useState<Project[]>(initialProjects);
+  const [connectDialogOpen, setConnectDialogOpen] = useState(false);
+  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
 
   const handleAutoFix = (projectId: string) => {
-    // Set project to "fixing" state
     setProjects((prev) =>
       prev.map((p) => (p.id === projectId ? { ...p, status: "fixing" as const } : p))
     );
@@ -65,7 +69,6 @@ export default function Dashboard() {
       description: "Analyzing error logs and searching for solutions...",
     });
 
-    // Simulate the fixing process
     setTimeout(() => {
       toast.success("Fix found!", {
         description: "Applying patch and creating fix branch...",
@@ -80,10 +83,34 @@ export default function Dashboard() {
             : p
         )
       );
+      if (selectedProject?.id === projectId) {
+        setSelectedProject((prev) =>
+          prev ? { ...prev, status: "resurrected" as const, errorPreview: undefined } : null
+        );
+      }
       toast.success("Build Resurrected!", {
         description: "Created branch 'resurrect-fix' with the solution.",
       });
     }, 4000);
+  };
+
+  const handleProjectConnected = (newProject: {
+    name: string;
+    repo: string;
+    branch: string;
+  }) => {
+    const project: Project = {
+      id: String(projects.length + 1),
+      name: newProject.name,
+      branch: newProject.branch,
+      status: "pending",
+      lastCommit: "Initial connection",
+      timeAgo: "Just now",
+    };
+    setProjects((prev) => [project, ...prev]);
+    toast.success(`${newProject.name} connected!`, {
+      description: "Monitoring for deployment failures...",
+    });
   };
 
   const crashedCount = projects.filter((p) => p.status === "crashed").length;
@@ -94,12 +121,21 @@ export default function Dashboard() {
       <DashboardHeader />
       
       <main className="container mx-auto px-6 py-8">
-        {/* Page title */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-2">Mission Control</h1>
-          <p className="text-muted-foreground">
-            Monitor your pipelines and let the AI agent handle failures.
-          </p>
+        {/* Page header with action */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
+          <div>
+            <h1 className="text-3xl font-bold mb-2">Mission Control</h1>
+            <p className="text-muted-foreground">
+              Monitor your pipelines and let the AI agent handle failures.
+            </p>
+          </div>
+          <Button
+            onClick={() => setConnectDialogOpen(true)}
+            className="bg-primary hover:bg-primary/90 shadow-[var(--glow-primary)]"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Connect Project
+          </Button>
         </div>
         
         {/* Stats grid */}
@@ -141,11 +177,18 @@ export default function Dashboard() {
             <h2 className="text-xl font-semibold mb-4">Your Projects</h2>
             <div className="grid sm:grid-cols-2 gap-4">
               {projects.map((project) => (
-                <ProjectCard
+                <div
                   key={project.id}
-                  {...project}
-                  onAutoFix={() => handleAutoFix(project.id)}
-                />
+                  onClick={() => setSelectedProject(project)}
+                  className="cursor-pointer"
+                >
+                  <ProjectCard
+                    {...project}
+                    onAutoFix={() => {
+                      handleAutoFix(project.id);
+                    }}
+                  />
+                </div>
               ))}
             </div>
           </div>
@@ -157,6 +200,22 @@ export default function Dashboard() {
           </div>
         </div>
       </main>
+
+      {/* Connect Project Dialog */}
+      <ConnectProjectDialog
+        open={connectDialogOpen}
+        onOpenChange={setConnectDialogOpen}
+        onProjectConnected={handleProjectConnected}
+      />
+
+      {/* Project Detail Panel */}
+      {selectedProject && (
+        <ProjectDetailPanel
+          project={selectedProject}
+          onClose={() => setSelectedProject(null)}
+          onAutoFix={() => handleAutoFix(selectedProject.id)}
+        />
+      )}
     </div>
   );
 }

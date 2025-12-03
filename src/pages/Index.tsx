@@ -1,10 +1,11 @@
 import { Navbar } from "@/components/landing/Navbar";
 import { HeroSection } from "@/components/landing/HeroSection";
 import { StatsSection } from "@/components/landing/StatsSection";
-import { ErrorDemo } from "@/components/landing/ErrorDemo";
+import { DeploymentDemo } from "@/components/landing/DeploymentDemo";
 import { FeaturesGrid } from "@/components/landing/FeaturesGrid";
 import { HowItWorksSection } from "@/components/landing/HowItWorksSection";
 import { TechStackSection } from "@/components/landing/TechStackSection";
+import { AnimatedBackground } from "@/components/landing/AnimatedBackground";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -12,12 +13,13 @@ const Index = () => {
   const { user } = useAuth();
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background relative">
+      <AnimatedBackground />
       <Navbar />
       <main>
         <HeroSection />
         <StatsSection />
-        <ErrorDemo />
+        <DeploymentDemo />
         <FeaturesGrid />
         <div id="how-it-works">
           <HowItWorksSection />

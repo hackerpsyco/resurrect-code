@@ -1,1 +1,7 @@
 project_id = "lolxmjpxxbdoqxaietyp"
+
+[functions.webhook-handler]
+verify_jwt = false
+
+[functions.ai-agent]
+verify_jwt = false

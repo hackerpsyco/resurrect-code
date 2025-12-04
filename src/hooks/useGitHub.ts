@@ -87,8 +87,9 @@ export function useGitHub() {
         branch,
       });
 
+      // Include both files (blob) and folders (tree), excluding node_modules
       const files = data.tree.filter((node: FileNode) => 
-        node.type === "blob" && !node.path.includes("node_modules")
+        !node.path.includes("node_modules") && !node.path.includes(".git")
       );
       setFileTree(files);
       return files;

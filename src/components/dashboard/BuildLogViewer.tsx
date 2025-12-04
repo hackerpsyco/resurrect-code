@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Terminal, Copy, Download, CheckCircle } from "lucide-react";
+import { Terminal, Copy, Download, CheckCircle, RefreshCw, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { useVercel } from "@/hooks/useVercel";
 
 interface LogEntry {
   time: string;
@@ -13,6 +14,8 @@ interface LogEntry {
 interface BuildLogViewerProps {
   projectName: string;
   status: "crashed" | "resurrected" | "fixing" | "pending";
+  deploymentId?: string;
+  onErrorsDetected?: (errors: string[]) => void;
 }
 
 const crashedLogs: LogEntry[] = [
@@ -57,15 +60,58 @@ const resurrectedLogs: LogEntry[] = [
   { time: "14:32:58", message: "🎉 Build resurrected! Review PR to merge fix.", type: "success" },
 ];
 
-export function BuildLogViewer({ projectName, status }: BuildLogViewerProps) {
+export function BuildLogViewer({ projectName, status, deploymentId, onErrorsDetected }: BuildLogViewerProps) {
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [copied, setCopied] = useState(false);
+  const { fetchBuildLogs, extractErrors, isLoading } = useVercel();
+
+  const parseVercelEvents = (events: any[]): LogEntry[] => {
+    return events.map((event) => {
+      const time = new Date(event.created).toLocaleTimeString("en-US", {
+        hour12: false,
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+      });
+      const message = event.payload?.text || event.payload?.info?.name || event.type;
+      let type: LogEntry["type"] = "info";
+      
+      if (event.type === "error" || message?.toLowerCase().includes("error")) {
+        type = "error";
+      } else if (event.type === "done" || message?.includes("✓") || message?.toLowerCase().includes("success")) {
+        type = "success";
+      } else if (message?.toLowerCase().includes("warning")) {
+        type = "warning";
+      }
+      
+      return { time, message, type };
+    });
+  };
+
+  const loadVercelLogs = async () => {
+    if (!deploymentId) return;
+    
+    const events = await fetchBuildLogs(deploymentId);
+    if (events.length > 0) {
+      const parsedLogs = parseVercelEvents(events);
+      setLogs(parsedLogs);
+      
+      const errors = extractErrors(events);
+      if (errors.length > 0 && onErrorsDetected) {
+        onErrorsDetected(errors);
+      }
+    }
+  };
 
   useEffect(() => {
+    if (deploymentId) {
+      loadVercelLogs();
+      return;
+    }
+
     if (status === "crashed") {
       setLogs(crashedLogs);
     } else if (status === "fixing") {
-      // Animate fixing logs
       let index = crashedLogs.length;
       setLogs(crashedLogs);
       
@@ -86,7 +132,7 @@ export function BuildLogViewer({ projectName, status }: BuildLogViewerProps) {
         { time: "–", message: "No build logs available", type: "info" },
       ]);
     }
-  }, [status]);
+  }, [status, deploymentId]);
 
   const handleCopy = () => {
     const logText = logs.map((l) => `[${l.time}] ${l.message}`).join("\n");
@@ -105,6 +151,15 @@ export function BuildLogViewer({ projectName, status }: BuildLogViewerProps) {
           <span className="text-xs text-muted-foreground">— {projectName}</span>
         </div>
         <div className="flex items-center gap-2">
+          {deploymentId && (
+            <Button variant="ghost" size="sm" onClick={loadVercelLogs} disabled={isLoading}>
+              {isLoading ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <RefreshCw className="w-4 h-4" />
+              )}
+            </Button>
+          )}
           <Button variant="ghost" size="sm" onClick={handleCopy}>
             {copied ? (
               <CheckCircle className="w-4 h-4 text-primary" />
@@ -118,29 +173,37 @@ export function BuildLogViewer({ projectName, status }: BuildLogViewerProps) {
         </div>
       </div>
       <div className="p-4 font-mono text-sm h-[300px] overflow-y-auto bg-background/50">
-        {logs.map((log, i) => (
-          <div
-            key={i}
-            className={`flex gap-3 py-0.5 ${
-              log.type === "error"
-                ? "text-destructive"
-                : log.type === "success"
-                ? "text-primary"
-                : log.type === "warning"
-                ? "text-chart-4"
-                : "text-muted-foreground"
-            }`}
-          >
-            <span className="text-muted-foreground/50 select-none shrink-0">
-              {log.time}
-            </span>
-            <span className="break-all">{log.message}</span>
+        {isLoading ? (
+          <div className="flex items-center justify-center h-full">
+            <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
           </div>
-        ))}
-        {status === "fixing" && logs.length < fixingLogs.length && (
-          <div className="flex items-center gap-2 py-1 text-muted-foreground">
-            <div className="w-2 h-4 bg-primary animate-pulse" />
-          </div>
+        ) : (
+          <>
+            {logs.map((log, i) => (
+              <div
+                key={i}
+                className={`flex gap-3 py-0.5 ${
+                  log.type === "error"
+                    ? "text-destructive"
+                    : log.type === "success"
+                    ? "text-primary"
+                    : log.type === "warning"
+                    ? "text-chart-4"
+                    : "text-muted-foreground"
+                }`}
+              >
+                <span className="text-muted-foreground/50 select-none shrink-0">
+                  {log.time}
+                </span>
+                <span className="break-all">{log.message}</span>
+              </div>
+            ))}
+            {status === "fixing" && !deploymentId && logs.length < fixingLogs.length && (
+              <div className="flex items-center gap-2 py-1 text-muted-foreground">
+                <div className="w-2 h-4 bg-primary animate-pulse" />
+              </div>
+            )}
+          </>
         )}
       </div>
     </Card>

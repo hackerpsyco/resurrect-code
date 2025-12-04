@@ -28,6 +28,8 @@ interface ProjectDetailPanelProps {
     errorPreview?: string;
     owner?: string;
     repo?: string;
+    vercelProjectId?: string;
+    latestDeploymentId?: string;
   };
   onClose: () => void;
   onAutoFix: () => void;
@@ -157,7 +159,11 @@ export function ProjectDetailPanel({
             {/* Build Logs */}
             <div>
               <h3 className="text-lg font-semibold mb-3">Build Output</h3>
-              <BuildLogViewer projectName={project.name} status={project.status} />
+              <BuildLogViewer 
+                projectName={project.name} 
+                status={project.status}
+                deploymentId={project.latestDeploymentId}
+              />
             </div>
 
             {/* Agent Workflow */}

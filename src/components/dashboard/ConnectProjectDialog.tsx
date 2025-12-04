@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { Github, Webhook, FolderGit, CheckCircle, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { useGitHub } from "@/hooks/useGitHub";
 
 interface ConnectProjectDialogProps {
   open: boolean;
@@ -20,6 +21,7 @@ interface ConnectProjectDialogProps {
     name: string;
     repo: string;
     branch: string;
+    owner: string;
   }) => void;
 }
 
@@ -31,10 +33,15 @@ export function ConnectProjectDialog({
   const [step, setStep] = useState<"repo" | "webhook" | "complete">("repo");
   const [repoUrl, setRepoUrl] = useState("");
   const [branch, setBranch] = useState("main");
-  const [isLoading, setIsLoading] = useState(false);
-  const [webhookUrl] = useState(
-    `${window.location.origin}/api/webhook/vercel`
-  );
+  const [connectedRepo, setConnectedRepo] = useState<{
+    name: string;
+    owner: string;
+    defaultBranch: string;
+  } | null>(null);
+  
+  const { fetchRepo, isLoading } = useGitHub();
+  
+  const webhookUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/webhook-handler`;
 
   const handleConnectRepo = async () => {
     if (!repoUrl) {
@@ -42,33 +49,38 @@ export function ConnectProjectDialog({
       return;
     }
 
-    setIsLoading(true);
-    // Simulate GitHub connection
-    await new Promise((r) => setTimeout(r, 1500));
-    setIsLoading(false);
-    setStep("webhook");
-    toast.success("Repository connected!");
+    const result = await fetchRepo(repoUrl);
+    if (result) {
+      setConnectedRepo({
+        name: result.name,
+        owner: result.owner,
+        defaultBranch: result.defaultBranch,
+      });
+      setBranch(result.defaultBranch);
+      setStep("webhook");
+    }
   };
 
   const handleSetupWebhook = async () => {
-    setIsLoading(true);
-    await new Promise((r) => setTimeout(r, 1000));
-    setIsLoading(false);
+    // User confirms they've added the webhook
     setStep("complete");
     toast.success("Webhook configured!");
   };
 
   const handleComplete = () => {
-    const repoName = repoUrl.split("/").pop()?.replace(".git", "") || "project";
-    onProjectConnected({
-      name: repoName,
-      repo: repoUrl,
-      branch,
-    });
+    if (connectedRepo) {
+      onProjectConnected({
+        name: connectedRepo.name,
+        repo: repoUrl,
+        branch,
+        owner: connectedRepo.owner,
+      });
+    }
     onOpenChange(false);
     setStep("repo");
     setRepoUrl("");
     setBranch("main");
+    setConnectedRepo(null);
   };
 
   return (

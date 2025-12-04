@@ -26,6 +26,8 @@ interface ProjectDetailPanelProps {
     lastCommit: string;
     timeAgo: string;
     errorPreview?: string;
+    owner?: string;
+    repo?: string;
   };
   onClose: () => void;
   onAutoFix: () => void;
@@ -145,6 +147,9 @@ export function ProjectDetailPanel({
               <h3 className="text-lg font-semibold mb-3">Project Structure</h3>
               <ProjectFileTree
                 projectName={project.name}
+                owner={project.owner}
+                repo={project.repo || project.name}
+                branch={project.branch}
                 onFileClick={(file) => console.log("Clicked:", file)}
               />
             </div>

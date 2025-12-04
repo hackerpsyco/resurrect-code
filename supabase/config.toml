@@ -8,3 +8,6 @@ verify_jwt = false
 
 [functions.github-api]
 verify_jwt = false
+
+[functions.vercel-api]
+verify_jwt = false

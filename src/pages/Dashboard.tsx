@@ -19,6 +19,8 @@ interface Project {
   errorPreview?: string;
   owner?: string;
   repo?: string;
+  vercelProjectId?: string;
+  latestDeploymentId?: string;
 }
 
 const initialProjects: Project[] = [
@@ -101,6 +103,7 @@ export default function Dashboard() {
     repo: string;
     branch: string;
     owner: string;
+    vercelProjectId?: string;
   }) => {
     const project: Project = {
       id: String(projects.length + 1),
@@ -111,6 +114,7 @@ export default function Dashboard() {
       timeAgo: "Just now",
       owner: newProject.owner,
       repo: newProject.name,
+      vercelProjectId: newProject.vercelProjectId,
     };
     setProjects((prev) => [project, ...prev]);
     toast.success(`${newProject.name} connected!`, {

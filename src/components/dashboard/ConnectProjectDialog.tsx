@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -10,9 +10,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
-import { Github, Webhook, FolderGit, CheckCircle, Loader2 } from "lucide-react";
+import { Github, Webhook, FolderGit, CheckCircle, Loader2, Triangle, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { useGitHub } from "@/hooks/useGitHub";
+import { useVercel } from "@/hooks/useVercel";
 
 interface ConnectProjectDialogProps {
   open: boolean;
@@ -22,6 +23,7 @@ interface ConnectProjectDialogProps {
     repo: string;
     branch: string;
     owner: string;
+    vercelProjectId?: string;
   }) => void;
 }
 
@@ -30,7 +32,7 @@ export function ConnectProjectDialog({
   onOpenChange,
   onProjectConnected,
 }: ConnectProjectDialogProps) {
-  const [step, setStep] = useState<"repo" | "webhook" | "complete">("repo");
+  const [step, setStep] = useState<"repo" | "vercel" | "webhook" | "complete">("repo");
   const [repoUrl, setRepoUrl] = useState("");
   const [branch, setBranch] = useState("main");
   const [connectedRepo, setConnectedRepo] = useState<{
@@ -38,10 +40,18 @@ export function ConnectProjectDialog({
     owner: string;
     defaultBranch: string;
   } | null>(null);
+  const [selectedVercelProject, setSelectedVercelProject] = useState<string | null>(null);
   
-  const { fetchRepo, isLoading } = useGitHub();
+  const { fetchRepo, isLoading: isGitHubLoading } = useGitHub();
+  const { fetchProjects, projects, isLoading: isVercelLoading } = useVercel();
   
   const webhookUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/webhook-handler`;
+
+  useEffect(() => {
+    if (step === "vercel" && projects.length === 0) {
+      fetchProjects();
+    }
+  }, [step]);
 
   const handleConnectRepo = async () => {
     if (!repoUrl) {
@@ -57,12 +67,23 @@ export function ConnectProjectDialog({
         defaultBranch: result.defaultBranch,
       });
       setBranch(result.defaultBranch);
-      setStep("webhook");
+      setStep("vercel");
     }
   };
 
+  const handleSelectVercelProject = (projectId: string) => {
+    setSelectedVercelProject(projectId);
+  };
+
+  const handleContinueToWebhook = () => {
+    setStep("webhook");
+  };
+
+  const handleSkipVercel = () => {
+    setStep("webhook");
+  };
+
   const handleSetupWebhook = async () => {
-    // User confirms they've added the webhook
     setStep("complete");
     toast.success("Webhook configured!");
   };
@@ -74,6 +95,7 @@ export function ConnectProjectDialog({
         repo: repoUrl,
         branch,
         owner: connectedRepo.owner,
+        vercelProjectId: selectedVercelProject || undefined,
       });
     }
     onOpenChange(false);
@@ -81,6 +103,7 @@ export function ConnectProjectDialog({
     setRepoUrl("");
     setBranch("main");
     setConnectedRepo(null);
+    setSelectedVercelProject(null);
   };
 
   return (
@@ -92,7 +115,7 @@ export function ConnectProjectDialog({
             Connect Project
           </DialogTitle>
           <DialogDescription>
-            Link your GitHub repository and configure webhooks for automatic error detection.
+            Link your GitHub repository and Vercel project for automatic error detection.
           </DialogDescription>
         </DialogHeader>
 
@@ -134,10 +157,10 @@ export function ConnectProjectDialog({
 
             <Button
               onClick={handleConnectRepo}
-              disabled={isLoading}
+              disabled={isGitHubLoading}
               className="w-full bg-primary hover:bg-primary/90"
             >
-              {isLoading ? (
+              {isGitHubLoading ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                   Connecting...
@@ -149,6 +172,73 @@ export function ConnectProjectDialog({
                 </>
               )}
             </Button>
+          </div>
+        )}
+
+        {step === "vercel" && (
+          <div className="space-y-4 py-4">
+            <div className="flex items-center gap-2 mb-2">
+              <Triangle className="w-5 h-5 text-foreground" />
+              <h4 className="text-sm font-medium">Connect Vercel Project</h4>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Select a Vercel project to fetch deployment logs and detect errors automatically.
+            </p>
+
+            {isVercelLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : projects.length > 0 ? (
+              <div className="space-y-2 max-h-[200px] overflow-y-auto">
+                {projects.map((project) => (
+                  <button
+                    key={project.id}
+                    onClick={() => handleSelectVercelProject(project.id)}
+                    className={`w-full flex items-center justify-between p-3 rounded-lg border transition-colors ${
+                      selectedVercelProject === project.id
+                        ? "border-primary bg-primary/10"
+                        : "border-border bg-background hover:bg-secondary/50"
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <Triangle className="w-4 h-4" />
+                      <div className="text-left">
+                        <p className="text-sm font-medium">{project.name}</p>
+                        <p className="text-xs text-muted-foreground">{project.framework}</p>
+                      </div>
+                    </div>
+                    {selectedVercelProject === project.id && (
+                      <CheckCircle className="w-4 h-4 text-primary" />
+                    )}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <Card className="p-4 bg-background border-border text-center">
+                <p className="text-sm text-muted-foreground">
+                  No Vercel projects found. Make sure your Vercel token has access.
+                </p>
+              </Card>
+            )}
+
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={handleSkipVercel}
+                className="flex-1"
+              >
+                Skip
+              </Button>
+              <Button
+                onClick={handleContinueToWebhook}
+                disabled={!selectedVercelProject && projects.length > 0}
+                className="flex-1 bg-primary hover:bg-primary/90"
+              >
+                Continue
+                <ChevronRight className="w-4 h-4 ml-1" />
+              </Button>
+            </div>
           </div>
         )}
 
@@ -193,17 +283,9 @@ export function ConnectProjectDialog({
 
             <Button
               onClick={handleSetupWebhook}
-              disabled={isLoading}
               className="w-full bg-primary hover:bg-primary/90"
             >
-              {isLoading ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Verifying...
-                </>
-              ) : (
-                "I've Added the Webhook"
-              )}
+              I've Added the Webhook
             </Button>
           </div>
         )}

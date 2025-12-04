@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -10,62 +10,67 @@ import {
   FileJson,
   FileText,
   RefreshCw,
+  Loader2,
 } from "lucide-react";
+import { useGitHub } from "@/hooks/useGitHub";
 
 interface FileNode {
   name: string;
+  path: string;
   type: "file" | "folder";
   children?: FileNode[];
   hasError?: boolean;
 }
 
-const sampleFileTree: FileNode[] = [
-  {
-    name: "src",
-    type: "folder",
-    children: [
-      {
-        name: "components",
-        type: "folder",
-        children: [
-          { name: "Button.tsx", type: "file", hasError: true },
-          { name: "Card.tsx", type: "file" },
-          { name: "Header.tsx", type: "file" },
-        ],
-      },
-      {
-        name: "pages",
-        type: "folder",
-        children: [
-          { name: "index.tsx", type: "file" },
-          { name: "dashboard.tsx", type: "file" },
-        ],
-      },
-      { name: "App.tsx", type: "file" },
-      { name: "main.tsx", type: "file" },
-    ],
-  },
-  {
-    name: "public",
-    type: "folder",
-    children: [
-      { name: "favicon.ico", type: "file" },
-      { name: "robots.txt", type: "file" },
-    ],
-  },
-  { name: "package.json", type: "file" },
-  { name: "tsconfig.json", type: "file" },
-  { name: "vite.config.ts", type: "file" },
-];
-
 interface FileTreeItemProps {
   node: FileNode;
   depth: number;
-  onFileClick?: (fileName: string) => void;
+  onFileClick?: (path: string) => void;
+  errorFiles?: string[];
 }
 
-function FileTreeItem({ node, depth, onFileClick }: FileTreeItemProps) {
-  const [isOpen, setIsOpen] = useState(depth < 2);
+function buildTree(files: { path: string; type: string }[]): FileNode[] {
+  const root: FileNode[] = [];
+  const map = new Map<string, FileNode>();
+
+  // Sort files so folders come first
+  const sorted = [...files].sort((a, b) => {
+    const aDepth = a.path.split("/").length;
+    const bDepth = b.path.split("/").length;
+    return aDepth - bDepth;
+  });
+
+  for (const file of sorted) {
+    const parts = file.path.split("/");
+    const fileName = parts[parts.length - 1];
+    const isFile = file.type === "blob";
+
+    const node: FileNode = {
+      name: fileName,
+      path: file.path,
+      type: isFile ? "file" : "folder",
+      children: isFile ? undefined : [],
+    };
+
+    if (parts.length === 1) {
+      root.push(node);
+    } else {
+      const parentPath = parts.slice(0, -1).join("/");
+      const parent = map.get(parentPath);
+      if (parent && parent.children) {
+        parent.children.push(node);
+      }
+    }
+
+    map.set(file.path, node);
+  }
+
+  return root;
+}
+
+function FileTreeItem({ node, depth, onFileClick, errorFiles = [] }: FileTreeItemProps) {
+  const [isOpen, setIsOpen] = useState(depth < 1);
+  const hasError = errorFiles.includes(node.path);
 
   const getFileIcon = (name: string) => {
     if (name.endsWith(".json")) return FileJson;
@@ -87,11 +92,11 @@ function FileTreeItem({ node, depth, onFileClick }: FileTreeItemProps) {
           if (node.type === "folder") {
             setIsOpen(!isOpen);
           } else {
-            onFileClick?.(node.name);
+            onFileClick?.(node.path);
           }
         }}
         className={`w-full flex items-center gap-2 py-1.5 px-2 rounded hover:bg-secondary/50 transition-colors text-left ${
-          node.hasError ? "text-destructive" : "text-foreground"
+          hasError ? "text-destructive" : "text-foreground"
         }`}
         style={{ paddingLeft: `${depth * 16 + 8}px` }}
       >
@@ -108,13 +113,13 @@ function FileTreeItem({ node, depth, onFileClick }: FileTreeItemProps) {
           className={`w-4 h-4 ${
             node.type === "folder"
               ? "text-chart-4"
-              : node.hasError
+              : hasError
               ? "text-destructive"
               : "text-muted-foreground"
           }`}
         />
         <span className="text-sm truncate">{node.name}</span>
-        {node.hasError && (
+        {hasError && (
           <span className="ml-auto text-xs bg-destructive/20 text-destructive px-1.5 py-0.5 rounded">
             Error
           </span>
@@ -128,6 +133,7 @@ function FileTreeItem({ node, depth, onFileClick }: FileTreeItemProps) {
               node={child}
               depth={depth + 1}
               onFileClick={onFileClick}
+              errorFiles={errorFiles}
             />
           ))}
         </div>
@@ -138,17 +144,39 @@ function FileTreeItem({ node, depth, onFileClick }: FileTreeItemProps) {
 
 interface ProjectFileTreeProps {
   projectName: string;
-  onFileClick?: (fileName: string) => void;
+  owner?: string;
+  repo?: string;
+  branch?: string;
+  errorFiles?: string[];
+  onFileClick?: (path: string) => void;
 }
 
-export function ProjectFileTree({ projectName, onFileClick }: ProjectFileTreeProps) {
-  const [isLoading, setIsLoading] = useState(false);
+export function ProjectFileTree({
+  projectName,
+  owner,
+  repo,
+  branch = "main",
+  errorFiles = [],
+  onFileClick,
+}: ProjectFileTreeProps) {
+  const [fileTree, setFileTree] = useState<FileNode[]>([]);
+  const { fetchFileTree, isLoading } = useGitHub();
 
-  const handleRefresh = async () => {
-    setIsLoading(true);
-    await new Promise((r) => setTimeout(r, 1000));
-    setIsLoading(false);
+  const loadFiles = async () => {
+    if (!owner || !repo) return;
+    
+    const files = await fetchFileTree(owner, repo, branch);
+    if (files.length > 0) {
+      const tree = buildTree(files);
+      setFileTree(tree);
+    }
   };
+
+  useEffect(() => {
+    if (owner && repo) {
+      loadFiles();
+    }
+  }, [owner, repo, branch]);
 
   return (
     <Card className="bg-card border-border overflow-hidden">
@@ -160,18 +188,36 @@ export function ProjectFileTree({ projectName, onFileClick }: ProjectFileTreePro
         <Button
           variant="ghost"
           size="sm"
-          onClick={handleRefresh}
-          disabled={isLoading}
+          onClick={loadFiles}
+          disabled={isLoading || !owner || !repo}
         >
-          <RefreshCw
-            className={`w-4 h-4 ${isLoading ? "animate-spin" : ""}`}
-          />
+          {isLoading ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            <RefreshCw className="w-4 h-4" />
+          )}
         </Button>
       </div>
       <div className="p-2 max-h-[400px] overflow-y-auto">
-        {sampleFileTree.map((node, i) => (
-          <FileTreeItem key={i} node={node} depth={0} onFileClick={onFileClick} />
-        ))}
+        {isLoading ? (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+          </div>
+        ) : fileTree.length > 0 ? (
+          fileTree.map((node, i) => (
+            <FileTreeItem
+              key={i}
+              node={node}
+              depth={0}
+              onFileClick={onFileClick}
+              errorFiles={errorFiles}
+            />
+          ))
+        ) : (
+          <div className="text-center py-8 text-muted-foreground text-sm">
+            {owner && repo ? "No files found" : "Connect a repository to view files"}
+          </div>
+        )}
       </div>
     </Card>
   );

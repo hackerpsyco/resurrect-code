@@ -17,6 +17,8 @@ interface Project {
   lastCommit: string;
   timeAgo: string;
   errorPreview?: string;
+  owner?: string;
+  repo?: string;
 }
 
 const initialProjects: Project[] = [
@@ -98,6 +100,7 @@ export default function Dashboard() {
     name: string;
     repo: string;
     branch: string;
+    owner: string;
   }) => {
     const project: Project = {
       id: String(projects.length + 1),
@@ -106,6 +109,8 @@ export default function Dashboard() {
       status: "pending",
       lastCommit: "Initial connection",
       timeAgo: "Just now",
+      owner: newProject.owner,
+      repo: newProject.name,
     };
     setProjects((prev) => [project, ...prev]);
     toast.success(`${newProject.name} connected!`, {

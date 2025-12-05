@@ -5,9 +5,12 @@ import { StatsCard } from "@/components/dashboard/StatsCard";
 import { ActivityFeed } from "@/components/dashboard/ActivityFeed";
 import { ConnectProjectDialog } from "@/components/dashboard/ConnectProjectDialog";
 import { ProjectDetailPanel } from "@/components/dashboard/ProjectDetailPanel";
+import { AgentWorkflowPanel } from "@/components/dashboard/AgentWorkflowPanel";
 import { Button } from "@/components/ui/button";
 import { AlertCircle, CheckCircle, Zap, GitPullRequest, Plus } from "lucide-react";
 import { toast } from "sonner";
+import { useAIAgent } from "@/hooks/useAIAgent";
+import { useVercel } from "@/hooks/useVercel";
 
 interface Project {
   id: string;
@@ -63,39 +66,88 @@ export default function Dashboard() {
   const [projects, setProjects] = useState<Project[]>(initialProjects);
   const [connectDialogOpen, setConnectDialogOpen] = useState(false);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+  
+  const { runAgent, isRunning: agentRunning, steps: agentSteps, currentStep } = useAIAgent();
+  const { fetchBuildLogs, fetchDeployments, extractErrors } = useVercel();
 
-  const handleAutoFix = (projectId: string) => {
+  const handleAutoFix = async (projectId: string) => {
+    const project = projects.find(p => p.id === projectId);
+    if (!project) return;
+
     setProjects((prev) =>
       prev.map((p) => (p.id === projectId ? { ...p, status: "fixing" as const } : p))
     );
     
     toast.info("AI Agent activated", {
-      description: "Analyzing error logs and searching for solutions...",
+      description: "Fetching Vercel build logs and analyzing errors...",
     });
 
-    setTimeout(() => {
-      toast.success("Fix found!", {
-        description: "Applying patch and creating fix branch...",
-      });
-    }, 2000);
-
-    setTimeout(() => {
-      setProjects((prev) =>
-        prev.map((p) =>
-          p.id === projectId
-            ? { ...p, status: "resurrected" as const, errorPreview: undefined }
-            : p
-        )
-      );
-      if (selectedProject?.id === projectId) {
-        setSelectedProject((prev) =>
-          prev ? { ...prev, status: "resurrected" as const, errorPreview: undefined } : null
-        );
+    try {
+      // Fetch real Vercel deployment logs if we have a Vercel project
+      let errorLogs: string[] = [];
+      let errorMessage = project.errorPreview || "Build failed";
+      
+      if (project.vercelProjectId || project.latestDeploymentId) {
+        // Get latest deployment
+        if (project.vercelProjectId && !project.latestDeploymentId) {
+          const deployments = await fetchDeployments(project.vercelProjectId);
+          if (deployments.length > 0) {
+            project.latestDeploymentId = deployments[0].uid;
+          }
+        }
+        
+        if (project.latestDeploymentId) {
+          const logs = await fetchBuildLogs(project.latestDeploymentId);
+          errorLogs = logs.map((e: { payload?: { text?: string } }) => e.payload?.text || "").filter(Boolean);
+          const extractedErrors = extractErrors(logs);
+          if (extractedErrors.length > 0) {
+            errorMessage = extractedErrors.join("\n");
+          }
+        }
       }
-      toast.success("Build Resurrected!", {
-        description: "Created branch 'resurrect-fix' with the solution.",
+
+      // Run the AI agent with real error data
+      const result = await runAgent({
+        deploymentId: project.latestDeploymentId || project.id,
+        projectName: project.name,
+        branch: project.branch,
+        commitMessage: project.lastCommit,
+        errorMessage,
+        errorLogs: errorLogs.length > 0 ? errorLogs : [project.errorPreview || "Unknown error"],
+        owner: project.owner,
+        repo: project.repo || project.name,
       });
-    }, 4000);
+
+      if (result.success) {
+        setProjects((prev) =>
+          prev.map((p) =>
+            p.id === projectId
+              ? { ...p, status: "resurrected" as const, errorPreview: undefined }
+              : p
+          )
+        );
+        if (selectedProject?.id === projectId) {
+          setSelectedProject((prev) =>
+            prev ? { ...prev, status: "resurrected" as const, errorPreview: undefined } : null
+          );
+        }
+      } else {
+        setProjects((prev) =>
+          prev.map((p) => (p.id === projectId ? { ...p, status: "crashed" as const } : p))
+        );
+        toast.error("Agent could not fix the error", {
+          description: result.error || "Please check the logs for details",
+        });
+      }
+    } catch (error) {
+      console.error("Auto-fix error:", error);
+      setProjects((prev) =>
+        prev.map((p) => (p.id === projectId ? { ...p, status: "crashed" as const } : p))
+      );
+      toast.error("Auto-fix failed", {
+        description: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
   };
 
   const handleProjectConnected = (newProject: {
@@ -202,10 +254,21 @@ export default function Dashboard() {
             </div>
           </div>
           
-          {/* Activity feed */}
-          <div className="lg:col-span-1">
-            <h2 className="text-xl font-semibold mb-4">Recent Activity</h2>
-            <ActivityFeed />
+          {/* Activity feed and Agent panel */}
+          <div className="lg:col-span-1 space-y-6">
+            <div>
+              <h2 className="text-xl font-semibold mb-4">AI Agent Status</h2>
+              <AgentWorkflowPanel
+                steps={agentSteps}
+                isRunning={agentRunning}
+                currentStep={currentStep}
+                projectName={selectedProject?.name}
+              />
+            </div>
+            <div>
+              <h2 className="text-xl font-semibold mb-4">Recent Activity</h2>
+              <ActivityFeed />
+            </div>
           </div>
         </div>
       </main>

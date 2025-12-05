@@ -13,34 +13,42 @@ interface ErrorInfo {
   errorMessage: string;
   errorLogs: string[];
   timestamp: string;
+  owner?: string;
+  repo?: string;
 }
 
 interface AgentRequest {
-  action: "analyze_error" | "search_solution" | "generate_fix";
+  action: "analyze_error" | "search_solution" | "generate_fix" | "full_analysis";
   errorInfo?: ErrorInfo;
   errorAnalysis?: string;
   searchResults?: string;
+  fileContents?: Record<string, string>;
 }
 
-const SYSTEM_PROMPT = `You are ResurrectCI, an expert AI agent that analyzes build errors and provides fixes.
+const SYSTEM_PROMPT = `You are ResurrectCI, an expert AI agent specialized in analyzing CI/CD build failures and generating fixes.
 
-Your capabilities:
-1. Analyze error logs to identify root causes
-2. Search for solutions based on error patterns
-3. Generate code patches to fix issues
-4. Create clear explanations for developers
+Your expertise includes:
+- React/Vite/TypeScript build errors
+- npm/yarn dependency issues
+- ESLint/TypeScript compilation errors
+- Module resolution problems
+- Environment variable issues
+- Deployment configuration errors
 
 When analyzing errors:
-- Identify the exact file and line causing the issue
-- Determine the error type (missing module, syntax error, type error, etc.)
-- Provide a concise root cause analysis
+1. Parse the full error stack trace
+2. Identify the exact file, line, and column
+3. Determine error category: MODULE_NOT_FOUND, SYNTAX_ERROR, TYPE_ERROR, BUILD_ERROR, CONFIG_ERROR
+4. Extract the specific module/symbol causing the issue
+5. Consider common patterns: missing deps, wrong imports, typos
 
-When suggesting fixes:
-- Provide specific, actionable code changes
-- Include the exact file path and changes needed
-- Explain why the fix works
+When generating fixes:
+1. Provide the exact file path
+2. Show the specific line changes needed
+3. Include both the problem code and fixed code
+4. Explain why the fix works
 
-Always respond in a structured JSON format.`;
+IMPORTANT: Always respond in valid JSON format.`;
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -48,7 +56,7 @@ serve(async (req) => {
   }
 
   try {
-    const { action, errorInfo, errorAnalysis, searchResults }: AgentRequest = await req.json();
+    const { action, errorInfo, errorAnalysis, searchResults, fileContents }: AgentRequest = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 
     if (!LOVABLE_API_KEY) {
@@ -56,84 +64,178 @@ serve(async (req) => {
     }
 
     console.log(`AI Agent action: ${action}`);
+    console.log(`Error info:`, JSON.stringify(errorInfo, null, 2));
 
     let prompt = "";
-    let responseFormat = {};
 
     switch (action) {
       case "analyze_error":
-        prompt = `Analyze this build error and identify the root cause:
+        // Enhanced error analysis with detailed log parsing
+        prompt = `Analyze this Vercel/Vite build error and identify the root cause:
 
-Project: ${errorInfo?.projectName}
-Branch: ${errorInfo?.branch}
-Error Message: ${errorInfo?.errorMessage}
-Error Logs:
-${errorInfo?.errorLogs?.join("\n") || "No detailed logs available"}
+PROJECT: ${errorInfo?.projectName}
+BRANCH: ${errorInfo?.branch}
+COMMIT: ${errorInfo?.commitMessage}
 
-Provide a JSON response with:
+ERROR MESSAGE:
+${errorInfo?.errorMessage}
+
+BUILD LOGS (Recent):
+\`\`\`
+${errorInfo?.errorLogs?.slice(-50).join("\n") || "No detailed logs available"}
+\`\`\`
+
+Analyze the logs carefully. Look for:
+- "Module not found" or "Cannot resolve" errors
+- TypeScript errors (TS####)
+- Syntax errors with line/column numbers
+- Missing dependency warnings
+- Environment variable issues
+
+Respond with this exact JSON structure:
 {
-  "errorType": "string (e.g., 'missing_module', 'syntax_error', 'type_error')",
-  "rootCause": "string explaining the root cause",
-  "affectedFile": "string with file path",
-  "affectedLine": "number or null",
+  "errorType": "MODULE_NOT_FOUND | SYNTAX_ERROR | TYPE_ERROR | BUILD_ERROR | CONFIG_ERROR | DEPENDENCY_ERROR",
+  "rootCause": "Clear explanation of what's causing the error",
+  "affectedFile": "src/path/to/file.tsx or null if unknown",
+  "affectedLine": null,
+  "missingModule": "module-name if applicable, null otherwise",
   "severity": "low | medium | high | critical",
-  "suggestedSearchQuery": "string for searching solutions"
+  "searchQuery": "specific search query to find solution online",
+  "quickFix": "Brief description of likely fix"
 }`;
         break;
 
       case "search_solution":
-        prompt = `Based on this error analysis, suggest the best fix:
+        // Use AI to synthesize common solutions
+        prompt = `Based on this error analysis, provide solutions:
 
-Error Analysis: ${errorAnalysis}
+ERROR ANALYSIS:
+${errorAnalysis}
 
-Search the web mentally for common solutions to this type of error.
+${fileContents ? `RELEVANT FILE CONTENTS:\n${JSON.stringify(fileContents, null, 2)}` : ""}
 
-Provide a JSON response with:
+Think through common solutions for this error type:
+1. What are the typical causes?
+2. What fixes have worked for similar issues?
+3. Are there any npm packages that need to be installed?
+
+Respond with this exact JSON structure:
 {
   "solutions": [
     {
-      "description": "string describing the solution",
-      "confidence": "number 0-100",
-      "steps": ["array of steps to implement"],
+      "description": "Clear description of the fix",
+      "confidence": 85,
+      "steps": ["Step 1", "Step 2"],
       "codeChanges": [
         {
-          "file": "string file path",
-          "action": "create | modify | delete",
-          "content": "string with new/modified content"
+          "file": "src/path/to/file.tsx",
+          "action": "modify",
+          "searchPattern": "code to find",
+          "replaceWith": "fixed code"
         }
-      ]
+      ],
+      "npmInstall": ["package-name"] 
     }
   ],
-  "recommendedSolution": "number index of best solution"
+  "recommendedSolution": 0,
+  "reasoning": "Why this solution is recommended"
 }`;
         break;
 
       case "generate_fix":
-        prompt = `Generate the actual code fix based on this solution:
+        // Generate actual code patches
+        prompt = `Generate the exact code fix for this error:
 
-Error Analysis: ${errorAnalysis}
-Selected Solution: ${searchResults}
+ERROR ANALYSIS:
+${errorAnalysis}
 
-Provide a JSON response with:
+SELECTED SOLUTION:
+${searchResults}
+
+${fileContents ? `CURRENT FILE CONTENTS:\n${JSON.stringify(fileContents, null, 2)}` : ""}
+
+Generate precise, working code fixes. Be specific about:
+- Exact file paths
+- Line-by-line changes
+- Import statements to add/modify
+
+Respond with this exact JSON structure:
 {
   "branchName": "resurrect-fix",
-  "commitMessage": "string describing the fix",
+  "commitMessage": "fix: [concise description of fix]",
   "changes": [
     {
-      "file": "string file path",
-      "action": "create | modify | delete",
-      "beforeContent": "string (for modify)",
-      "afterContent": "string with fixed content"
+      "file": "src/path/to/file.tsx",
+      "action": "modify | create | delete",
+      "content": "Full file content after fix OR patch description"
     }
   ],
-  "prTitle": "string for PR title",
-  "prDescription": "string explaining the fix"
+  "npmCommands": ["npm install package-name"],
+  "prTitle": "[ResurrectCI] Fix: description",
+  "prDescription": "## Problem\\n...\\n## Solution\\n...\\n## Changes\\n- file1\\n- file2"
+}`;
+        break;
+
+      case "full_analysis":
+        // Combined analysis for Kestra workflow - single call that does everything
+        prompt = `You are running a full CI/CD error analysis and fix generation.
+
+PROJECT: ${errorInfo?.projectName}
+BRANCH: ${errorInfo?.branch}
+OWNER: ${errorInfo?.owner}
+REPO: ${errorInfo?.repo}
+
+ERROR MESSAGE:
+${errorInfo?.errorMessage}
+
+BUILD LOGS:
+\`\`\`
+${errorInfo?.errorLogs?.join("\n") || "No logs"}
+\`\`\`
+
+${fileContents ? `FILE CONTENTS:\n${JSON.stringify(fileContents, null, 2)}` : ""}
+
+Perform a COMPLETE analysis and fix generation in ONE response:
+
+1. ANALYZE: Identify the exact error and root cause
+2. DIAGNOSE: Determine what file(s) need to change
+3. FIX: Generate the exact code changes needed
+4. DOCUMENT: Create PR title and description
+
+Respond with this JSON structure:
+{
+  "analysis": {
+    "errorType": "MODULE_NOT_FOUND | SYNTAX_ERROR | TYPE_ERROR | BUILD_ERROR",
+    "rootCause": "explanation",
+    "affectedFiles": ["file1.tsx", "file2.ts"],
+    "severity": "critical"
+  },
+  "fix": {
+    "branchName": "resurrect-fix",
+    "commitMessage": "fix: description",
+    "changes": [
+      {
+        "file": "src/file.tsx",
+        "action": "modify",
+        "content": "// Full fixed file content"
+      }
+    ],
+    "npmCommands": []
+  },
+  "pr": {
+    "title": "[ResurrectCI] Fix: description",
+    "body": "## Problem\\nDescription...\\n## Solution\\n...\\n## Testing\\n..."
+  },
+  "confidence": 85,
+  "explanation": "Human readable explanation of what was wrong and how it was fixed"
 }`;
         break;
 
       default:
         throw new Error(`Unknown action: ${action}`);
     }
+
+    console.log("Calling Lovable AI Gateway...");
 
     // Call Lovable AI Gateway
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -148,47 +250,63 @@ Provide a JSON response with:
           { role: "system", content: SYSTEM_PROMPT },
           { role: "user", content: prompt },
         ],
-        temperature: 0.3,
       }),
     });
 
     if (!response.ok) {
-      if (response.status === 429) {
+      const status = response.status;
+      const errorText = await response.text();
+      console.error(`AI Gateway error ${status}:`, errorText);
+
+      if (status === 429) {
         return new Response(
-          JSON.stringify({ error: "Rate limit exceeded. Please try again later." }),
+          JSON.stringify({ error: "Rate limit exceeded. Please try again later.", code: "RATE_LIMITED" }),
           { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      if (response.status === 402) {
+      if (status === 402) {
         return new Response(
-          JSON.stringify({ error: "AI credits exhausted. Please add credits." }),
+          JSON.stringify({ error: "AI credits exhausted. Please add credits.", code: "CREDITS_EXHAUSTED" }),
           { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      const errorText = await response.text();
-      console.error("AI Gateway error:", response.status, errorText);
-      throw new Error(`AI Gateway error: ${response.status}`);
+      throw new Error(`AI Gateway error: ${status} - ${errorText}`);
     }
 
     const aiResponse = await response.json();
     const content = aiResponse.choices?.[0]?.message?.content;
 
-    console.log("AI Response:", content);
+    console.log("AI Response received, length:", content?.length);
 
-    // Try to parse as JSON
+    // Parse JSON from response
     let parsedResponse;
     try {
-      // Extract JSON from response (handle markdown code blocks)
+      // Extract JSON from markdown code blocks if present
       const jsonMatch = content.match(/```json\n?([\s\S]*?)\n?```/) || 
                         content.match(/```\n?([\s\S]*?)\n?```/) ||
                         [null, content];
-      parsedResponse = JSON.parse(jsonMatch[1] || content);
-    } catch {
-      parsedResponse = { rawResponse: content };
+      const jsonStr = (jsonMatch[1] || content).trim();
+      parsedResponse = JSON.parse(jsonStr);
+    } catch (parseError) {
+      console.error("JSON parse error:", parseError);
+      // Return raw response if JSON parsing fails
+      parsedResponse = { 
+        rawResponse: content,
+        parseError: true,
+        analysis: {
+          errorType: "UNKNOWN",
+          rootCause: content.substring(0, 500),
+          affectedFiles: [],
+          severity: "medium"
+        }
+      };
     }
+
+    console.log("AI Agent completed successfully");
 
     return new Response(
       JSON.stringify({
+        success: true,
         action,
         result: parsedResponse,
         timestamp: new Date().toISOString(),
@@ -200,7 +318,7 @@ Provide a JSON response with:
     console.error("AI Agent error:", error);
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
     return new Response(
-      JSON.stringify({ error: errorMessage }),
+      JSON.stringify({ success: false, error: errorMessage }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }

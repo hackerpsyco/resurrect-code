@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/StatusBadge";
@@ -5,6 +6,8 @@ import { ProjectFileTree } from "./ProjectFileTree";
 import { BuildLogViewer } from "./BuildLogViewer";
 import { AgentWorkflowPanel } from "./AgentWorkflowPanel";
 import { useAIAgent } from "@/hooks/useAIAgent";
+import { useVercel } from "@/hooks/useVercel";
+import { toast } from "sonner";
 import {
   GitBranch,
   GitCommit,
@@ -15,6 +18,9 @@ import {
   Github,
   Webhook,
   Settings,
+  RefreshCw,
+  Loader2,
+  Triangle,
 } from "lucide-react";
 
 interface ProjectDetailPanelProps {
@@ -33,20 +39,52 @@ interface ProjectDetailPanelProps {
   };
   onClose: () => void;
   onAutoFix: () => void;
+  onDeploymentFound?: (deploymentId: string) => void;
 }
 
 export function ProjectDetailPanel({
   project,
   onClose,
   onAutoFix,
+  onDeploymentFound,
 }: ProjectDetailPanelProps) {
   const { runAgent, isRunning, steps, currentStep } = useAIAgent();
+  const { fetchDeployments, isLoading: isVercelLoading } = useVercel();
+  const [latestDeploymentId, setLatestDeploymentId] = useState<string | null>(
+    project.latestDeploymentId || null
+  );
+  const [deploymentStatus, setDeploymentStatus] = useState<string | null>(null);
+
+  const handleFetchLogs = async () => {
+    if (!project.vercelProjectId) {
+      toast.error("No Vercel project connected", {
+        description: "Connect a Vercel project to fetch deployment logs.",
+      });
+      return;
+    }
+
+    toast.info("Fetching Vercel deployments...");
+    const deployments = await fetchDeployments(project.vercelProjectId);
+    
+    if (deployments.length > 0) {
+      const latest = deployments[0];
+      setLatestDeploymentId(latest.uid);
+      setDeploymentStatus(latest.state);
+      onDeploymentFound?.(latest.uid);
+      
+      toast.success(`Found ${deployments.length} deployments`, {
+        description: `Latest: ${latest.state} (${latest.uid.slice(0, 8)}...)`,
+      });
+    } else {
+      toast.warning("No deployments found for this project");
+    }
+  };
 
   const handleRunAgent = async () => {
-    onAutoFix(); // Update UI status
+    onAutoFix();
     
     await runAgent({
-      deploymentId: project.id,
+      deploymentId: latestDeploymentId || project.id,
       projectName: project.name,
       branch: project.branch,
       commitMessage: project.lastCommit,
@@ -95,15 +133,35 @@ export function ProjectDetailPanel({
             </Card>
             <Card className="p-4 bg-background border-border">
               <div className="flex items-center gap-2 text-muted-foreground mb-1">
-                <Webhook className="w-4 h-4" />
-                <span className="text-xs">Webhook</span>
+                <Triangle className="w-4 h-4" />
+                <span className="text-xs">Vercel</span>
               </div>
-              <p className="text-sm text-primary">Connected</p>
+              <p className="text-sm">
+                {project.vercelProjectId ? (
+                  <span className="text-primary">Connected</span>
+                ) : (
+                  <span className="text-muted-foreground">Not connected</span>
+                )}
+              </p>
             </Card>
           </div>
 
           {/* Actions */}
           <div className="flex flex-wrap gap-3">
+            {project.vercelProjectId && (
+              <Button
+                variant="outline"
+                onClick={handleFetchLogs}
+                disabled={isVercelLoading}
+              >
+                {isVercelLoading ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                )}
+                Fetch Vercel Logs
+              </Button>
+            )}
             {project.status === "crashed" && (
               <Button
                 onClick={handleRunAgent}
@@ -129,6 +187,32 @@ export function ProjectDetailPanel({
               Configure
             </Button>
           </div>
+
+          {/* Deployment Status */}
+          {latestDeploymentId && (
+            <Card className="p-4 bg-background border-border">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Triangle className="w-5 h-5 text-foreground" />
+                  <div>
+                    <p className="text-sm font-medium">Latest Deployment</p>
+                    <p className="text-xs text-muted-foreground font-mono">
+                      {latestDeploymentId}
+                    </p>
+                  </div>
+                </div>
+                <span className={`text-xs px-2 py-1 rounded ${
+                  deploymentStatus === "READY" 
+                    ? "bg-primary/20 text-primary" 
+                    : deploymentStatus === "ERROR"
+                    ? "bg-destructive/20 text-destructive"
+                    : "bg-chart-4/20 text-chart-4"
+                }`}>
+                  {deploymentStatus || "UNKNOWN"}
+                </span>
+              </div>
+            </Card>
+          )}
 
           {/* Error Preview */}
           {project.status === "crashed" && project.errorPreview && (
@@ -162,7 +246,7 @@ export function ProjectDetailPanel({
               <BuildLogViewer 
                 projectName={project.name} 
                 status={project.status}
-                deploymentId={project.latestDeploymentId}
+                deploymentId={latestDeploymentId || project.latestDeploymentId}
               />
             </div>
 

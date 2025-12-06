@@ -244,49 +244,64 @@ export function ConnectProjectDialog({
 
         {step === "webhook" && (
           <div className="space-y-4 py-4">
+            {/* Pro Plan Webhook Option */}
             <Card className="p-4 bg-background border-border">
               <div className="flex items-start gap-3">
                 <Webhook className="w-5 h-5 text-primary mt-0.5" />
                 <div className="flex-1">
-                  <h4 className="text-sm font-medium mb-1">Webhook URL</h4>
+                  <div className="flex items-center gap-2 mb-1">
+                    <h4 className="text-sm font-medium">Option 1: Webhook (Pro Plan)</h4>
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-500 border border-amber-500/30">
+                      PRO
+                    </span>
+                  </div>
                   <p className="text-xs text-muted-foreground mb-2">
-                    Add this URL to your Vercel project webhooks:
+                    Vercel webhooks require a Pro or Enterprise plan.
                   </p>
                   <code className="block p-2 bg-card rounded text-xs font-mono break-all border border-border">
                     {webhookUrl}
                   </code>
+                  <ol className="text-xs text-muted-foreground space-y-1 mt-2">
+                    <li>1. Go to vercel.com → Project → Settings → Webhooks</li>
+                    <li>2. Add webhook URL, select "deployment.error" event</li>
+                  </ol>
                 </div>
               </div>
             </Card>
 
-            <div className="space-y-2">
-              <h4 className="text-sm font-medium">Setup Instructions:</h4>
-              <ol className="text-sm text-muted-foreground space-y-2">
-                <li className="flex items-start gap-2">
-                  <span className="bg-primary/20 text-primary text-xs px-1.5 py-0.5 rounded">1</span>
-                  Go to vercel.com → Your Project → Settings
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="bg-primary/20 text-primary text-xs px-1.5 py-0.5 rounded">2</span>
-                  Click "Webhooks" in the sidebar
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="bg-primary/20 text-primary text-xs px-1.5 py-0.5 rounded">3</span>
-                  Click "Create Webhook" and paste the URL above
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="bg-primary/20 text-primary text-xs px-1.5 py-0.5 rounded">4</span>
-                  Select events: "deployment.error" and "deployment.ready"
-                </li>
-              </ol>
-            </div>
+            {/* Free Tier Polling Option */}
+            <Card className="p-4 bg-primary/5 border-primary/30">
+              <div className="flex items-start gap-3">
+                <CheckCircle className="w-5 h-5 text-primary mt-0.5" />
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <h4 className="text-sm font-medium">Option 2: Manual / Polling (Free)</h4>
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/20 text-primary border border-primary/30">
+                      FREE
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    ResurrectCI will check your Vercel deployments via the API. Use the "Auto-Fix" button in the dashboard to trigger error analysis on demand.
+                  </p>
+                </div>
+              </div>
+            </Card>
 
-            <Button
-              onClick={handleSetupWebhook}
-              className="w-full bg-primary hover:bg-primary/90"
-            >
-              I've Added the Webhook
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={handleSetupWebhook}
+                className="flex-1"
+              >
+                Skip (Use Polling)
+              </Button>
+              <Button
+                onClick={handleSetupWebhook}
+                className="flex-1 bg-primary hover:bg-primary/90"
+              >
+                I've Added Webhook
+              </Button>
+            </div>
           </div>
         )}
 

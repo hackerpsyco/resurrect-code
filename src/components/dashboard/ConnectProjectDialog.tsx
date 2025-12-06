@@ -264,19 +264,19 @@ export function ConnectProjectDialog({
               <ol className="text-sm text-muted-foreground space-y-2">
                 <li className="flex items-start gap-2">
                   <span className="bg-primary/20 text-primary text-xs px-1.5 py-0.5 rounded">1</span>
-                  Go to your Vercel project settings
+                  Go to vercel.com → Your Project → Settings
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="bg-primary/20 text-primary text-xs px-1.5 py-0.5 rounded">2</span>
-                  Navigate to Git → Deploy Hooks
+                  Click "Webhooks" in the sidebar
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="bg-primary/20 text-primary text-xs px-1.5 py-0.5 rounded">3</span>
-                  Add the webhook URL above
+                  Click "Create Webhook" and paste the URL above
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="bg-primary/20 text-primary text-xs px-1.5 py-0.5 rounded">4</span>
-                  Enable "Deployment Failed" events
+                  Select events: "deployment.error" and "deployment.ready"
                 </li>
               </ol>
             </div>

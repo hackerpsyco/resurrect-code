@@ -1,12 +1,13 @@
 # ResurrectCI Kestra Workflow
 # This workflow orchestrates the AI agent for autonomous error fixing
 # 
-# Flow: Webhook → Analyze Error → Search Solution → Generate Fix → Create PR
+# Flow: Manual Trigger / API Call → Analyze Error → Search Solution → Generate Fix → Create PR
 #
-# To use this workflow:
-# 1. Deploy to your Kestra instance
-# 2. Configure the webhook trigger URL in your Vercel/GitHub settings
-# 3. Set the required secrets (SUPABASE_URL, SUPABASE_KEY, GITHUB_TOKEN)
+# To use this workflow (NO WEBHOOK REQUIRED):
+# 1. Deploy to your Kestra instance (Kestra Cloud or self-hosted)
+# 2. Configure secrets: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, GITHUB_TOKEN
+# 3. Trigger via: Kestra UI, API call, or ResurrectCI Dashboard
+# 4. Use with Cline in VS Code for enhanced code generation
 
 id: resurrect-agent
 namespace: resurrectci
@@ -151,11 +152,22 @@ tasks:
       Status: Fix generated and ready for review
       Branch: resurrect-fix
 
-# Trigger configuration for webhooks
+# Trigger configuration - Multiple options (no Vercel Pro required!)
 triggers:
+  # Option 1: Schedule-based polling (check every 5 minutes)
+  - id: schedule_trigger
+    type: io.kestra.plugin.core.trigger.Schedule
+    cron: "*/5 * * * *"
+    disabled: true  # Enable when ready
+    
+  # Option 2: Webhook (if available)
   - id: webhook_trigger
     type: io.kestra.plugin.core.trigger.Webhook
     key: "{{ secret('WEBHOOK_KEY') }}"
+    
+  # Option 3: Manual trigger via Kestra UI or API
+  # POST to: {kestra_url}/api/v1/executions/resurrectci/resurrect-agent
+  # Body: { "deployment_id": "...", "project_name": "...", ... }
 
 # Error handling
 errors:

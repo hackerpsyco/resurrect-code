@@ -25,6 +25,12 @@ const technologies = [
     icon: "🐙",
     color: "from-gray-700 to-gray-900",
   },
+  {
+    name: "Cline",
+    description: "VS Code AI assistant for code generation",
+    icon: "🧠",
+    color: "from-blue-500 to-cyan-600",
+  },
 ];
 
 const features = [
@@ -51,7 +57,7 @@ export function TechStackSection() {
         </div>
         
         {/* Tech cards */}
-        <div className="grid md:grid-cols-4 gap-6 mb-16">
+        <div className="grid md:grid-cols-5 gap-6 mb-16">
           {technologies.map((tech, i) => (
             <Card
               key={i}

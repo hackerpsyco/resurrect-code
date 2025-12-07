@@ -6,6 +6,7 @@ import { ActivityFeed } from "@/components/dashboard/ActivityFeed";
 import { ConnectProjectDialog } from "@/components/dashboard/ConnectProjectDialog";
 import { ProjectDetailPanel } from "@/components/dashboard/ProjectDetailPanel";
 import { AgentWorkflowPanel } from "@/components/dashboard/AgentWorkflowPanel";
+import { KestraConfigPanel } from "@/components/dashboard/KestraConfigPanel";
 import { Button } from "@/components/ui/button";
 import { AlertCircle, CheckCircle, Zap, GitPullRequest, Plus } from "lucide-react";
 import { toast } from "sonner";
@@ -256,6 +257,22 @@ export default function Dashboard() {
           
           {/* Activity feed and Agent panel */}
           <div className="lg:col-span-1 space-y-6">
+            <div>
+              <h2 className="text-xl font-semibold mb-4">Kestra Workflow</h2>
+              <KestraConfigPanel
+                projectData={
+                  selectedProject?.status === "crashed"
+                    ? {
+                        deploymentId: selectedProject.latestDeploymentId || selectedProject.id,
+                        projectName: selectedProject.name,
+                        branch: selectedProject.branch,
+                        errorMessage: selectedProject.errorPreview || "Build failed",
+                        errorLogs: [selectedProject.errorPreview || "Unknown error"],
+                      }
+                    : undefined
+                }
+              />
+            </div>
             <div>
               <h2 className="text-xl font-semibold mb-4">AI Agent Status</h2>
               <AgentWorkflowPanel

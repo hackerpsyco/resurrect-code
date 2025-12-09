@@ -7,6 +7,7 @@ import { ConnectProjectDialog } from "@/components/dashboard/ConnectProjectDialo
 import { ProjectDetailPanel } from "@/components/dashboard/ProjectDetailPanel";
 import { AgentWorkflowPanel } from "@/components/dashboard/AgentWorkflowPanel";
 import { KestraConfigPanel } from "@/components/dashboard/KestraConfigPanel";
+import { IDELayout } from "@/components/dashboard/ide/IDELayout";
 import { Button } from "@/components/ui/button";
 import { AlertCircle, CheckCircle, Zap, GitPullRequest, Plus } from "lucide-react";
 import { toast } from "sonner";
@@ -67,6 +68,7 @@ export default function Dashboard() {
   const [projects, setProjects] = useState<Project[]>(initialProjects);
   const [connectDialogOpen, setConnectDialogOpen] = useState(false);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+  const [ideProject, setIdeProject] = useState<Project | null>(null);
   
   const { runAgent, isRunning: agentRunning, steps: agentSteps, currentStep } = useAIAgent();
   const { fetchBuildLogs, fetchDeployments, extractErrors } = useVercel();
@@ -298,11 +300,23 @@ export default function Dashboard() {
       />
 
       {/* Project Detail Panel */}
-      {selectedProject && (
+      {selectedProject && !ideProject && (
         <ProjectDetailPanel
           project={selectedProject}
           onClose={() => setSelectedProject(null)}
           onAutoFix={() => handleAutoFix(selectedProject.id)}
+          onOpenIDE={() => {
+            setIdeProject(selectedProject);
+            setSelectedProject(null);
+          }}
+        />
+      )}
+
+      {/* Full IDE View */}
+      {ideProject && (
+        <IDELayout
+          project={ideProject}
+          onClose={() => setIdeProject(null)}
         />
       )}
     </div>

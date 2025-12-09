@@ -21,6 +21,7 @@ import {
   RefreshCw,
   Loader2,
   Triangle,
+  Code2,
 } from "lucide-react";
 
 interface ProjectDetailPanelProps {
@@ -40,6 +41,7 @@ interface ProjectDetailPanelProps {
   onClose: () => void;
   onAutoFix: () => void;
   onDeploymentFound?: (deploymentId: string) => void;
+  onOpenIDE?: () => void;
 }
 
 export function ProjectDetailPanel({
@@ -47,6 +49,7 @@ export function ProjectDetailPanel({
   onClose,
   onAutoFix,
   onDeploymentFound,
+  onOpenIDE,
 }: ProjectDetailPanelProps) {
   const { runAgent, isRunning, steps, currentStep } = useAIAgent();
   const { fetchDeployments, isLoading: isVercelLoading } = useVercel();
@@ -148,6 +151,13 @@ export function ProjectDetailPanel({
 
           {/* Actions */}
           <div className="flex flex-wrap gap-3">
+            <Button
+              onClick={onOpenIDE}
+              className="bg-gradient-to-r from-primary to-chart-4 hover:opacity-90 shadow-[var(--glow-primary)]"
+            >
+              <Code2 className="w-4 h-4 mr-2" />
+              Open IDE
+            </Button>
             {project.vercelProjectId && (
               <Button
                 variant="outline"
@@ -166,7 +176,7 @@ export function ProjectDetailPanel({
               <Button
                 onClick={handleRunAgent}
                 disabled={isRunning}
-                className="bg-primary hover:bg-primary/90 shadow-[var(--glow-primary)]"
+                className="bg-primary hover:bg-primary/90"
               >
                 <Zap className="w-4 h-4 mr-2" />
                 {isRunning ? "Agent Running..." : "Auto-Fix with AI"}
@@ -181,10 +191,6 @@ export function ProjectDetailPanel({
             <Button variant="outline">
               <Github className="w-4 h-4 mr-2" />
               Open in GitHub
-            </Button>
-            <Button variant="outline">
-              <Settings className="w-4 h-4 mr-2" />
-              Configure
             </Button>
           </div>
 

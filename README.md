@@ -59,6 +59,34 @@ This project is built with:
 - React
 - shadcn-ui
 - Tailwind CSS
+- Supabase Edge Functions
+- React Diff Viewer (for code change previews)
+
+## Features
+
+### 🤖 Cline-like AI IDE
+
+ResurrectCI includes a full-featured AI-powered IDE similar to Cline:
+
+- **Multi-Provider Support**: Choose between Gemini, OpenAI, Claude, or Lovable AI Gateway
+- **Real-time Streaming**: See AI responses appear as they're generated
+- **Interactive Code Blocks**: Apply code suggestions directly to files with one click
+- **Side-by-side Diff View**: Review changes before applying
+- **Quick Actions**: Fix errors, explain code, or optimize with pre-configured prompts
+- **Full IDE Experience**: File explorer, code editor, build logs, and AI chat in one interface
+
+[📖 Read the full Cline AI Setup Guide](./CLINE_AI_SETUP.md)
+
+### 🔍 Diff View for PR Changes
+
+Before creating a pull request, ResurrectCI shows you a side-by-side diff view of all proposed changes:
+
+- **Visual Code Comparison**: See original vs. modified code with syntax highlighting
+- **Multiple File Support**: Review changes across multiple files in one view
+- **PR Preview**: Review the PR title and description before submission
+- **Confirm or Cancel**: Approve changes or cancel to make adjustments
+
+The diff viewer automatically fetches the original file content from GitHub and compares it with the AI-generated fixes, giving you full transparency and control before any code is committed.
 
 ## How can I deploy this project?
 

@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Gemini Fix</title>
+</head>
+<body>
+    <h1>Gemini API Test</h1>
+    <button onclick="testGemini()">Test Basic Addition Code Generation</button>
+    <div id="result"></div>
+
+    <script>
+        async function testGemini() {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = 'Testing...';
+            
+            const apiKey = 'AIzaSyDRSAYQSZjL-qmIVpuZKShfYxdo8MBliL0';
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+            
+            const requestBody = {
+                contents: [{
+                    parts: [{ text: 'Generate a simple JavaScript function that adds two numbers. Just return the code with no explanation.' }]
+                }],
+                generationConfig: {
+                    temperature: 0.1,
+                    maxOutputTokens: 200
+                }
+            };
+            
+            try {
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(requestBody)
+                });
+                
+                console.log('Response status:', response.status);
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    resultDiv.innerHTML = `Error: ${response.status} - ${errorText}`;
+                    return;
+                }
+                
+                const data = await response.json();
+                console.log('Response data:', data);
+                
+                const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+                if (text) {
+                    resultDiv.innerHTML = `<h3>Success!</h3><pre>${text}</pre>`;
+                } else {
+                    resultDiv.innerHTML = 'No text content in response';
+                    console.log('Full response:', data);
+                }
+                
+            } catch (error) {
+                console.error('Error:', error);
+                resultDiv.innerHTML = `Error: ${error.message}`;
+            }
+        }
+    </script>
+</body>
+</html>

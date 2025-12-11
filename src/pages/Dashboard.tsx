@@ -7,12 +7,14 @@ import { ConnectProjectDialog } from "@/components/dashboard/ConnectProjectDialo
 import { ProjectDetailPanel } from "@/components/dashboard/ProjectDetailPanel";
 import { AgentWorkflowPanel } from "@/components/dashboard/AgentWorkflowPanel";
 import { KestraConfigPanel } from "@/components/dashboard/KestraConfigPanel";
-import { IDELayout } from "@/components/dashboard/ide/IDELayout";
+import { VSCodeLayout } from "@/components/dashboard/ide/VSCodeLayout";
+import { PRPreviewDialog } from "@/components/dashboard/PRPreviewDialog";
 import { Button } from "@/components/ui/button";
 import { AlertCircle, CheckCircle, Zap, GitPullRequest, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { useAIAgent } from "@/hooks/useAIAgent";
 import { useVercel } from "@/hooks/useVercel";
+import { supabase } from "@/integrations/supabase/client";
 
 interface Project {
   id: string;
@@ -69,87 +71,102 @@ export default function Dashboard() {
   const [connectDialogOpen, setConnectDialogOpen] = useState(false);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [ideProject, setIdeProject] = useState<Project | null>(null);
+  const [prPreviewOpen, setPrPreviewOpen] = useState(false);
+  const [currentFixContext, setCurrentFixContext] = useState<{ owner: string; repo: string; branch: string } | null>(null);
+  const [pendingChanges, setPendingChanges] = useState<any[]>([]);
+  const [pendingPRInfo, setPendingPRInfo] = useState<{ title: string; description: string } | null>(null);
   
-  const { runAgent, isRunning: agentRunning, steps: agentSteps, currentStep } = useAIAgent();
+  const { 
+    runAgent, 
+    confirmAndCreatePR,
+    isRunning: agentRunning, 
+    steps: agentSteps, 
+    currentStep,
+  } = useAIAgent();
   const { fetchBuildLogs, fetchDeployments, extractErrors } = useVercel();
 
   const handleAutoFix = async (projectId: string) => {
     const project = projects.find(p => p.id === projectId);
-    if (!project) return;
+    if (!project || !project.owner || !project.repo) {
+      toast.error("Project repository information missing");
+      return;
+    }
 
     setProjects((prev) =>
       prev.map((p) => (p.id === projectId ? { ...p, status: "fixing" as const } : p))
     );
     
-    toast.info("AI Agent activated", {
-      description: "Fetching Vercel build logs and analyzing errors...",
+    toast.info("🤖 Auto-Fix Agent activated", {
+      description: "Analyzing Vercel logs and generating fixes...",
     });
 
     try {
-      // Fetch real Vercel deployment logs if we have a Vercel project
-      let errorLogs: string[] = [];
-      let errorMessage = project.errorPreview || "Build failed";
-      
-      if (project.vercelProjectId || project.latestDeploymentId) {
-        // Get latest deployment
-        if (project.vercelProjectId && !project.latestDeploymentId) {
-          const deployments = await fetchDeployments(project.vercelProjectId);
-          if (deployments.length > 0) {
-            project.latestDeploymentId = deployments[0].uid;
-          }
-        }
-        
-        if (project.latestDeploymentId) {
-          const logs = await fetchBuildLogs(project.latestDeploymentId);
-          errorLogs = logs.map((e: { payload?: { text?: string } }) => e.payload?.text || "").filter(Boolean);
-          const extractedErrors = extractErrors(logs);
-          if (extractedErrors.length > 0) {
-            errorMessage = extractedErrors.join("\n");
-          }
-        }
-      }
-
-      // Run the AI agent with real error data
-      const result = await runAgent({
-        deploymentId: project.latestDeploymentId || project.id,
-        projectName: project.name,
-        branch: project.branch,
-        commitMessage: project.lastCommit,
-        errorMessage,
-        errorLogs: errorLogs.length > 0 ? errorLogs : [project.errorPreview || "Unknown error"],
-        owner: project.owner,
-        repo: project.repo || project.name,
+      // Call the new auto-fix agent
+      const { data, error } = await supabase.functions.invoke("auto-fix-agent", {
+        body: {
+          owner: project.owner,
+          repo: project.repo || project.name,
+          branch: project.branch,
+          vercelProjectId: project.vercelProjectId,
+          deploymentId: project.latestDeploymentId,
+        },
       });
 
-      if (result.success) {
-        setProjects((prev) =>
-          prev.map((p) =>
-            p.id === projectId
-              ? { ...p, status: "resurrected" as const, errorPreview: undefined }
-              : p
-          )
-        );
-        if (selectedProject?.id === projectId) {
-          setSelectedProject((prev) =>
-            prev ? { ...prev, status: "resurrected" as const, errorPreview: undefined } : null
-          );
-        }
+      if (error) throw new Error(error.message);
+
+      if (data.success && data.fix?.changes?.length > 0) {
+        // Prepare diff data for preview
+        const fileChanges = data.fix.changes.map((change: any) => ({
+          path: change.path,
+          oldContent: change.originalContent,
+          newContent: change.newContent,
+        }));
+
+        setPendingChanges(fileChanges);
+        setPendingPRInfo({
+          title: data.fix.title,
+          description: data.fix.description,
+        });
+
+        setCurrentFixContext({
+          owner: project.owner,
+          repo: project.repo || project.name,
+          branch: project.branch,
+        });
+
+        setPrPreviewOpen(true);
+
+        toast.success("🎯 Fix generated!", {
+          description: `Found ${data.fix.changes.length} file(s) to fix. Confidence: ${data.fix.confidence}%`,
+        });
+
       } else {
         setProjects((prev) =>
           prev.map((p) => (p.id === projectId ? { ...p, status: "crashed" as const } : p))
         );
-        toast.error("Agent could not fix the error", {
-          description: result.error || "Please check the logs for details",
+        
+        toast.warning("🤔 No fixes found", {
+          description: data.analysis?.rootCause || "Could not determine a fix for this error",
         });
       }
+
     } catch (error) {
       console.error("Auto-fix error:", error);
       setProjects((prev) =>
         prev.map((p) => (p.id === projectId ? { ...p, status: "crashed" as const } : p))
       );
-      toast.error("Auto-fix failed", {
-        description: error instanceof Error ? error.message : "Unknown error",
-      });
+      
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      
+      if (errorMessage.includes("429") || errorMessage.includes("quota")) {
+        toast.error("🚫 Rate limit exceeded", {
+          description: "Please wait a moment and try again, or configure a different AI provider",
+        });
+      } else {
+        toast.error("❌ Auto-fix failed", {
+          description: errorMessage,
+        });
+      }
     }
   };
 
@@ -193,13 +210,15 @@ export default function Dashboard() {
               Monitor your pipelines and let the AI agent handle failures.
             </p>
           </div>
-          <Button
-            onClick={() => setConnectDialogOpen(true)}
-            className="bg-primary hover:bg-primary/90 shadow-[var(--glow-primary)]"
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            Connect Project
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              onClick={() => setConnectDialogOpen(true)}
+              className="bg-primary hover:bg-primary/90 shadow-[var(--glow-primary)]"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Connect Project
+            </Button>
+          </div>
         </div>
         
         {/* Stats grid */}
@@ -314,9 +333,41 @@ export default function Dashboard() {
 
       {/* Full IDE View */}
       {ideProject && (
-        <IDELayout
+        <VSCodeLayout
           project={ideProject}
           onClose={() => setIdeProject(null)}
+        />
+      )}
+
+      {/* PR Preview Dialog */}
+      {prPreviewOpen && pendingPRInfo && currentFixContext && (
+        <PRPreviewDialog
+          open={prPreviewOpen}
+          onOpenChange={setPrPreviewOpen}
+          changes={pendingChanges}
+          prTitle={pendingPRInfo.title}
+          prDescription={pendingPRInfo.description}
+          onConfirm={async () => {
+            const result = await confirmAndCreatePR(
+              currentFixContext.owner,
+              currentFixContext.repo,
+              currentFixContext.branch
+            );
+            if (result.success) {
+              // Update project status
+              const projectId = selectedProject?.id;
+              if (projectId) {
+                setProjects((prev) =>
+                  prev.map((p) =>
+                    p.id === projectId
+                      ? { ...p, status: "resurrected" as const, errorPreview: undefined }
+                      : p
+                  )
+                );
+              }
+            }
+          }}
+          isCreating={agentRunning}
         />
       )}
     </div>

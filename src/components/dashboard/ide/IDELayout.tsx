@@ -20,12 +20,15 @@ import {
   Loader2,
   Save,
   GitPullRequest,
+  Globe,
 } from "lucide-react";
 import { toast } from "sonner";
 import { CodeEditor } from "./CodeEditor";
 import { ClinePanel } from "./ClinePanel";
 import { ProjectFileTree } from "../ProjectFileTree";
 import { BuildLogViewer } from "../BuildLogViewer";
+import { TerminalPanel } from "./TerminalPanel";
+import { WebsitePreview } from "./WebsitePreview";
 import { useGitHub } from "@/hooks/useGitHub";
 
 interface OpenFile {
@@ -55,7 +58,7 @@ export function IDELayout({ project, onClose }: IDELayoutProps) {
   const [activeFile, setActiveFile] = useState<string | null>(null);
   const [errorLogs, setErrorLogs] = useState<string[]>([]);
   const [isSaving, setIsSaving] = useState(false);
-  const [bottomPanel, setBottomPanel] = useState<"logs" | "cline">("logs");
+  const [bottomPanel, setBottomPanel] = useState<"logs" | "terminal" | "preview">("logs");
   const [isFullscreen, setIsFullscreen] = useState(false);
 
   const { fetchFile, updateFile, createBranch, createPR, isLoading } = useGitHub();
@@ -378,16 +381,24 @@ export function IDELayout({ project, onClose }: IDELayoutProps) {
                     size="sm"
                     onClick={() => setBottomPanel("logs")}
                   >
-                    <Terminal className="w-4 h-4 mr-1" />
+                    <AlertTriangle className="w-4 h-4 mr-1" />
                     Build Logs
                   </Button>
                   <Button
-                    variant={bottomPanel === "cline" ? "secondary" : "ghost"}
+                    variant={bottomPanel === "terminal" ? "secondary" : "ghost"}
                     size="sm"
-                    onClick={() => setBottomPanel("cline")}
+                    onClick={() => setBottomPanel("terminal")}
                   >
-                    <Bot className="w-4 h-4 mr-1" />
-                    Cline AI
+                    <Terminal className="w-4 h-4 mr-1" />
+                    Terminal
+                  </Button>
+                  <Button
+                    variant={bottomPanel === "preview" ? "secondary" : "ghost"}
+                    size="sm"
+                    onClick={() => setBottomPanel("preview")}
+                  >
+                    <Globe className="w-4 h-4 mr-1" />
+                    Preview
                   </Button>
                 </div>
                 <div className="flex-1 min-h-0 p-2">
@@ -398,13 +409,21 @@ export function IDELayout({ project, onClose }: IDELayoutProps) {
                       deploymentId={project.latestDeploymentId}
                       onErrorsDetected={handleErrorsDetected}
                     />
+                  ) : bottomPanel === "terminal" ? (
+                    <TerminalPanel
+                      projectPath={`${project.owner}/${project.repo}`}
+                      onCommandRun={(command) => {
+                        console.log("Command executed:", command);
+                        if (command.includes("npm run dev")) {
+                          toast.success("Development server started!");
+                        }
+                      }}
+                    />
                   ) : (
-                    <ClinePanel
-                      currentFile={activeFile || undefined}
-                      fileContent={currentFile?.content}
-                      errorLogs={errorLogs}
+                    <WebsitePreview
                       projectName={project.name}
-                      onApplyFix={handleApplyFix}
+                      vercelUrl={`https://${project.name}.vercel.app`}
+                      localUrl="http://localhost:8080"
                     />
                   )}
                 </div>

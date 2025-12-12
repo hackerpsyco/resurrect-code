@@ -33,14 +33,17 @@ Deno.serve(async (req: Request) => {
 
   try {
     const GITHUB_TOKEN = Deno.env.get("GITHUB_TOKEN");
+    console.log('GITHUB_TOKEN available:', !!GITHUB_TOKEN);
+    
     if (!GITHUB_TOKEN) {
-      throw new Error("GITHUB_TOKEN is not configured");
+      throw new Error("GITHUB_TOKEN is not configured in environment variables");
     }
 
     const request: GitHubRequest = await req.json();
     const { action, owner, repo } = request;
 
     console.log(`GitHub API action: ${action} for ${owner}/${repo}`);
+    console.log('Request details:', JSON.stringify(request, null, 2));
 
     const headers = {
       Authorization: `Bearer ${GITHUB_TOKEN}`,
@@ -76,21 +79,71 @@ Deno.serve(async (req: Request) => {
 
       case "get_tree": {
         const { branch = "main" } = request;
-        // Get the branch reference
-        const refResponse = await fetch(
-          `${GITHUB_API}/repos/${owner}/${repo}/git/ref/heads/${branch}`,
-          { headers }
-        );
-        if (!refResponse.ok) throw new Error(`Failed to get branch ref: ${refResponse.statusText}`);
-        const refData = await refResponse.json();
+        console.log(`Getting tree for branch: ${branch}`);
         
-        // Get the tree
-        const treeResponse = await fetch(
-          `${GITHUB_API}/repos/${owner}/${repo}/git/trees/${refData.object.sha}?recursive=1`,
-          { headers }
-        );
-        if (!treeResponse.ok) throw new Error(`Failed to get tree: ${treeResponse.statusText}`);
-        result = await treeResponse.json();
+        try {
+          // First, try to get the repository info to check if it exists
+          const repoResponse = await fetch(`${GITHUB_API}/repos/${owner}/${repo}`, { headers });
+          if (!repoResponse.ok) {
+            throw new Error(`Repository not found or not accessible: ${repoResponse.status} ${repoResponse.statusText}`);
+          }
+          const repoData = await repoResponse.json();
+          console.log(`Repository found: ${repoData.full_name}, default branch: ${repoData.default_branch}`);
+          
+          // Use the default branch if the requested branch doesn't exist
+          const targetBranch = branch || repoData.default_branch;
+          
+          // Get the branch reference
+          const refResponse = await fetch(
+            `${GITHUB_API}/repos/${owner}/${repo}/git/ref/heads/${targetBranch}`,
+            { headers }
+          );
+          
+          if (!refResponse.ok) {
+            // If the branch doesn't exist, try the default branch
+            if (targetBranch !== repoData.default_branch) {
+              console.log(`Branch ${targetBranch} not found, trying default branch ${repoData.default_branch}`);
+              const defaultRefResponse = await fetch(
+                `${GITHUB_API}/repos/${owner}/${repo}/git/ref/heads/${repoData.default_branch}`,
+                { headers }
+              );
+              if (!defaultRefResponse.ok) {
+                throw new Error(`Failed to get default branch ref: ${defaultRefResponse.status} ${defaultRefResponse.statusText}`);
+              }
+              const defaultRefData = await defaultRefResponse.json();
+              
+              // Get the tree using default branch
+              const treeResponse = await fetch(
+                `${GITHUB_API}/repos/${owner}/${repo}/git/trees/${defaultRefData.object.sha}?recursive=1`,
+                { headers }
+              );
+              if (!treeResponse.ok) {
+                throw new Error(`Failed to get tree: ${treeResponse.status} ${treeResponse.statusText}`);
+              }
+              result = await treeResponse.json();
+            } else {
+              throw new Error(`Failed to get branch ref: ${refResponse.status} ${refResponse.statusText}`);
+            }
+          } else {
+            const refData = await refResponse.json();
+            console.log(`Branch ref found: ${refData.object.sha}`);
+            
+            // Get the tree
+            const treeResponse = await fetch(
+              `${GITHUB_API}/repos/${owner}/${repo}/git/trees/${refData.object.sha}?recursive=1`,
+              { headers }
+            );
+            if (!treeResponse.ok) {
+              throw new Error(`Failed to get tree: ${treeResponse.status} ${treeResponse.statusText}`);
+            }
+            result = await treeResponse.json();
+          }
+          
+          console.log(`Tree fetched successfully, ${result.tree?.length || 0} items`);
+        } catch (error) {
+          console.error('Error in get_tree:', error);
+          throw error;
+        }
         break;
       }
 

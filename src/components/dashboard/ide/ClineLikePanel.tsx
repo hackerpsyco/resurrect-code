@@ -32,6 +32,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { AIProviderSelector, AIProvider } from "./AIProviderSelector";
+import { AISetupGuide } from "./AISetupGuide";
 
 interface ClineLikePanelProps {
   currentFile?: string;
@@ -53,6 +54,7 @@ export function ClineLikePanel({
   const [pendingTasks, setPendingTasks] = useState<ClineTask[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showSetupGuide, setShowSetupGuide] = useState(false);
   const [currentFileErrors, setCurrentFileErrors] = useState<RealError[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -62,7 +64,12 @@ export function ClineLikePanel({
     // Load initial messages
     setMessages(clineService.getMessages());
     setPendingTasks(clineService.getPendingTasks());
-  }, []);
+    
+    // Show setup guide if no AI config
+    if (!aiConfig) {
+      setShowSetupGuide(true);
+    }
+  }, [aiConfig]);
 
   useEffect(() => {
     // Auto-scroll to bottom
@@ -132,6 +139,12 @@ export function ClineLikePanel({
     localStorage.setItem('ai_config', JSON.stringify(config));
     setShowSettings(false);
     toast.success("AI provider configured");
+    window.location.reload(); // Refresh to load new config
+  };
+
+  const handleSetupComplete = () => {
+    setShowSetupGuide(false);
+    window.location.reload(); // Refresh to load new config
   };
 
   const handleQuickFix = () => {
@@ -393,6 +406,13 @@ export function ClineLikePanel({
           )}
         </div>
       </Card>
+
+      {/* Setup Guide Dialog */}
+      <Dialog open={showSetupGuide} onOpenChange={setShowSetupGuide}>
+        <DialogContent className="max-w-3xl">
+          <AISetupGuide onComplete={handleSetupComplete} />
+        </DialogContent>
+      </Dialog>
 
       {/* Settings Dialog */}
       <Dialog open={showSettings} onOpenChange={setShowSettings}>

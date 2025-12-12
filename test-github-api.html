@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test GitHub API</title>
+</head>
+<body>
+    <h1>GitHub API Test</h1>
+    <button onclick="testGitHubAPI()">Test GitHub API</button>
+    <div id="result"></div>
+
+    <script>
+        async function testGitHubAPI() {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = 'Testing...';
+            
+            try {
+                // Test with a public repository first
+                const response = await fetch('https://eahpikunzsaacibikwtj.supabase.co/functions/v1/github-api', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVhaHBpa3VuenNhYWNpYmlrd3RqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgwMDYzNjMsImV4cCI6MjA2MzU4MjM2M30.8XVM3S7qzHMxb6kL44O2C5vIcgMH2b-fPcCWIBlJawA'
+                    },
+                    body: JSON.stringify({
+                        action: 'get_repo',
+                        owner: 'facebook',
+                        repo: 'react'
+                    })
+                });
+
+                const data = await response.json();
+                console.log('Response:', data);
+                
+                if (data.success) {
+                    resultDiv.innerHTML = `<pre>SUCCESS: ${JSON.stringify(data, null, 2)}</pre>`;
+                } else {
+                    resultDiv.innerHTML = `<pre style="color: red;">ERROR: ${JSON.stringify(data, null, 2)}</pre>`;
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                resultDiv.innerHTML = `<pre style="color: red;">FETCH ERROR: ${error.message}</pre>`;
+            }
+        }
+    </script>
+</body>
+</html>

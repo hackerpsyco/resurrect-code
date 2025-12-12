@@ -8,6 +8,7 @@ import Index from "./pages/Index";
 import Dashboard from "./pages/Dashboard";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
+import { GitHubDebugPanel } from "./components/debug/GitHubDebugPanel";
 
 const queryClient = new QueryClient();
 
@@ -22,6 +23,7 @@ const App = () => (
             <Route path="/" element={<Index />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/auth" element={<Auth />} />
+            <Route path="/debug/github" element={<GitHubDebugPanel />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

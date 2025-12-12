@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GitHub API Direct Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #1e1e1e;
+            color: #cccccc;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #464647;
+            border-radius: 5px;
+        }
+        button {
+            background: #0e639c;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 3px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #1177bb;
+        }
+        button:disabled {
+            background: #666;
+            cursor: not-allowed;
+        }
+        .result {
+            background: #2d2d30;
+            padding: 10px;
+            border-radius: 3px;
+            margin-top: 10px;
+            white-space: pre-wrap;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .success { color: #4ec9b0; }
+        .error { color: #f44747; }
+        .warning { color: #ffcc02; }
+        input {
+            background: #2d2d30;
+            color: #cccccc;
+            border: 1px solid #464647;
+            padding: 8px;
+            border-radius: 3px;
+            margin: 5px;
+            width: 200px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔧 GitHub API Direct Test</h1>
+    <p>This page tests direct GitHub API access to help debug repository loading issues.</p>
+
+    <div class="test-section">
+        <h3>Repository Information</h3>
+        <div>
+            <label>Owner: </label>
+            <input type="text" id="owner" value="facebook" placeholder="e.g., facebook">
+            <label>Repo: </label>
+            <input type="text" id="repo" value="react" placeholder="e.g., react">
+        </div>
+        <button onclick="testRepository()" id="repoBtn">Test Repository Access</button>
+        <div id="repoResult" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>File Tree Test</h3>
+        <button onclick="testFileTree()" id="treeBtn">Test File Tree Loading</button>
+        <div id="treeResult" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>Supabase Edge Function Test</h3>
+        <button onclick="testSupabaseFunction()" id="supabaseBtn">Test Supabase GitHub API</button>
+        <div id="supabaseResult" class="result"></div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'https://eahpikunzsaacibikwtj.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVhaHBpa3VuenNhYWNpYmlrd3RqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgwMDYzNjMsImV4cCI6MjA2MzU4MjM2M30.8XVM3S7qzHMxb6kL44O2C5vIcgMH2b-fPcCWIBlJawA';
+
+        async function testRepository() {
+            const btn = document.getElementById('repoBtn');
+            const result = document.getElementById('repoResult');
+            const owner = document.getElementById('owner').value;
+            const repo = document.getElementById('repo').value;
+            
+            btn.disabled = true;
+            result.innerHTML = 'Testing repository access...';
+            
+            try {
+                const response = await fetch(`https://api.github.com/repos/${owner}/${repo}`);
+                
+                if (!response.ok) {
+                    throw new Error(`Repository API failed: ${response.status} ${response.statusText}`);
+                }
+                
+                const repoData = await response.json();
+                result.innerHTML = `<span class="success">✅ Repository Access Success</span>\\n`;
+                result.innerHTML += `Repository: ${repoData.full_name}\\n`;
+                result.innerHTML += `Default Branch: ${repoData.default_branch}\\n`;
+                result.innerHTML += `Private: ${repoData.private}\\n`;
+                result.innerHTML += `Stars: ${repoData.stargazers_count}\\n`;
+                result.innerHTML += `Language: ${repoData.language}\\n`;
+                result.innerHTML += `Description: ${repoData.description || 'No description'}\\n`;
+                
+            } catch (error) {
+                result.innerHTML = `<span class="error">❌ Error: ${error.message}</span>`;
+            } finally {
+                btn.disabled = false;
+            }
+        }
+
+        async function testFileTree() {
+            const btn = document.getElementById('treeBtn');
+            const result = document.getElementById('treeResult');
+            const owner = document.getElementById('owner').value;
+            const repo = document.getElementById('repo').value;
+            
+            btn.disabled = true;
+            result.innerHTML = 'Testing file tree loading...';
+            
+            try {
+                // First get repo info
+                const repoResponse = await fetch(`https://api.github.com/repos/${owner}/${repo}`);
+                if (!repoResponse.ok) {
+                    throw new Error(`Repository not found: ${repoResponse.status}`);
+                }
+                const repoData = await repoResponse.json();
+                
+                result.innerHTML = `<span class="success">✅ Repository Found</span>\\n`;
+                result.innerHTML += `Default Branch: ${repoData.default_branch}\\n\\n`;
+                
+                // Get file tree
+                const treeUrl = `https://api.github.com/repos/${owner}/${repo}/git/trees/${repoData.default_branch}?recursive=1`;
+                result.innerHTML += `Fetching tree from: ${treeUrl}\\n`;
+                
+                const treeResponse = await fetch(treeUrl);
+                if (!treeResponse.ok) {
+                    throw new Error(`Failed to fetch tree: ${treeResponse.status} ${treeResponse.statusText}`);
+                }
+                
+                const treeData = await treeResponse.json();
+                result.innerHTML += `<span class="success">✅ File Tree Loaded</span>\\n`;
+                result.innerHTML += `Total items: ${treeData.tree.length}\\n\\n`;
+                
+                // Filter and show files
+                const files = treeData.tree.filter(node => 
+                    !node.path.includes('node_modules') && 
+                    !node.path.includes('.git/') &&
+                    node.type === 'blob'
+                ).slice(0, 20); // Show first 20 files
+                
+                result.innerHTML += `Filtered files (first 20):\\n`;
+                files.forEach(file => {
+                    result.innerHTML += `  📄 ${file.path}\\n`;
+                });
+                
+                if (treeData.tree.length > 20) {
+                    result.innerHTML += `\\n... and ${treeData.tree.length - 20} more items`;
+                }
+                
+            } catch (error) {
+                result.innerHTML += `<span class="error">❌ Error: ${error.message}</span>`;
+            } finally {
+                btn.disabled = false;
+            }
+        }
+
+        async function testSupabaseFunction() {
+            const btn = document.getElementById('supabaseBtn');
+            const result = document.getElementById('supabaseResult');
+            const owner = document.getElementById('owner').value;
+            const repo = document.getElementById('repo').value;
+            
+            btn.disabled = true;
+            result.innerHTML = 'Testing Supabase edge function...';
+            
+            try {
+                const response = await fetch(`${SUPABASE_URL}/functions/v1/github-api`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${SUPABASE_KEY}`,
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        action: 'get_repo',
+                        owner: owner,
+                        repo: repo
+                    })
+                });
+                
+                result.innerHTML += `Response status: ${response.status}\\n`;
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`Supabase function failed: ${response.status} ${response.statusText}\\n${errorText}`);
+                }
+                
+                const data = await response.json();
+                result.innerHTML += `<span class="success">✅ Supabase Function Success</span>\\n`;
+                result.innerHTML += `Response: ${JSON.stringify(data, null, 2)}\\n`;
+                
+                // Test file tree via Supabase
+                result.innerHTML += '\\nTesting file tree via Supabase...\\n';
+                const treeResponse = await fetch(`${SUPABASE_URL}/functions/v1/github-api`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${SUPABASE_KEY}`,
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        action: 'get_tree',
+                        owner: owner,
+                        repo: repo
+                    })
+                });
+                
+                if (treeResponse.ok) {
+                    const treeData = await treeResponse.json();
+                    result.innerHTML += `<span class="success">✅ File Tree via Supabase Success</span>\\n`;
+                    result.innerHTML += `Tree items: ${treeData.data?.tree?.length || 0}\\n`;
+                } else {
+                    const treeError = await treeResponse.text();
+                    result.innerHTML += `<span class="error">❌ File Tree via Supabase Failed: ${treeResponse.status}\\n${treeError}</span>\\n`;
+                }
+                
+            } catch (error) {
+                result.innerHTML += `<span class="error">❌ Error: ${error.message}</span>`;
+            } finally {
+                btn.disabled = false;
+            }
+        }
+
+        // Auto-test on load
+        window.onload = function() {
+            // You can uncomment this to auto-test
+            // testRepository();
+        };
+    </script>
+</body>
+</html>

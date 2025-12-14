@@ -44,7 +44,7 @@ import { userStorageService } from '@/services/userStorageService';
 interface DeploymentStatus {
   id: string;
   name: string;
-  status: 'building' | 'ready' | 'error' | 'queued';
+  status: 'building' | 'ready' | 'error' | 'queued' | 'canceled';
   url?: string;
   createdAt: string;
   duration?: string;

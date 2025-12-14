@@ -159,7 +159,6 @@ export default function Dashboard() {
   const [vercelStatus, setVercelStatus] = useState<"connected" | "disconnected" | "checking">("checking");
   const [githubStatus, setGithubStatus] = useState<"connected" | "disconnected" | "checking">("checking");
 
-  const { user } = useAuth();
   const { fetchRepo, fetchFileTree, isLoading: githubLoading } = useGitHub();
   const { fetchProjects: fetchVercelProjects, fetchDeployments, isLoading: vercelLoading } = useVercel();
 

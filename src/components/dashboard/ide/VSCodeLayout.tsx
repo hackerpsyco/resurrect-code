@@ -1,4 +1,4 @@
-import { VSCodeInterface } from "./VSCodeInterface";
+import { ProfessionalVSCodeInterface } from "./ProfessionalVSCodeInterface";
 
 interface VSCodeLayoutProps {
   project: {
@@ -15,5 +15,5 @@ interface VSCodeLayoutProps {
 }
 
 export function VSCodeLayout({ project, onClose }: VSCodeLayoutProps) {
-  return <VSCodeInterface project={project} onClose={onClose} />;
+  return <ProfessionalVSCodeInterface project={project} onClose={onClose} />;
 }

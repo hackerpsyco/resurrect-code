@@ -15,7 +15,7 @@ const technologies = [
   },
   {
     name: "AI Agents",
-    description: "GPT-powered reasoning for intelligent debugging",
+    description: "reasoning for intelligent debugging",
     icon: "🤖",
     color: "from-emerald-500 to-teal-600",
   },

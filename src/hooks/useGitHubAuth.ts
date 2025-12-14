@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { toast } from "sonner";
+// Toast removed for clean UI
 
 interface GitHubUser {
   login: string;
@@ -68,7 +68,7 @@ export function useGitHubAuth() {
     setRepositories([]);
     localStorage.removeItem("github_token");
     localStorage.removeItem("github_user");
-    toast.info("Logged out from GitHub");
+    // Silent logout
   }, []);
 
   const loadRepositories = useCallback(async () => {
@@ -107,10 +107,10 @@ export function useGitHubAuth() {
       }
 
       setRepositories(allRepos);
-      toast.success(`Loaded ${allRepos.length} repositories`);
+      // Silent success - no popup
     } catch (error) {
       console.error("Error loading repositories:", error);
-      toast.error("Failed to load repositories");
+      // Silent error
     } finally {
       setIsLoading(false);
     }
@@ -118,7 +118,7 @@ export function useGitHubAuth() {
 
   const createRepository = useCallback(async (name: string, description?: string, isPrivate = false) => {
     if (!token) {
-      toast.error("Not authenticated");
+      // Silent error
       return null;
     }
 
@@ -145,11 +145,11 @@ export function useGitHubAuth() {
 
       const newRepo = await response.json();
       setRepositories(prev => [newRepo, ...prev]);
-      toast.success(`Repository "${name}" created successfully!`);
+      // Silent success
       return newRepo;
     } catch (error) {
       console.error("Error creating repository:", error);
-      toast.error(error instanceof Error ? error.message : "Failed to create repository");
+      // Silent error
       return null;
     }
   }, [token]);
@@ -164,7 +164,7 @@ export function useGitHubAuth() {
     branch = "main"
   ) => {
     if (!token) {
-      toast.error("Not authenticated");
+      // Silent error
       return false;
     }
 
@@ -192,11 +192,11 @@ export function useGitHubAuth() {
         throw new Error(error.message || `Failed to update file: ${response.status}`);
       }
 
-      toast.success(`File "${path}" updated successfully!`);
+      // Silent success
       return true;
     } catch (error) {
       console.error("Error updating file:", error);
-      toast.error(error instanceof Error ? error.message : "Failed to update file");
+      // Silent error
       return false;
     }
   }, [token]);
@@ -208,7 +208,7 @@ export function useGitHubAuth() {
     branch = "main"
   ) => {
     if (!token) {
-      toast.error("Not authenticated");
+      // Silent error
       return null;
     }
 
@@ -235,7 +235,7 @@ export function useGitHubAuth() {
       };
     } catch (error) {
       console.error("Error getting file content:", error);
-      toast.error("Failed to load file content");
+      // Silent error
       return null;
     }
   }, [token]);

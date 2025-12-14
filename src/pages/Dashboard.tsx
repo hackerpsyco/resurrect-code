@@ -8,8 +8,11 @@ import { ConnectProjectDialog } from "@/components/dashboard/ConnectProjectDialo
 import { GitHubRepositoryBrowser } from "@/components/dashboard/GitHubRepositoryBrowser";
 import { GitHubDashboard } from "@/components/dashboard/GitHubDashboard";
 import { useGitHubAuth } from "@/hooks/useGitHubAuth";
-import { ExtensionsManager } from "@/components/dashboard/ide/ExtensionsManager";
+// ExtensionsManager removed - not needed
 import { PlatformSettings } from "@/components/settings/PlatformSettings";
+import { DevOpsPanel } from "@/components/dashboard/DevOpsPanel";
+import { githubService, GitHubRepository, GitHubUser } from "@/services/githubService";
+import { vercelService, VercelProject, VercelUser } from "@/services/vercelService";
 import {
   LayoutDashboard,
   Code,
@@ -32,12 +35,14 @@ import {
   ArrowUpRight,
   Loader2,
   RefreshCw,
-  Github
+  Github,
+  Globe
 } from "lucide-react";
-import { toast } from "sonner";
+// Toast removed for clean UI
 import { useGitHub } from "@/hooks/useGitHub";
 import { useVercel } from "@/hooks/useVercel";
 import { useAuth } from "@/hooks/useAuth";
+import { projectCache } from "@/services/projectCache";
 
 interface Project {
   id: string;
@@ -131,7 +136,7 @@ const activityLog = [
 export default function Dashboard() {
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [ideProject, setIdeProject] = useState<Project | null>(null);
-  const [activeView, setActiveView] = useState<"dashboard" | "editor" | "extensions" | "issues" | "settings">("dashboard");
+  const [activeView, setActiveView] = useState<"dashboard" | "editor" | "extensions" | "issues" | "devops" | "settings">("dashboard");
   const [projects, setProjects] = useState<Project[]>([]);
   const [connectDialogOpen, setConnectDialogOpen] = useState(false);
   const [githubBrowserOpen, setGithubBrowserOpen] = useState(false);
@@ -145,7 +150,7 @@ export default function Dashboard() {
   const [githubStatus, setGithubStatus] = useState<"connected" | "disconnected" | "checking">("checking");
 
   const { user } = useAuth();
-  const { fetchRepo, isLoading: githubLoading } = useGitHub();
+  const { fetchRepo, fetchFileTree, isLoading: githubLoading } = useGitHub();
   const { fetchProjects: fetchVercelProjects, fetchDeployments, isLoading: vercelLoading } = useVercel();
 
   // Load real projects from GitHub and Vercel
@@ -153,133 +158,158 @@ export default function Dashboard() {
     const loadProjects = async () => {
       setIsLoading(true);
       try {
-        // Check Vercel connection with error handling
+        // Check GitHub authentication
+        setGithubStatus("checking");
+        
+        if (githubService.isAuthenticated()) {
+          try {
+            // Get user info to verify token
+            const user = await githubService.getUser();
+            setGithubStatus("connected");
+            
+            // Get selected repositories from settings
+            const selectedRepoIds = githubService.getSelectedRepositories();
+            
+            if (selectedRepoIds.length > 0) {
+              // Get all user repositories
+              const allRepos = await githubService.getRepositories({
+                sort: 'updated',
+                direction: 'desc',
+                per_page: 100
+              });
+              
+              // Filter to only selected repositories
+              const selectedRepos = allRepos.filter(repo => selectedRepoIds.includes(repo.id));
+              
+              if (selectedRepos.length > 0) {
+                const githubProjects: Project[] = selectedRepos.map((repo: GitHubRepository) => ({
+                  id: `github-${repo.id}`,
+                  name: repo.name,
+                  branch: repo.default_branch || "main",
+                  status: "deployed" as const,
+                  lastCommit: `Latest from ${repo.owner.login}/${repo.name}`,
+                  timeAgo: `Updated ${new Date(repo.updated_at).toLocaleDateString()}`,
+                  language: repo.language?.substring(0, 2).toUpperCase() || "JS",
+                  framework: detectFramework(repo.name, repo.description),
+                  owner: repo.owner.login,
+                  repo: repo.name
+                }));
+                
+                setProjects(githubProjects);
+                console.log(`✅ Loaded ${githubProjects.length} selected GitHub repositories`);
+                
+                // Preload projects in background for instant access
+                githubProjects.forEach(project => {
+                  if (project.owner && project.repo) {
+                    projectCache.preload(project.owner, project.repo, project.branch, fetchFileTree);
+                  }
+                });
+              } else {
+                // No selected repositories found
+                setProjects([]);
+                console.log("⚠️ No selected repositories found in settings");
+              }
+            } else {
+              // No repositories selected in settings
+              setProjects([]);
+              console.log("⚠️ No repositories selected in GitHub integration settings");
+            }
+          } catch (error) {
+            console.error("GitHub authentication failed:", error);
+            setGithubStatus("disconnected");
+            setProjects([]);
+          }
+        } else {
+          // Not authenticated with GitHub
+          setGithubStatus("disconnected");
+          setProjects([]);
+          console.log("⚠️ GitHub not connected - showing empty dashboard");
+        }
+
+        // Also check Vercel connection
         setVercelStatus("checking");
-        let vercelProjects = null;
-        try {
-          vercelProjects = await fetchVercelProjects();
-          setVercelStatus(vercelProjects && vercelProjects.length >= 0 ? "connected" : "disconnected");
-        } catch (error) {
-          console.log("Vercel connection failed:", error);
+        if (vercelService.isAuthenticated()) {
+          try {
+            const vercelUser = await vercelService.getUser();
+            setVercelStatus("connected");
+            console.log(`✅ Vercel connected as ${vercelUser.username}`);
+            
+            // Load Vercel projects if selected
+            const selectedProjectIds = JSON.parse(localStorage.getItem('vercel_selected_projects') || '[]');
+            if (selectedProjectIds.length > 0) {
+              const vercelProjects = await vercelService.getProjects({ limit: 50 });
+              const selectedVercelProjects = vercelProjects.filter(project => selectedProjectIds.includes(project.id));
+              
+              // Convert Vercel projects to dashboard format
+              const vercelDashboardProjects: Project[] = selectedVercelProjects.map((project: VercelProject) => ({
+                id: `vercel-${project.id}`,
+                name: project.name,
+                branch: project.link?.repo ? 'main' : 'vercel',
+                status: "deployed" as const,
+                lastCommit: `Vercel deployment`,
+                timeAgo: `Updated ${new Date(project.updatedAt).toLocaleDateString()}`,
+                language: project.framework?.substring(0, 2).toUpperCase() || "JS",
+                framework: project.framework || "Web App",
+                owner: vercelUser.username,
+                repo: project.name,
+                vercelProjectId: project.id
+              }));
+              
+              // Merge with GitHub projects
+              setProjects(prev => [...prev, ...vercelDashboardProjects]);
+              console.log(`✅ Added ${vercelDashboardProjects.length} Vercel projects`);
+            }
+          } catch (error) {
+            console.error("Vercel connection failed:", error);
+            setVercelStatus("disconnected");
+          }
+        } else {
           setVercelStatus("disconnected");
         }
 
-        // Set GitHub as connected for now to avoid edge function errors
-        setGithubStatus("connected");
-
-        // For now, skip Vercel project loading and use only known working GitHub repositories
-        // This prevents loading projects with incorrect GitHub information
-        console.log("Skipping Vercel project loading to avoid GitHub integration issues");
-        
-        // Load projects from GitHub if authenticated, otherwise use demo projects
-        if (isAuthenticated && repositories.length > 0) {
-          const githubProjects: Project[] = repositories.slice(0, 10).map((repo: any) => ({
-            id: `github-${repo.id}`,
-            name: repo.name,
-            branch: repo.default_branch || "main",
-            status: "deployed" as const,
-            lastCommit: "Latest from GitHub",
-            timeAgo: `Updated ${new Date(repo.updated_at).toLocaleDateString()}`,
-            language: repo.language?.substring(0, 2).toUpperCase() || "JS",
-            framework: detectFramework(repo.name, repo.language),
-            owner: repo.owner.login,
-            repo: repo.name
-          }));
-          setProjects(githubProjects);
-        } else {
-          // Use demo projects if not authenticated
-          const workingProjects: Project[] = [
-            {
-              id: "github-1",
-              name: "resurrect-code",
-              branch: "main", 
-              status: "deployed",
-              lastCommit: "GitHub integration working",
-              timeAgo: "Updated today",
-              language: "TS",
-              framework: "Next.js",
-              owner: "hackerpsyco",
-              repo: "resurrect-code"
-            },
-            {
-              id: "github-2",
-              name: "vscode",
-              branch: "main", 
-              status: "deployed",
-              lastCommit: "Microsoft VSCode",
-              timeAgo: "Updated recently",
-              language: "TS",
-              framework: "Electron",
-              owner: "microsoft",
-              repo: "vscode"
-            }
-          ];
-          setProjects(workingProjects);
-        }
-        
-        if (false) { // Disable Vercel loading for now
-          // Fallback to demo projects if no real projects
-          setProjects([
-            {
-              id: "real-1",
-              name: "resurrect-code",
-              branch: "main", 
-              status: "deployed",
-              lastCommit: "GitHub integration working",
-              timeAgo: "Updated today",
-              language: "TS",
-              framework: "Next.js",
-              owner: "hackerpsyco",
-              repo: "resurrect-code"
-            },
-            {
-              id: "real-2",
-              name: "vscode",
-              branch: "main", 
-              status: "deployed",
-              lastCommit: "Microsoft VSCode",
-              timeAgo: "Updated recently",
-              language: "TS",
-              framework: "Electron",
-              owner: "microsoft",
-              repo: "vscode"
-            },
-            {
-              id: "demo-1",
-              name: "demo-project",
-              branch: "main", 
-              status: "deployed",
-              lastCommit: "Demo files ready",
-              timeAgo: "Updated now",
-              language: "JS",
-              framework: "Demo",
-              owner: "demo",
-              repo: "demo-project"
-            }
-          ]);
-        }
       } catch (error) {
         console.error("Error loading projects:", error);
         setGithubStatus("disconnected");
         setVercelStatus("disconnected");
-        toast.error("Failed to load projects");
+        // Silent error - no popup
       } finally {
         setIsLoading(false);
       }
     };
 
     loadProjects();
-  }, [fetchRepo, fetchVercelProjects, fetchDeployments]);
+
+    // Listen for settings updates
+    const handleGitHubSettingsUpdate = () => {
+      console.log("🔄 GitHub settings updated, reloading projects...");
+      loadProjects();
+    };
+
+    const handleVercelSettingsUpdate = () => {
+      console.log("🔄 Vercel settings updated, reloading projects...");
+      loadProjects();
+    };
+
+    window.addEventListener('github-settings-updated', handleGitHubSettingsUpdate);
+    window.addEventListener('vercel-settings-updated', handleVercelSettingsUpdate);
+    
+    return () => {
+      window.removeEventListener('github-settings-updated', handleGitHubSettingsUpdate);
+      window.removeEventListener('vercel-settings-updated', handleVercelSettingsUpdate);
+    };
+  }, []);
 
   const handleNewProject = () => {
     setConnectDialogOpen(true);
   };
 
   const handleImportFromGitHub = () => {
-    if (isAuthenticated) {
+    if (githubService.isAuthenticated()) {
       setShowGitHubDashboard(true);
     } else {
-      setGithubBrowserOpen(true);
+      // Redirect to settings to connect GitHub
+      setActiveView("settings");
+      // Silent redirect - no popup
     }
   };
 
@@ -304,7 +334,7 @@ export default function Dashboard() {
       framework: detectFramework(newProject.name)
     };
     setProjects((prev) => [project, ...prev]);
-    toast.success(`${newProject.name} connected!`);
+    // Silent success - no popup
   };
 
   const handleGitHubRepositorySelect = (repo: { owner: string; repo: string; name: string; branch: string }) => {
@@ -321,7 +351,7 @@ export default function Dashboard() {
       framework: detectFramework(repo.name)
     };
     setProjects((prev) => [project, ...prev]);
-    toast.success(`Added ${repo.owner}/${repo.repo} to your projects!`);
+    // Silent success - no popup
   };
 
   const handleRefreshProjects = () => {
@@ -372,9 +402,18 @@ export default function Dashboard() {
         <div className="flex-1 p-6">
           <div className="max-w-4xl mx-auto">
             <h1 className="text-3xl font-bold mb-6">Extensions</h1>
-            <ExtensionsManager onClose={() => setActiveView("dashboard")} />
+            <div className="text-center py-12">
+              <h2 className="text-xl font-semibold mb-2">Extensions Coming Soon</h2>
+              <p className="text-[#7d8590]">Extension management will be available in a future update.</p>
+            </div>
           </div>
         </div>
+      );
+    }
+
+    if (activeView === "devops") {
+      return (
+        <DevOpsPanel onClose={() => setActiveView("dashboard")} />
       );
     }
 
@@ -435,13 +474,7 @@ export default function Dashboard() {
           </p>
           
           <div className="flex gap-3">
-            <Button 
-              className="bg-[#238636] hover:bg-[#2ea043] text-white"
-              onClick={() => window.open('/github-ide', '_blank')}
-            >
-              <Github className="w-4 h-4 mr-2" />
-              Open GitHub IDE
-            </Button>
+           
             <Button 
               variant="outline"
               className="border-[#30363d] text-white hover:bg-[#21262d]"
@@ -466,20 +499,7 @@ export default function Dashboard() {
             >
               {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
             </Button>
-            <Button 
-              variant="outline" 
-              className="border-[#30363d] text-white hover:bg-[#21262d]"
-              onClick={() => window.open('/github-ide', '_blank')}
-            >
-              🚀 GitHub IDE
-            </Button>
-            <Button 
-              variant="outline" 
-              className="border-[#30363d] text-white hover:bg-[#21262d]"
-              onClick={() => window.open('/debug/github?owner=hackerpsyco&repo=resurrect-code', '_blank')}
-            >
-              🔧 Test GitHub
-            </Button>
+           
           </div>
         </div>
 
@@ -558,13 +578,47 @@ export default function Dashboard() {
 
             {!isLoading && filteredProjects.length === 0 && (
               <div className="text-center py-12">
-                <FolderOpen className="w-12 h-12 text-[#7d8590] mx-auto mb-4" />
-                <h3 className="text-lg font-semibold mb-2">No Projects Found</h3>
-                <p className="text-[#7d8590] mb-4">Get started by connecting your first project</p>
-                <Button onClick={handleNewProject}>
-                  <Plus className="w-4 h-4 mr-2" />
-                  Connect Project
-                </Button>
+                {githubService.isAuthenticated() || vercelService.isAuthenticated() ? (
+                  // Connected but no projects selected
+                  <>
+                    <FolderOpen className="w-12 h-12 text-[#7d8590] mx-auto mb-4" />
+                    <h3 className="text-lg font-semibold mb-2">No Projects Selected</h3>
+                    <p className="text-[#7d8590] mb-4">
+                      You're connected to {githubService.isAuthenticated() && vercelService.isAuthenticated() ? 'GitHub and Vercel' : githubService.isAuthenticated() ? 'GitHub' : 'Vercel'}, but haven't selected any projects to show in your dashboard.
+                    </p>
+                    <div className="space-y-2">
+                      <Button onClick={() => setActiveView("settings")} className="bg-[#238636] hover:bg-[#2ea043]">
+                        <Settings className="w-4 h-4 mr-2" />
+                        Configure Integrations
+                      </Button>
+                      <p className="text-xs text-[#7d8590]">
+                        Go to Settings → Integrations to select projects
+                      </p>
+                    </div>
+                  </>
+                ) : (
+                  // Not connected to any service
+                  <>
+                    <div className="flex items-center justify-center gap-4 mb-4">
+                      <Github className="w-8 h-8 text-[#7d8590]" />
+                      <Plus className="w-4 h-4 text-[#7d8590]" />
+                      <Globe className="w-8 h-8 text-[#7d8590]" />
+                    </div>
+                    <h3 className="text-lg font-semibold mb-2">Connect Your Accounts to Get Started</h3>
+                    <p className="text-[#7d8590] mb-4">
+                      Connect GitHub to access your repositories and Vercel to manage deployments.
+                    </p>
+                    <div className="space-y-2">
+                      <Button onClick={() => setActiveView("settings")} className="bg-[#238636] hover:bg-[#2ea043]">
+                        <Zap className="w-4 h-4 mr-2" />
+                        Connect Integrations
+                      </Button>
+                      <p className="text-xs text-[#7d8590]">
+                        Go to Settings → Integrations to connect GitHub and Vercel
+                      </p>
+                    </div>
+                  </>
+                )}
               </div>
             )}
           </div>
@@ -728,6 +782,18 @@ export default function Dashboard() {
             <Button
               variant="ghost"
               className={`w-full justify-start gap-3 h-10 ${
+                activeView === "devops" 
+                  ? "bg-[#238636]/20 text-[#238636] border-l-2 border-[#238636]" 
+                  : "text-[#7d8590] hover:text-white hover:bg-[#21262d]"
+              }`}
+              onClick={() => setActiveView("devops")}
+            >
+              <Zap className="w-5 h-5" />
+              DevOps
+            </Button>
+            <Button
+              variant="ghost"
+              className={`w-full justify-start gap-3 h-10 ${
                 activeView === "settings" 
                   ? "bg-[#238636]/20 text-[#238636] border-l-2 border-[#238636]" 
                   : "text-[#7d8590] hover:text-white hover:bg-[#21262d]"
@@ -791,7 +857,7 @@ export default function Dashboard() {
               variant="ghost" 
               size="sm" 
               className="text-[#7d8590] hover:text-white"
-              onClick={() => toast.info("Notifications coming soon!")}
+              onClick={() => {}}
             >
               <Bell className="w-4 h-4" />
             </Button>

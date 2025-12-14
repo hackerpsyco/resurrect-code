@@ -125,32 +125,93 @@ tasks:
       🔧 Fix Generated
       Result: {{ outputs.generate_fix.body }}
 
-  # Step 8: Create GitHub branch and PR (using Kestra's Git plugin)
-  # Note: This requires the GitHub token secret to be configured
+  # Step 8: Create GitHub branch and PR using real GitHub API
   - id: create_fix_branch
-    type: io.kestra.plugin.core.log.Log
-    level: INFO
-    message: |
-      🌿 Creating fix branch: resurrect-fix
-      PR will be created with the following changes:
-      {{ outputs.generate_fix.body }}
-      
-      Note: In production, this would use the Git plugin to:
-      1. Clone the repository
-      2. Create the resurrect-fix branch
-      3. Apply the code changes
-      4. Commit and push
-      5. Create a Pull Request
+    type: io.kestra.plugin.core.http.Request
+    uri: "{{ vars.supabase_url }}/functions/v1/github-api"
+    method: POST
+    contentType: application/json
+    headers:
+      Authorization: "Bearer {{ secret('SUPABASE_SERVICE_ROLE_KEY') }}"
+    body: |
+      {
+        "action": "create_branch",
+        "owner": "hackerpsyco",
+        "repo": "{{ inputs.project_name }}",
+        "baseBranch": "{{ inputs.branch }}",
+        "newBranch": "resurrect-fix-{{ now() | date('yyyyMMdd-HHmmss') }}"
+      }
 
-  # Step 9: Final status
+  # Step 9: Apply the generated fix to files
+  - id: apply_fix
+    type: io.kestra.plugin.core.http.Request
+    uri: "{{ vars.supabase_url }}/functions/v1/github-api"
+    method: POST
+    contentType: application/json
+    headers:
+      Authorization: "Bearer {{ secret('SUPABASE_SERVICE_ROLE_KEY') }}"
+    body: |
+      {
+        "action": "update_file",
+        "owner": "hackerpsyco",
+        "repo": "{{ inputs.project_name }}",
+        "path": "{{ outputs.generate_fix.body.filePath || 'src/App.tsx' }}",
+        "content": "{{ outputs.generate_fix.body.fixedContent || '// Auto-fixed by ResurrectCI' }}",
+        "message": "🤖 ResurrectCI: Automated fix for {{ inputs.error_message }}",
+        "branch": "{{ outputs.create_fix_branch.body.ref }}"
+      }
+
+  # Step 10: Create Pull Request
+  - id: create_pull_request
+    type: io.kestra.plugin.core.http.Request
+    uri: "{{ vars.supabase_url }}/functions/v1/github-api"
+    method: POST
+    contentType: application/json
+    headers:
+      Authorization: "Bearer {{ secret('SUPABASE_SERVICE_ROLE_KEY') }}"
+    body: |
+      {
+        "action": "create_pr",
+        "owner": "hackerpsyco",
+        "repo": "{{ inputs.project_name }}",
+        "title": "🤖 ResurrectCI: Automated fix for build failure",
+        "body": "## 🤖 Automated Fix by ResurrectCI\n\n**Error:** {{ inputs.error_message }}\n\n**Fix Applied:** {{ outputs.generate_fix.body.description }}\n\n### Changes:\n- Fixed build error automatically\n- Applied AI-generated solution\n- Ready for review and testing\n\n---\n*This PR was created automatically by ResurrectCI Kestra workflow.*",
+        "baseBranch": "{{ inputs.branch }}",
+        "newBranch": "{{ outputs.create_fix_branch.body.ref }}"
+      }
+
+  # Step 11: Notify ResurrectCI Dashboard
+  - id: notify_dashboard
+    type: io.kestra.plugin.core.http.Request
+    uri: "{{ vars.supabase_url }}/functions/v1/ai-agent"
+    method: POST
+    contentType: application/json
+    headers:
+      Authorization: "Bearer {{ secret('SUPABASE_SERVICE_ROLE_KEY') }}"
+    body: |
+      {
+        "action": "workflow_completed",
+        "workflowResult": {
+          "deploymentId": "{{ inputs.deployment_id }}",
+          "projectName": "{{ inputs.project_name }}",
+          "status": "success",
+          "prUrl": "{{ outputs.create_pull_request.body.html_url }}",
+          "prNumber": "{{ outputs.create_pull_request.body.number }}",
+          "fixBranch": "{{ outputs.create_fix_branch.body.ref }}",
+          "completedAt": "{{ now() }}"
+        }
+      }
+
+  # Step 12: Final status
   - id: success_notification
     type: io.kestra.plugin.core.log.Log
     level: INFO
     message: |
       ✅ ResurrectCI Agent Complete!
       Project: {{ inputs.project_name }}
-      Status: Fix generated and ready for review
-      Branch: resurrect-fix
+      Status: Fix applied and PR created
+      PR: {{ outputs.create_pull_request.body.html_url }}
+      Branch: {{ outputs.create_fix_branch.body.ref }}
 
 # Trigger configuration - Multiple options (no Vercel Pro required!)
 triggers:

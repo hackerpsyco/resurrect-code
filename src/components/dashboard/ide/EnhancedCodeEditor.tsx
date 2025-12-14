@@ -40,7 +40,7 @@ import {
 import Editor from "@monaco-editor/react";
 import * as monaco from "monaco-editor";
 import { toast } from "sonner";
-import { KeyboardShortcutsPanel } from "./KeyboardShortcutsPanel";
+
 import { realErrorDetector } from "@/services/realErrorDetector";
 import { clineService } from "@/services/clineService";
 import { languageTemplates, getTemplateByLanguage } from "@/services/languageTemplates";
@@ -599,9 +599,7 @@ export function EnhancedCodeEditor({
                 <Save className="w-3 h-3" />
               </Button>
 
-              <div className="inline-block">
-                <KeyboardShortcutsPanel />
-              </div>
+
 
               <Button
                 variant="ghost"

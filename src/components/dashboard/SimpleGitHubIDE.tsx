@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { VSCodeInterface } from "./ide/VSCodeInterface";
+import { ProfessionalVSCodeInterface } from "./ide/ProfessionalVSCodeInterface";
 import { Github, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 
@@ -41,7 +41,7 @@ export function SimpleGitHubIDE() {
 
   if (currentProject) {
     return (
-      <VSCodeInterface
+      <ProfessionalVSCodeInterface
         project={currentProject}
         onClose={() => setCurrentProject(null)}
       />

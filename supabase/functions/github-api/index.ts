@@ -1,3 +1,4 @@
+/// <reference types="https://esm.sh/@supabase/functions-js/src/edge-runtime.d.ts" />
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 
 const corsHeaders = {
@@ -8,7 +9,7 @@ const corsHeaders = {
 };
 
 interface GitHubRequest {
-  action: "get_repo" | "get_file" | "get_tree" | "create_branch" | "update_file" | "create_pr";
+  action: "get_repo" | "get_file" | "get_tree" | "create_branch" | "update_file" | "create_pr" | "get_commit";
   owner: string;
   repo: string;
   path?: string;
@@ -263,6 +264,16 @@ Deno.serve(async (req: Request) => {
         } else {
           result = await response.json();
         }
+        break;
+      }
+
+      case "get_commit": {
+        const { sha } = request;
+        if (!sha) throw new Error("sha is required for get_commit");
+        
+        const response = await fetch(`${GITHUB_API}/repos/${owner}/${repo}/commits/${sha}`, { headers });
+        if (!response.ok) throw new Error(`Failed to get commit: ${response.statusText}`);
+        result = await response.json();
         break;
       }
 

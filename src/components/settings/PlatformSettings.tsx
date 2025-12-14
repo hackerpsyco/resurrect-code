@@ -4,6 +4,8 @@ import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
+import { GitHubIntegration } from './GitHubIntegration';
+import { VercelIntegration } from './VercelIntegration';
 import { 
   X, 
   Settings, 
@@ -19,7 +21,8 @@ import {
   RefreshCw,
   Heart,
   Terminal,
-  Globe
+  Globe,
+  Link
 } from 'lucide-react';
 
 interface PlatformSettingsProps {
@@ -28,6 +31,7 @@ interface PlatformSettingsProps {
 
 export function PlatformSettings({ onClose }: PlatformSettingsProps) {
   const [activeSection, setActiveSection] = useState('general');
+  const [activeIntegration, setActiveIntegration] = useState<'github' | 'vercel'>('github');
   const [settings, setSettings] = useState({
     // General
     theme: 'dark',
@@ -292,82 +296,52 @@ export function PlatformSettings({ onClose }: PlatformSettingsProps) {
     </div>
   );
 
-  const renderIntegrationsSettings = () => (
-    <div className="space-y-6">
-      <div>
-        <h3 className="text-lg font-medium text-white mb-4">🔗 Connected Services</h3>
-        <p className="text-sm text-gray-400 mb-6">Manage your integrations and connected accounts.</p>
-      </div>
-
-      <div className="space-y-4">
-        <div className="p-4 bg-[#2d2d30] border border-[#464647] rounded-lg">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gray-800 rounded-lg flex items-center justify-center">
-                <Github className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <h4 className="text-white font-medium">GitHub</h4>
-                <p className="text-sm text-gray-400">
-                  {settings.githubConnected ? 'Connected' : 'Not connected'}
-                </p>
-              </div>
-            </div>
-            <Button 
-              variant={settings.githubConnected ? "destructive" : "default"}
-              size="sm"
-              onClick={() => updateSetting('githubConnected', !settings.githubConnected)}
-            >
-              {settings.githubConnected ? 'Disconnect' : 'Connect Account'}
-            </Button>
-          </div>
-          {settings.githubConnected && (
-            <div className="mt-3 pt-3 border-t border-[#464647]">
-              <div className="flex items-center gap-2 text-sm text-gray-400">
-                <User className="w-4 h-4" />
-                <span>@johndoe</span>
-                <span className="text-gray-600">•</span>
-                <span>Last sync: 2 minutes ago</span>
-              </div>
-              <div className="mt-2">
-                <label className="flex items-center gap-2 text-sm">
-                  <input type="checkbox" className="rounded" defaultChecked />
-                  <span className="text-gray-300">Auto-resolve issues</span>
-                </label>
-              </div>
-            </div>
-          )}
+  const renderIntegrationsSettings = () => {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-2xl font-bold text-white mb-2">Integrations</h2>
+          <p className="text-[#7d8590]">
+            Connect your accounts to access repositories and manage deployments
+          </p>
         </div>
 
-        <div className="p-4 bg-[#2d2d30] border border-[#464647] rounded-lg">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-black rounded-lg flex items-center justify-center">
-                <Globe className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <h4 className="text-white font-medium">Vercel</h4>
-                <p className="text-sm text-gray-400">
-                  {settings.vercelConnected ? 'Connected' : 'Not connected'}
-                </p>
-              </div>
-            </div>
-            <Button 
-              variant={settings.vercelConnected ? "destructive" : "default"}
-              size="sm"
-              onClick={() => updateSetting('vercelConnected', !settings.vercelConnected)}
-            >
-              {settings.vercelConnected ? 'Disconnect' : 'Connect Account'}
-            </Button>
-          </div>
-          <div className="mt-3 text-sm text-gray-400">
-            Connect to Vercel to enable seamless deployments and preview
-            comments directly in the editor.
-          </div>
+        {/* Integration Tabs */}
+        <div className="flex gap-2 border-b border-[#30363d]">
+          <Button
+            variant="ghost"
+            onClick={() => setActiveIntegration('github')}
+            className={`px-4 py-2 rounded-none border-b-2 ${
+              activeIntegration === 'github'
+                ? 'border-[#238636] text-[#238636] bg-[#238636]/10'
+                : 'border-transparent text-[#7d8590] hover:text-white'
+            }`}
+          >
+            <Github className="w-4 h-4 mr-2" />
+            GitHub
+          </Button>
+          <Button
+            variant="ghost"
+            onClick={() => setActiveIntegration('vercel')}
+            className={`px-4 py-2 rounded-none border-b-2 ${
+              activeIntegration === 'vercel'
+                ? 'border-black text-white bg-black/10'
+                : 'border-transparent text-[#7d8590] hover:text-white'
+            }`}
+          >
+            <Globe className="w-4 h-4 mr-2" />
+            Vercel
+          </Button>
+        </div>
+
+        {/* Integration Content */}
+        <div className="mt-6">
+          {activeIntegration === 'github' && <GitHubIntegration />}
+          {activeIntegration === 'vercel' && <VercelIntegration />}
         </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   const renderContent = () => {
     switch (activeSection) {

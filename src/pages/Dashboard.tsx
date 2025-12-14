@@ -9,6 +9,7 @@ import { GitHubRepositoryBrowser } from "@/components/dashboard/GitHubRepository
 import { GitHubDashboard } from "@/components/dashboard/GitHubDashboard";
 import { useGitHubAuth } from "@/hooks/useGitHubAuth";
 import { ExtensionsManager } from "@/components/dashboard/ide/ExtensionsManager";
+import { PlatformSettings } from "@/components/settings/PlatformSettings";
 import {
   LayoutDashboard,
   Code,
@@ -379,34 +380,7 @@ export default function Dashboard() {
 
     if (activeView === "settings") {
       return (
-        <div className="flex-1 p-6">
-          <div className="max-w-4xl mx-auto">
-            <h1 className="text-3xl font-bold mb-6">Settings</h1>
-            <div className="bg-[#161b22] border border-[#30363d] rounded-lg p-6">
-              <h2 className="text-xl font-semibold mb-4">Integrations</h2>
-              <div className="space-y-4">
-                <div className="flex items-center justify-between p-4 bg-[#0d1117] rounded-lg">
-                  <div>
-                    <h3 className="font-medium">GitHub</h3>
-                    <p className="text-sm text-[#7d8590]">Connect your GitHub repositories</p>
-                  </div>
-                  <Badge className={githubStatus === "connected" ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"}>
-                    {githubStatus === "checking" ? "Checking..." : githubStatus}
-                  </Badge>
-                </div>
-                <div className="flex items-center justify-between p-4 bg-[#0d1117] rounded-lg">
-                  <div>
-                    <h3 className="font-medium">Vercel</h3>
-                    <p className="text-sm text-[#7d8590]">Deploy and monitor your applications</p>
-                  </div>
-                  <Badge className={vercelStatus === "connected" ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"}>
-                    {vercelStatus === "checking" ? "Checking..." : vercelStatus}
-                  </Badge>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+        <PlatformSettings onClose={() => setActiveView("dashboard")} />
       );
     }
 

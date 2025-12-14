@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
-import { RealTerminal } from './RealTerminal';
+import { OwnPlatformTerminal } from './OwnPlatformTerminal';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Editor } from '@monaco-editor/react';
@@ -644,7 +644,7 @@ body {
             <>
               <PanelResizeHandle className="w-2 bg-[#464647] hover:bg-[#569cd6] transition-colors" />
               <Panel defaultSize={30} minSize={20}>
-                <RealTerminal
+                <OwnPlatformTerminal
                   projectPath={repoInfo ? `${repoInfo.owner}/${repoInfo.repo}` : 'github-real-ide'}
                   onDevServerStart={handleDevServerStart}
                   onDevServerStop={handleDevServerStop}

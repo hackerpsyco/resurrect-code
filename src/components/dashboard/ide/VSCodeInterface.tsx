@@ -23,20 +23,9 @@ import {
 } from "lucide-react";
 import { EnhancedCodeEditor } from "./EnhancedCodeEditor";
 import { ClineLikePanel } from "./ClineLikePanel";
+import { PlatformSettings } from "../../settings/PlatformSettings";
 import { WebTerminal } from "@/components/terminal/WebTerminal";
-import { RealTerminal } from "../../ide/RealTerminal";
-import { SimpleRealTerminal } from "../../ide/SimpleRealTerminal";
-import { WorkingRealTerminal } from "../../ide/WorkingRealTerminal";
-import { TrueRealTerminal } from "../../ide/TrueRealTerminal";
-import { TemporaryRealTerminal } from "../../ide/TemporaryRealTerminal";
-import { SimpleDirectRealTerminal } from "../../ide/SimpleDirectRealTerminal";
-import { PublicRealTerminal } from "../../ide/PublicRealTerminal";
-import { WebContainerRealTerminal } from "../../ide/WebContainerRealTerminal";
-import { FastRealTerminal } from "../../ide/FastRealTerminal";
-import { TrueWebContainerTerminal } from "../../ide/TrueWebContainerTerminal";
-import { RealExecutionTerminal } from "../../ide/RealExecutionTerminal";
 import { OwnPlatformTerminal } from "../../ide/OwnPlatformTerminal";
-// import { LocalRealTerminal } from "@/components/terminal/LocalRealTerminal";
 import { LivePreview } from "@/components/preview/LivePreview";
 // import { WebContainerIntegration } from "../../ide/WebContainerIntegration";
 import { IDEMenuBar } from "./IDEMenuBar";
@@ -120,6 +109,7 @@ export function VSCodeInterface({ project, onClose }: VSCodeInterfaceProps) {
   const [isLoadingFileTree, setIsLoadingFileTree] = useState(false);
   const [useWebContainer, setUseWebContainer] = useState(true); // Toggle for WebContainer vs simulated
   const [useRealTerminal, setUseRealTerminal] = useState(true); // Toggle for Real vs Simulated terminal
+  const [showSettings, setShowSettings] = useState(false);
 
   const { fetchFile, updateFile, isLoading, createBranch, createPR, fetchFileTree } = useGitHub();
   const { isAuthenticated, updateFile: authUpdateFile, getFileContent } = useGitHubAuth();
@@ -762,7 +752,11 @@ export function VSCodeInterface({ project, onClose }: VSCodeInterfaceProps) {
   const hasModifiedFiles = openFiles.some((f) => f.isModified);
 
   return (
-    <div className="fixed inset-0 z-50 bg-[#1e1e1e] flex flex-col">
+    <>
+      {showSettings && (
+        <PlatformSettings onClose={() => setShowSettings(false)} />
+      )}
+      <div className="fixed inset-0 z-50 bg-[#1e1e1e] flex flex-col">
       {/* Top Menu Bar */}
       <div className="h-8 bg-[#323233] border-b border-[#464647] flex items-center justify-between px-4">
         <div className="flex items-center gap-4">
@@ -966,7 +960,7 @@ export function VSCodeInterface({ project, onClose }: VSCodeInterfaceProps) {
           setShowRightTerminal(!showRightTerminal);
         }}
         onOpenSettings={() => {
-          toast.info("Settings panel - Feature coming soon!");
+          setShowSettings(true);
         }}
       />
 
@@ -1646,6 +1640,7 @@ export function VSCodeInterface({ project, onClose }: VSCodeInterfaceProps) {
           </Button>
         </div>
       </div>
-    </div>
+      </div>
+    </>
   );
 }

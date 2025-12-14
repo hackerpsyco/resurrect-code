@@ -1,0 +1,22 @@
+# .coderabbit.yaml
+# This config is optimized for the "Captain Code" award
+version: "2"
+
+reviews:
+  # Judges love high-level summaries. Keep this true.
+  high_level_summary: true
+  
+  # This adds a "Walkthrough" section to your PRs. very professional.
+  walkthrough: true
+  
+  # Enable the poem. It's CodeRabbit's signature feature.
+  # It proves to judges you are actually using the tool.
+  poem: true
+  
+  # Auto-review every commit to show "solid OSS workflows"
+  auto_review:
+    enabled: true
+
+chat:
+  # Allows you to talk to the bot in PR comments
+  auto_reply: true

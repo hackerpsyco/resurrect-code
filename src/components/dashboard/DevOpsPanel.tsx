@@ -568,7 +568,15 @@ export function DevOpsPanel({ onClose }: DevOpsPanelProps) {
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-semibold text-white">Real Vercel Deployments</h2>
               <div className="flex items-center gap-2">
-                <Select value={selectedProject} onValueChange={setSelectedProject}>
+                <Select value={selectedProject} onValueChange={(projectId) => {
+                  setSelectedProject(projectId);
+                  // Find the project name for the selected ID
+                  const project = projects.find(p => p.id === projectId);
+                  if (project) {
+                    console.log(`✅ Selected project: ${project.name} (ID: ${projectId})`);
+                    toast.info(`Selected project: ${project.name}`);
+                  }
+                }}>
                   <SelectTrigger className="w-48 bg-[#2d2d30] border-[#464647]">
                     <SelectValue placeholder="Select project" />
                   </SelectTrigger>
@@ -627,10 +635,18 @@ export function DevOpsPanel({ onClose }: DevOpsPanelProps) {
                       // Trigger a deployment that will fail to test automated actions
                       setIsLoading(true);
                       try {
+                        // Get the selected project details
+                        const selectedProjectData = projects.find(p => p.id === selectedProject);
+                        if (!selectedProjectData) {
+                          throw new Error('Selected project not found');
+                        }
+                        
+                        console.log(`🚀 Triggering deployment for project: ${selectedProjectData.name} (${selectedProject})`);
+                        
                         const deployment = await deploymentMonitor.triggerDeployment(selectedProject, {
                           environment: deploymentEnvironment,
                           branch: 'main',
-                          commit: 'test automated error fixing'
+                          commit: `test automated error fixing for ${selectedProjectData.name}`
                         });
                         
                         // Force an error after 5 seconds to test automation
@@ -1139,7 +1155,10 @@ export function DevOpsPanel({ onClose }: DevOpsPanelProps) {
                   <div>
                     <label className="text-sm font-medium text-gray-300">Connection Status</label>
                     <p className="text-xs text-gray-500">
-                      {kestraConnected ? 'Connected to Kestra instance' : 'Not connected - check URL and credentials'}
+                      {kestraConnected 
+                        ? 'Connected to Kestra - Webhook ready for automation' 
+                        : 'Kestra not running - Start with: docker run -p 8080:8080 kestra/kestra:latest server local'
+                      }
                     </p>
                   </div>
                   <Badge className={kestraConnected ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"}>
@@ -1147,16 +1166,45 @@ export function DevOpsPanel({ onClose }: DevOpsPanelProps) {
                   </Badge>
                 </div>
 
+                {!kestraConnected && (
+                  <div className="p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
+                    <div className="flex items-center gap-2 mb-2">
+                      <AlertTriangle className="w-4 h-4 text-yellow-400" />
+                      <span className="text-sm text-yellow-400 font-medium">Kestra Setup Required</span>
+                    </div>
+                    <div className="space-y-2 text-xs text-yellow-300">
+                      <p>1. Start Kestra server:</p>
+                      <code className="bg-[#0d1117] p-2 rounded block text-green-400">
+                        docker run -p 8080:8080 kestra/kestra:latest server local
+                      </code>
+                      <p>2. Deploy workflow to Kestra UI at <a href="http://localhost:8080" target="_blank" className="text-blue-400 hover:underline">http://localhost:8080</a></p>
+                      <p>3. Upload: <code className="text-orange-400">kestra/workflows/resurrect-agent.yml</code></p>
+                    </div>
+                  </div>
+                )}
+
                 <Button 
                   onClick={async () => {
-                    const connected = await kestraService.checkConnection();
-                    setKestraConnected(connected);
-                    toast.info(connected ? '✅ Kestra connected!' : '❌ Kestra connection failed');
+                    setIsLoading(true);
+                    try {
+                      const connected = await kestraService.checkConnection();
+                      setKestraConnected(connected);
+                      if (connected) {
+                        toast.success('✅ Kestra connected successfully!');
+                      } else {
+                        toast.error('❌ Kestra connection failed - check if server is running');
+                      }
+                    } catch (error) {
+                      toast.error('❌ Connection test failed');
+                    } finally {
+                      setIsLoading(false);
+                    }
                   }}
                   variant="outline" 
                   className="w-full"
+                  disabled={isLoading}
                 >
-                  <RefreshCw className="w-4 h-4 mr-2" />
+                  {isLoading ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-2" />}
                   Test Connection
                 </Button>
               </CardContent>

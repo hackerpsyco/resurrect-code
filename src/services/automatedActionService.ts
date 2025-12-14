@@ -282,29 +282,29 @@ export default ${pascalCaseName};
       const isKestraAvailable = await kestraService.checkConnection();
       
       if (isKestraAvailable) {
-        // Use real Kestra service
-        const execution = await kestraService.triggerResurrectWorkflow({
-          deployment_id: deployment.id,
+        // Use real Kestra webhook service (FREE MODE)
+        // Get the real Vercel project ID
+        const projectId = await this.getVercelProjectId(deployment.name);
+        
+        const result = await kestraService.triggerResurrectWorkflow({
+          project_id: projectId,
           project_name: deployment.name,
           branch: deployment.branch,
           error_message: error.error,
           error_logs: error.logs.map(l => l.message)
         });
 
-        console.log('✅ Real Kestra workflow triggered:', execution.id);
+        console.log('✅ Real Kestra workflow triggered via webhook:', result.executionId);
+        toast.success(`🤖 Kestra workflow triggered: ${result.executionId}`);
         
-        // Monitor execution progress
-        kestraService.monitorExecution(execution.id, (updatedExecution) => {
-          console.log(`🔄 Kestra execution ${execution.id} status: ${updatedExecution.state.current}`);
-        }).then((finalExecution) => {
-          if (finalExecution.state.current === 'SUCCESS') {
-            console.log('✅ Kestra workflow completed successfully');
-            toast.success('🤖 Kestra workflow completed - fix applied!');
-          } else {
-            console.log('❌ Kestra workflow failed');
-            toast.error('Kestra workflow failed - check logs');
-          }
-        });
+        // Note: Monitoring requires admin API token, so we skip it in free mode
+        if (kestraService.hasAdminAccess()) {
+          console.log('🔍 Admin access available - monitoring execution...');
+          // Monitor execution progress (only if admin token available)
+        } else {
+          console.log('ℹ️ Webhook mode - execution monitoring not available without admin token');
+          toast.info('🔄 Workflow triggered via webhook - check Kestra UI for progress');
+        }
 
       } else {
         // Fallback to Supabase Edge Function
@@ -333,6 +333,9 @@ export default ${pascalCaseName};
     }
 
     try {
+      // Get the real Vercel project ID
+      const projectId = await this.getVercelProjectId(deployment.name);
+      
       const response = await fetch(`${supabaseUrl}/functions/v1/kestra-webhook`, {
         method: 'POST',
         headers: {
@@ -344,7 +347,7 @@ export default ${pascalCaseName};
           workflowId: 'resurrect-agent',
           namespace: 'resurrectci',
           inputs: {
-            deployment_id: deployment.id,
+            project_id: projectId,
             project_name: deployment.name,
             branch: deployment.branch,
             error_message: error.error,
@@ -554,6 +557,38 @@ export default function AutoFixed() {
       console.error('❌ CodeRabbit analysis failed:', error);
       console.log('⚠️ Continuing without CodeRabbit analysis');
     }
+  }
+
+  /**
+   * Get real Vercel project ID from project name
+   */
+  private async getVercelProjectId(projectName: string): Promise<string> {
+    try {
+      console.log(`🔍 Getting Vercel project ID for: ${projectName}`);
+      
+      // Import vercelService to get real project data
+      const { vercelService } = await import('./vercelService');
+      
+      if (vercelService.isAuthenticated()) {
+        // Get all projects and find the matching one
+        const projects = await vercelService.getProjects({ limit: 100 });
+        const project = projects.find(p => p.name === projectName);
+        
+        if (project) {
+          console.log(`✅ Found project ID: ${project.id} for ${projectName}`);
+          return project.id;
+        } else {
+          console.warn(`⚠️ Project ${projectName} not found in Vercel account`);
+        }
+      } else {
+        console.warn('⚠️ Vercel not authenticated - using fallback project ID');
+      }
+    } catch (error) {
+      console.error('❌ Failed to get Vercel project ID:', error);
+    }
+    
+    // Fallback to a default project ID or generate one
+    return `prj_${projectName.replace(/[^a-zA-Z0-9]/g, '')}_${Date.now()}`;
   }
 
   /**

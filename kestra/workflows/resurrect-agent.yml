@@ -14,9 +14,9 @@ namespace: resurrectci
 description: AI-powered autonomous build error fixing workflow
 
 inputs:
-  - id: deployment_id
+  - id: project_id
     type: STRING
-    description: The deployment ID from the webhook
+    description: Vercel project ID (primary identifier)
     
   - id: project_name
     type: STRING
@@ -37,7 +37,7 @@ inputs:
     description: Detailed error logs
 
 variables:
-  supabase_url: "{{ secret('SUPABASE_URL') }}"
+  supabase_url: "https://eahpikunzsaacibikwtj.supabase.co"
   max_fix_attempts: 3
 
 tasks:
@@ -47,7 +47,7 @@ tasks:
     level: INFO
     message: |
       🚨 Build failure detected!
-      Project: {{ inputs.project_name }}
+      Project: {{ inputs.project_name }} ({{ inputs.project_id }})
       Branch: {{ inputs.branch }}
       Error: {{ inputs.error_message }}
 
@@ -63,7 +63,7 @@ tasks:
       {
         "action": "analyze_error",
         "errorInfo": {
-          "deploymentId": "{{ inputs.deployment_id }}",
+          "projectId": "{{ inputs.project_id }}",
           "projectName": "{{ inputs.project_name }}",
           "branch": "{{ inputs.branch }}",
           "errorMessage": "{{ inputs.error_message }}",
@@ -192,7 +192,7 @@ tasks:
       {
         "action": "workflow_completed",
         "workflowResult": {
-          "deploymentId": "{{ inputs.deployment_id }}",
+          "projectId": "{{ inputs.project_id }}",
           "projectName": "{{ inputs.project_name }}",
           "status": "success",
           "prUrl": "{{ outputs.create_pull_request.body.html_url }}",
@@ -213,22 +213,21 @@ tasks:
       PR: {{ outputs.create_pull_request.body.html_url }}
       Branch: {{ outputs.create_fix_branch.body.ref }}
 
-# Trigger configuration - Multiple options (no Vercel Pro required!)
+# Trigger configuration - FREE MODE WEBHOOK
 triggers:
-  # Option 1: Schedule-based polling (check every 5 minutes)
+  # ✅ WEBHOOK TRIGGER (FREE MODE - NO TOKEN REQUIRED)
+  - id: webhook_trigger
+    type: io.kestra.plugin.core.trigger.Webhook
+    key: "resurrectci"  # Must match kestraService.webhookKey
+    
+  # Option 2: Schedule-based polling (disabled by default)
   - id: schedule_trigger
     type: io.kestra.plugin.core.trigger.Schedule
     cron: "*/5 * * * *"
     disabled: true  # Enable when ready
     
-  # Option 2: Webhook (if available)
-  - id: webhook_trigger
-    type: io.kestra.plugin.core.trigger.Webhook
-    key: "{{ secret('WEBHOOK_KEY') }}"
-    
-  # Option 3: Manual trigger via Kestra UI or API
-  # POST to: {kestra_url}/api/v1/executions/resurrectci/resurrect-agent
-  # Body: { "deployment_id": "...", "project_name": "...", ... }
+  # Option 3: Manual trigger via Kestra UI
+  # Webhook URL: http://localhost:8080/api/v1/executions/webhook/resurrectci/resurrect-agent/resurrectci
 
 # Error handling
 errors:
@@ -237,5 +236,6 @@ errors:
     level: ERROR
     message: |
       ❌ ResurrectCI Agent Failed
-      Error: {{ error.message }}
+      Project: {{ inputs.project_name }} ({{ inputs.project_id }})
       The workflow encountered an error and could not complete the fix.
+      Please check the execution logs for details.

@@ -139,9 +139,36 @@ export function useGitHub() {
         // Fallback to direct GitHub API call (for public repos)
         try {
           console.log('Attempting direct GitHub API fallback...');
+          console.log('Parameters received:', { owner, repo, branch });
+          
+          // Validate and clean parameters
+          const cleanOwner = String(owner).replace(/https?:\/\/github\.com\//, '').split('/')[0];
+          const cleanRepo = String(repo).replace(/https?:\/\/github\.com\/[^\/]+\//, '').split('/')[0];
+          
+          console.log('Cleaned parameters:', { cleanOwner, cleanRepo });
+          
+          if (!cleanOwner || !cleanRepo || cleanOwner.includes('/') || cleanRepo.includes('/')) {
+            throw new Error(`Invalid repository parameters: owner="${cleanOwner}", repo="${cleanRepo}"`);
+          }
           
           // Get repository info first
-          const repoResponse = await fetch(`https://api.github.com/repos/${owner}/${repo}`);
+          const repoUrl = `https://api.github.com/repos/${cleanOwner}/${cleanRepo}`;
+          console.log('Fetching from:', repoUrl);
+          
+          // Get GitHub token from localStorage if available
+          const githubToken = localStorage.getItem("github_token");
+          const headers: Record<string, string> = {
+            "Accept": "application/vnd.github.v3+json",
+          };
+          
+          if (githubToken) {
+            headers["Authorization"] = `Bearer ${githubToken}`;
+            console.log('Using GitHub token for authentication');
+          } else {
+            console.log('No GitHub token found, using unauthenticated request');
+          }
+          
+          const repoResponse = await fetch(repoUrl, { headers });
           if (!repoResponse.ok) {
             if (repoResponse.status === 404) {
               throw new Error(`Repository ${owner}/${repo} not found or is private`);
@@ -156,10 +183,10 @@ export function useGitHub() {
           const targetBranch = branch || defaultBranch;
           
           // Get the tree
-          const treeUrl = `https://api.github.com/repos/${owner}/${repo}/git/trees/${targetBranch}?recursive=1`;
+          const treeUrl = `https://api.github.com/repos/${cleanOwner}/${cleanRepo}/git/trees/${targetBranch}?recursive=1`;
           console.log(`Fetching tree from: ${treeUrl}`);
           
-          const treeResponse = await fetch(treeUrl);
+          const treeResponse = await fetch(treeUrl, { headers });
           if (!treeResponse.ok) {
             if (treeResponse.status === 404 && targetBranch !== defaultBranch) {
               // Try with default branch if requested branch doesn't exist
@@ -249,10 +276,31 @@ export function useGitHub() {
         console.warn('Edge function failed for file fetch, trying direct API:', edgeFunctionError);
         
         // Fallback to direct GitHub API call (for public repos)
-        const targetBranch = branch || 'main';
-        const fileUrl = `https://api.github.com/repos/${owner}/${repo}/contents/${path}?ref=${targetBranch}`;
+        console.log('File fetch fallback - Parameters:', { owner, repo, path, branch });
         
-        const response = await fetch(fileUrl);
+        // Clean parameters
+        const cleanOwner = String(owner).replace(/https?:\/\/github\.com\//, '').split('/')[0];
+        const cleanRepo = String(repo).replace(/https?:\/\/github\.com\/[^\/]+\//, '').split('/')[0];
+        
+        if (!cleanOwner || !cleanRepo) {
+          throw new Error(`Invalid parameters for file fetch: owner="${cleanOwner}", repo="${cleanRepo}"`);
+        }
+        
+        const targetBranch = branch || 'main';
+        const fileUrl = `https://api.github.com/repos/${cleanOwner}/${cleanRepo}/contents/${path}?ref=${targetBranch}`;
+        console.log('File fetch URL:', fileUrl);
+        
+        // Get GitHub token from localStorage if available
+        const githubToken = localStorage.getItem("github_token");
+        const headers: Record<string, string> = {
+          "Accept": "application/vnd.github.v3+json",
+        };
+        
+        if (githubToken) {
+          headers["Authorization"] = `Bearer ${githubToken}`;
+        }
+        
+        const response = await fetch(fileUrl, { headers });
         if (!response.ok) {
           throw new Error(`Failed to fetch file: ${response.status} ${response.statusText}`);
         }

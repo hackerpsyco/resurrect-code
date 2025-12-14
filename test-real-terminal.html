@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Real Terminal Function</title>
+    <style>
+        body { font-family: monospace; padding: 20px; background: #1e1e1e; color: #cccccc; }
+        .container { max-width: 800px; margin: 0 auto; }
+        .output { background: #0d1117; padding: 15px; border-radius: 5px; margin: 10px 0; min-height: 200px; overflow-y: auto; }
+        .input-group { display: flex; gap: 10px; margin: 10px 0; }
+        input { flex: 1; padding: 8px; background: #2d2d30; border: 1px solid #464647; color: #cccccc; }
+        button { padding: 8px 15px; background: #0e639c; color: white; border: none; cursor: pointer; }
+        button:hover { background: #1177bb; }
+        .status { padding: 5px 10px; border-radius: 3px; margin: 5px 0; }
+        .success { background: #0f5132; color: #d1e7dd; }
+        .error { background: #842029; color: #f8d7da; }
+        .info { background: #055160; color: #b3d4fc; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 Real Terminal Function Test</h1>
+        
+        <div class="status info">
+            <strong>Function URL:</strong> https://eahpikunzsaacibikwtj.supabase.co/functions/v1/terminal-executor
+        </div>
+        
+        <div id="status"></div>
+        
+        <h3>1. Health Check</h3>
+        <button onclick="testHealthCheck()">Test Health Check (GET)</button>
+        
+        <h3>2. Create Real Session</h3>
+        <button onclick="createSession()">Create Real Linux Session</button>
+        
+        <h3>3. Execute Commands</h3>
+        <div class="input-group">
+            <input type="text" id="commandInput" placeholder="Enter command (e.g., ls -la, pwd, echo 'hello')" value="ls -la">
+            <button onclick="executeCommand()">Execute Real Command</button>
+        </div>
+        
+        <h3>4. Quick Tests</h3>
+        <button onclick="executeQuickCommand('pwd')">pwd</button>
+        <button onclick="executeQuickCommand('whoami')">whoami</button>
+        <button onclick="executeQuickCommand('uname -a')">uname -a</button>
+        <button onclick="executeQuickCommand('echo Hello Real World!')">echo Hello</button>
+        <button onclick="executeQuickCommand('node --version')">node --version</button>
+        
+        <h3>Output:</h3>
+        <div id="output" class="output"></div>
+        
+        <button onclick="clearOutput()">Clear Output</button>
+    </div>
+
+    <script>
+        let sessionId = null;
+        const functionUrl = 'https://eahpikunzsaacibikwtj.supabase.co/functions/v1/terminal-executor';
+        
+        function log(message, type = 'info') {
+            const output = document.getElementById('output');
+            const timestamp = new Date().toLocaleTimeString();
+            const color = type === 'error' ? '#f44747' : type === 'success' ? '#4ec9b0' : '#cccccc';
+            output.innerHTML += `<div style="color: ${color}">[${timestamp}] ${message}</div>`;
+            output.scrollTop = output.scrollHeight;
+        }
+        
+        function updateStatus(message, type = 'info') {
+            const status = document.getElementById('status');
+            status.className = `status ${type}`;
+            status.innerHTML = message;
+        }
+        
+        async function testHealthCheck() {
+            log('🔍 Testing health check...', 'info');
+            try {
+                const response = await fetch(functionUrl, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    log('✅ Health check successful!', 'success');
+                    log(`Response: ${JSON.stringify(result, null, 2)}`);
+                    updateStatus('✅ Function is running and accessible!', 'success');
+                } else {
+                    log(`❌ Health check failed: ${response.status}`, 'error');
+                    log(`Error: ${JSON.stringify(result, null, 2)}`);
+                    updateStatus(`❌ Function error: ${response.status}`, 'error');
+                }
+            } catch (error) {
+                log(`❌ Health check error: ${error.message}`, 'error');
+                updateStatus(`❌ Connection error: ${error.message}`, 'error');
+            }
+        }
+        
+        async function createSession() {
+            log('🔧 Creating real Linux session...', 'info');
+            sessionId = `test_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+            
+            try {
+                const response = await fetch(functionUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        action: 'create_session',
+                        sessionId: sessionId,
+                        projectPath: 'test-project'
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok && result.success) {
+                    log('✅ Real session created successfully!', 'success');
+                    log(`Session ID: ${sessionId}`);
+                    log(`Working Directory: ${result.workingDir}`);
+                    updateStatus(`✅ Real Linux session active: ${sessionId}`, 'success');
+                } else {
+                    log(`❌ Session creation failed: ${response.status}`, 'error');
+                    log(`Error: ${JSON.stringify(result, null, 2)}`);
+                    updateStatus('❌ Failed to create session', 'error');
+                    sessionId = null;
+                }
+            } catch (error) {
+                log(`❌ Session creation error: ${error.message}`, 'error');
+                updateStatus(`❌ Session error: ${error.message}`, 'error');
+                sessionId = null;
+            }
+        }
+        
+        async function executeCommand() {
+            const command = document.getElementById('commandInput').value.trim();
+            if (!command) {
+                log('❌ Please enter a command', 'error');
+                return;
+            }
+            
+            await executeQuickCommand(command);
+        }
+        
+        async function executeQuickCommand(command) {
+            log(`$ ${command}`, 'info');
+            
+            try {
+                let requestBody;
+                
+                if (sessionId) {
+                    // Use real session execution
+                    requestBody = {
+                        action: 'execute_command',
+                        sessionId: sessionId,
+                        command: command
+                    };
+                    log('⚡ Executing on real Linux session...', 'info');
+                } else {
+                    // Use legacy mode
+                    requestBody = {
+                        command: command,
+                        projectPath: 'test-project',
+                        owner: 'test',
+                        repo: 'project'
+                    };
+                    log('⚡ Executing in legacy mode...', 'info');
+                }
+                
+                const response = await fetch(functionUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(requestBody)
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    if (result.success) {
+                        log('✅ Command executed successfully!', 'success');
+                        if (result.output) {
+                            // Split output into lines for better display
+                            const lines = result.output.split('\n');
+                            lines.forEach(line => {
+                                if (line.trim()) {
+                                    log(line);
+                                }
+                            });
+                        }
+                        if (result.realExecution) {
+                            log('🔥 This was REAL execution on Linux server!', 'success');
+                        }
+                    } else {
+                        log('❌ Command failed', 'error');
+                        if (result.output) log(`Output: ${result.output}`);
+                        if (result.error) log(`Error: ${result.error}`, 'error');
+                    }
+                } else {
+                    log(`❌ Request failed: ${response.status}`, 'error');
+                    log(`Error: ${JSON.stringify(result, null, 2)}`);
+                }
+            } catch (error) {
+                log(`❌ Command execution error: ${error.message}`, 'error');
+            }
+        }
+        
+        function clearOutput() {
+            document.getElementById('output').innerHTML = '';
+        }
+        
+        // Auto-test on load
+        window.onload = function() {
+            log('🚀 Real Terminal Function Tester Loaded', 'success');
+            log('Click "Test Health Check" to verify the function is working');
+            testHealthCheck();
+        };
+    </script>
+</body>
+</html>

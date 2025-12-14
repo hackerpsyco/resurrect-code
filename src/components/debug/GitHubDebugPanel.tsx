@@ -5,8 +5,10 @@ import { useGitHub } from "@/hooks/useGitHub";
 import { toast } from "sonner";
 
 export function GitHubDebugPanel() {
-  const [owner, setOwner] = useState("facebook");
-  const [repo, setRepo] = useState("react");
+  // Get URL parameters
+  const urlParams = new URLSearchParams(window.location.search);
+  const [owner, setOwner] = useState(urlParams.get('owner') || "hackerpsyco");
+  const [repo, setRepo] = useState(urlParams.get('repo') || "resurrect-code");
   const [testResults, setTestResults] = useState<string>("");
   const [isLoading, setIsLoading] = useState(false);
 
@@ -21,22 +23,39 @@ export function GitHubDebugPanel() {
   const testDirectGitHubAPI = async () => {
     setIsLoading(true);
     addResult("Testing direct GitHub API access...");
+    addResult(`Repository URL: https://api.github.com/repos/${owner}/${repo}`);
     
     try {
       // Test repository access
       const repoResponse = await fetch(`https://api.github.com/repos/${owner}/${repo}`);
+      addResult(`Repository API response: ${repoResponse.status} ${repoResponse.statusText}`);
+      
       if (!repoResponse.ok) {
+        if (repoResponse.status === 404) {
+          addResult("Repository not found. This could mean:", "error");
+          addResult("  • Repository doesn't exist", "error");
+          addResult("  • Repository is private and requires authentication", "error");
+          addResult("  • Owner/repo name is incorrect", "error");
+        } else if (repoResponse.status === 403) {
+          addResult("Access forbidden. This could mean:", "error");
+          addResult("  • Rate limit exceeded", "error");
+          addResult("  • Repository requires authentication", "error");
+        }
         throw new Error(`Repository API failed: ${repoResponse.status} ${repoResponse.statusText}`);
       }
       
       const repoData = await repoResponse.json();
       addResult(`Repository found: ${repoData.full_name} (${repoData.private ? 'private' : 'public'})`, "success");
+      addResult(`Default branch: ${repoData.default_branch}`);
+      addResult(`Stars: ${repoData.stargazers_count}, Forks: ${repoData.forks_count}`);
       
       // Test file tree
       const treeUrl = `https://api.github.com/repos/${owner}/${repo}/git/trees/${repoData.default_branch}?recursive=1`;
+      addResult(`Fetching tree from: ${treeUrl}`);
       const treeResponse = await fetch(treeUrl);
       
       if (!treeResponse.ok) {
+        addResult(`Tree API failed: ${treeResponse.status} ${treeResponse.statusText}`, "error");
         throw new Error(`Tree API failed: ${treeResponse.status} ${treeResponse.statusText}`);
       }
       
@@ -51,7 +70,9 @@ export function GitHubDebugPanel() {
       );
       
       addResult(`Filtered files: ${files.length} files (excluding node_modules, .git)`, "success");
-      addResult(`Sample files: ${files.slice(0, 5).map((f: any) => f.path).join(', ')}...`);
+      if (files.length > 0) {
+        addResult(`Sample files: ${files.slice(0, 5).map((f: any) => f.path).join(', ')}...`);
+      }
       
     } catch (error) {
       addResult(`Direct API test failed: ${error instanceof Error ? error.message : 'Unknown error'}`, "error");
@@ -124,7 +145,7 @@ export function GitHubDebugPanel() {
               value={owner}
               onChange={(e) => setOwner(e.target.value)}
               className="bg-[#3c3c3c] border-[#464647] text-[#cccccc]"
-              placeholder="e.g., facebook"
+              placeholder="e.g., hackerpsyco"
             />
           </div>
           <div>
@@ -133,8 +154,58 @@ export function GitHubDebugPanel() {
               value={repo}
               onChange={(e) => setRepo(e.target.value)}
               className="bg-[#3c3c3c] border-[#464647] text-[#cccccc]"
-              placeholder="e.g., react"
+              placeholder="e.g., resurrect-code"
             />
+          </div>
+        </div>
+        
+        <div className="mb-4">
+          <label className="block text-sm mb-2">Quick Test Repositories:</label>
+          <div className="flex gap-2 flex-wrap">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setOwner("hackerpsyco");
+                setRepo("resurrect-code");
+              }}
+              className="text-xs bg-green-900/20 border-green-600/30 text-green-400"
+            >
+              ✅ Your Resurrect Code (Working!)
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setOwner("microsoft");
+                setRepo("vscode");
+              }}
+              className="text-xs"
+            >
+              Microsoft VSCode
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setOwner("vercel");
+                setRepo("next.js");
+              }}
+              className="text-xs"
+            >
+              Vercel Next.js
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setOwner("nodejs");
+                setRepo("node");
+              }}
+              className="text-xs"
+            >
+              Node.js
+            </Button>
           </div>
         </div>
       </div>

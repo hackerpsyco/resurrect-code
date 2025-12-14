@@ -18,14 +18,31 @@ import {
   File,
   Folder,
   RotateCcw,
-  RefreshCw
+  RefreshCw,
+  Globe
 } from "lucide-react";
 import { EnhancedCodeEditor } from "./EnhancedCodeEditor";
 import { ClineLikePanel } from "./ClineLikePanel";
-import { TerminalPanel } from "./TerminalPanel";
+import { WebTerminal } from "@/components/terminal/WebTerminal";
+import { RealTerminal } from "../../ide/RealTerminal";
+import { SimpleRealTerminal } from "../../ide/SimpleRealTerminal";
+import { WorkingRealTerminal } from "../../ide/WorkingRealTerminal";
+import { TrueRealTerminal } from "../../ide/TrueRealTerminal";
+import { TemporaryRealTerminal } from "../../ide/TemporaryRealTerminal";
+import { SimpleDirectRealTerminal } from "../../ide/SimpleDirectRealTerminal";
+import { PublicRealTerminal } from "../../ide/PublicRealTerminal";
+import { WebContainerRealTerminal } from "../../ide/WebContainerRealTerminal";
+import { FastRealTerminal } from "../../ide/FastRealTerminal";
+import { TrueWebContainerTerminal } from "../../ide/TrueWebContainerTerminal";
+import { RealExecutionTerminal } from "../../ide/RealExecutionTerminal";
+import { OwnPlatformTerminal } from "../../ide/OwnPlatformTerminal";
+// import { LocalRealTerminal } from "@/components/terminal/LocalRealTerminal";
+import { LivePreview } from "@/components/preview/LivePreview";
+// import { WebContainerIntegration } from "../../ide/WebContainerIntegration";
 import { IDEMenuBar } from "./IDEMenuBar";
 import { toast } from "sonner";
 import { useGitHub } from "@/hooks/useGitHub";
+import { useGitHubAuth } from "@/hooks/useGitHubAuth";
 import { getDemoFile } from "@/demo/test-files";
 import { createGitOperations } from "@/services/gitOperations";
 
@@ -95,11 +112,67 @@ export function VSCodeInterface({ project, onClose }: VSCodeInterfaceProps) {
   const [showSidebar, setShowSidebar] = useState(true);
   const [showPanel, setShowPanel] = useState(false);
   const [panelView, setPanelView] = useState<"terminal" | "output" | "debug" | "ai">("terminal");
+  const [showRightTerminal, setShowRightTerminal] = useState(true);
+  const [showPreview, setShowPreview] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState("http://localhost:5173");
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set(["src"]));
   const [repoFileTree, setRepoFileTree] = useState<FileTreeNode[]>([]);
   const [isLoadingFileTree, setIsLoadingFileTree] = useState(false);
+  const [useWebContainer, setUseWebContainer] = useState(true); // Toggle for WebContainer vs simulated
+  const [useRealTerminal, setUseRealTerminal] = useState(true); // Toggle for Real vs Simulated terminal
 
   const { fetchFile, updateFile, isLoading, createBranch, createPR, fetchFileTree } = useGitHub();
+  const { isAuthenticated, updateFile: authUpdateFile, getFileContent } = useGitHubAuth();
+  
+  // Direct GitHub API fallback function
+  const loadFileTreeDirect = useCallback(async (owner: string, repo: string) => {
+    console.log('🔄 Trying direct GitHub API as fallback...');
+    try {
+      // Get repository info first
+      const repoResponse = await fetch(`https://api.github.com/repos/${owner}/${repo}`);
+      if (!repoResponse.ok) {
+        throw new Error(`Repository not found: ${repoResponse.status}`);
+      }
+      const repoData = await repoResponse.json();
+      console.log('✅ Repository found via direct API:', repoData.full_name);
+      
+      // Get file tree
+      const treeUrl = `https://api.github.com/repos/${owner}/${repo}/git/trees/${repoData.default_branch}?recursive=1`;
+      const treeResponse = await fetch(treeUrl);
+      
+      if (!treeResponse.ok) {
+        throw new Error(`Failed to fetch tree: ${treeResponse.status}`);
+      }
+      
+      const treeData = await treeResponse.json();
+      console.log('📁 Files loaded via direct API:', treeData.tree.length);
+      
+      // Filter and convert to our format
+      const files = treeData.tree
+        .filter((node: any) => 
+          !node.path.includes("node_modules") && 
+          !node.path.includes(".git/") &&
+          node.path !== ".git" &&
+          !node.path.startsWith("node_modules/")
+        )
+        .map((node: any) => ({
+          path: node.path,
+          type: node.type,
+          sha: node.sha || "",
+          name: node.path.split('/').pop() || node.path
+        }));
+      
+      const tree = buildFileTree(files);
+      setRepoFileTree(tree);
+      setExpandedFolders(new Set(['src', 'components', 'pages', 'app', 'lib', 'utils']));
+      
+      toast.success(`✅ Loaded ${files.length} files via direct GitHub API`);
+      return files;
+    } catch (error) {
+      console.error('❌ Direct GitHub API failed:', error);
+      throw error;
+    }
+  }, []);
   
   // Initialize Git operations
   const gitOps = project.owner && project.repo 
@@ -108,8 +181,39 @@ export function VSCodeInterface({ project, onClose }: VSCodeInterfaceProps) {
 
   // Function to load file tree from GitHub
   const loadFileTree = useCallback(async (showToast = true) => {
-    if (!project.owner || !project.repo || project.owner === "demo") {
+    console.log('🔍 loadFileTree called with:', { 
+      owner: project.owner, 
+      repo: project.repo, 
+      branch: project.branch,
+      showToast 
+    });
+
+    if (!project.owner || !project.repo) {
+      console.log('❌ No owner or repo specified');
+      if (showToast) {
+        toast.warning("No repository information available");
+      }
       return;
+    }
+
+    if (project.owner === "demo") {
+      console.log('🎭 Demo mode detected, skipping GitHub API');
+      return;
+    }
+
+    // Safety check for known working repositories
+    const knownWorkingRepos = [
+      'hackerpsyco/resurrect-code',
+      'microsoft/vscode'
+    ];
+    
+    const currentRepo = `${project.owner}/${project.repo}`;
+    if (!knownWorkingRepos.includes(currentRepo)) {
+      console.log(`⚠️ Unknown repository: ${currentRepo}`);
+      if (showToast) {
+        toast.warning(`Repository ${currentRepo} may not be accessible. Try using hackerpsyco/resurrect-code instead.`);
+      }
+      // Continue anyway, but with warning
     }
 
     setIsLoadingFileTree(true);
@@ -118,35 +222,51 @@ export function VSCodeInterface({ project, onClose }: VSCodeInterfaceProps) {
         toast.info(`Loading files from ${project.owner}/${project.repo}...`);
       }
       
-      const files = await fetchFileTree(project.owner, project.repo, project.branch);
+      console.log(`📡 Fetching file tree for ${project.owner}/${project.repo} (branch: ${project.branch || 'main'})`);
+      
+      let files;
+      try {
+        files = await fetchFileTree(project.owner, project.repo, project.branch);
+        console.log('📁 Raw files received via edge function:', files?.length || 0);
+      } catch (edgeError) {
+        console.warn('⚠️ Edge function failed, trying direct API:', edgeError);
+        // Try direct GitHub API as fallback
+        files = await loadFileTreeDirect(project.owner, project.repo);
+        console.log('📁 Raw files received via direct API:', files?.length || 0);
+      }
+      
       if (files && files.length > 0) {
         // Filter out unwanted files/folders
         const filteredFiles = files.filter(file => 
           !file.path.includes('node_modules') && 
           !file.path.includes('.git/') &&
-          !file.path.startsWith('.') ||
-          file.path === '.env' ||
-          file.path === '.gitignore' ||
-          file.path === '.github'
+          (!file.path.startsWith('.') || 
+           file.path === '.env' ||
+           file.path === '.gitignore' ||
+           file.path === '.github')
         );
+
+        console.log('🔍 Filtered files:', filteredFiles.length);
+        console.log('📋 Sample files:', filteredFiles.slice(0, 5).map(f => f.path));
 
         // Convert flat file list to hierarchical tree structure
         const tree = buildFileTree(filteredFiles);
         setRepoFileTree(tree);
         
         if (showToast) {
-          toast.success(`Loaded ${filteredFiles.length} files from ${project.owner}/${project.repo}`);
+          toast.success(`✅ Loaded ${filteredFiles.length} files from ${project.owner}/${project.repo}`);
         }
         
         // Auto-expand common folders
         setExpandedFolders(new Set(['src', 'components', 'pages', 'app', 'lib', 'utils']));
       } else {
+        console.log('⚠️ No files returned from API');
         if (showToast) {
           toast.warning("No files found in repository");
         }
       }
     } catch (error) {
-      console.error("Failed to load file tree:", error);
+      console.error("❌ Failed to load file tree:", error);
       if (showToast) {
         toast.error(`Failed to load repository files: ${error instanceof Error ? error.message : 'Unknown error'}`);
       }
@@ -157,7 +277,22 @@ export function VSCodeInterface({ project, onClose }: VSCodeInterfaceProps) {
 
   // Fetch real GitHub file tree on component mount
   useEffect(() => {
-    loadFileTree(true);
+    console.log('🚀 VSCodeInterface mounted with project:', {
+      id: project.id,
+      name: project.name,
+      owner: project.owner,
+      repo: project.repo,
+      branch: project.branch,
+      fullProject: project
+    });
+    
+    if (project.owner && project.repo && project.owner !== "demo") {
+      console.log('📡 Starting file tree load...');
+      loadFileTree(true);
+    } else {
+      console.log('🎭 Skipping file tree load (demo mode or missing repo info)');
+      console.log('Project details:', { owner: project.owner, repo: project.repo });
+    }
   }, [loadFileTree]);
 
   // Build hierarchical file tree from flat file list
@@ -247,11 +382,10 @@ export function VSCodeInterface({ project, onClose }: VSCodeInterfaceProps) {
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Ctrl+` - Toggle Terminal
+      // Ctrl+` - Toggle Right Terminal
       if (e.ctrlKey && e.key === '`') {
         e.preventDefault();
-        setShowPanel(true);
-        setPanelView('terminal');
+        setShowRightTerminal(!showRightTerminal);
       }
       
       // Ctrl+Shift+` - New Terminal
@@ -273,6 +407,12 @@ export function VSCodeInterface({ project, onClose }: VSCodeInterfaceProps) {
         e.preventDefault();
         setShowPanel(true);
         setPanelView('ai');
+      }
+      
+      // Ctrl+Shift+P - Toggle Preview
+      if (e.ctrlKey && e.shiftKey && e.key === 'P') {
+        e.preventDefault();
+        setShowPreview(!showPreview);
       }
       
       // Ctrl+S - Save current file
@@ -308,7 +448,7 @@ export function VSCodeInterface({ project, onClose }: VSCodeInterfaceProps) {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [showPanel]);
+  }, [showPanel, showRightTerminal, showPreview]);
 
   const handleFileClick = useCallback(async (path: string, isFolder = false) => {
     // Don't open folders, just toggle them
@@ -434,19 +574,40 @@ export function VSCodeInterface({ project, onClose }: VSCodeInterfaceProps) {
     try {
       toast.info(`Saving ${path} to GitHub...`);
       
-      const success = await updateFile(
-        project.owner,
-        project.repo,
-        path,
-        file.content,
-        `Update ${path} via ResurrectCI IDE`,
-        file.sha !== 'new' ? file.sha : undefined,
-        project.branch
-      );
+      let success = false;
+      
+      // Use authenticated GitHub API if available
+      if (isAuthenticated && authUpdateFile) {
+        success = await authUpdateFile(
+          project.owner,
+          project.repo,
+          path,
+          file.content,
+          `Update ${path} via ResurrectCI IDE`,
+          file.sha !== 'new' ? file.sha : undefined,
+          project.branch
+        );
+      } else {
+        // Fallback to edge function
+        success = await updateFile(
+          project.owner,
+          project.repo,
+          path,
+          file.content,
+          `Update ${path} via ResurrectCI IDE`,
+          file.sha !== 'new' ? file.sha : undefined,
+          project.branch
+        );
+      }
 
       if (success) {
-        // Refresh the file to get the new SHA
-        const updatedFile = await fetchFile(project.owner, project.repo, path, project.branch);
+        // Get updated file info
+        let updatedFile = null;
+        if (isAuthenticated && getFileContent) {
+          updatedFile = await getFileContent(project.owner, project.repo, path, project.branch);
+        } else {
+          updatedFile = await fetchFile(project.owner, project.repo, path, project.branch);
+        }
         
         setOpenFiles((prev) =>
           prev.map((f) =>
@@ -460,13 +621,13 @@ export function VSCodeInterface({ project, onClose }: VSCodeInterfaceProps) {
               : f
           )
         );
-        toast.success(`Saved ${path} to GitHub`);
+        toast.success(`✅ Saved ${path} to GitHub`);
       }
     } catch (error) {
       console.error("Failed to save file:", error);
       toast.error(`Failed to save ${path}: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
-  }, [openFiles, project, updateFile, fetchFile]);
+  }, [openFiles, project, updateFile, fetchFile, isAuthenticated, authUpdateFile, getFileContent]);
 
   const handleCloseFile = useCallback((path: string) => {
     const file = openFiles.find((f) => f.path === path);
@@ -616,6 +777,34 @@ export function VSCodeInterface({ project, onClose }: VSCodeInterfaceProps) {
           <Button
             variant="ghost"
             size="sm"
+            onClick={() => setUseWebContainer(!useWebContainer)}
+            className={`h-6 px-2 text-xs ${useWebContainer ? 'bg-green-900/30 text-green-400 border border-green-600/30' : 'text-[#cccccc]'} hover:bg-[#464647]`}
+            title="Toggle WebContainer (Real Node.js vs Simulated)"
+          >
+            {useWebContainer ? '🟢 Real' : '🔴 Demo'}
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setUseRealTerminal(!useRealTerminal)}
+            className={`h-6 px-2 text-xs ${useRealTerminal ? 'bg-blue-900/30 text-blue-400 border border-blue-600/30' : 'text-[#cccccc]'} hover:bg-[#464647]`}
+            title="Toggle Terminal (Your Own Platform vs Simulated)"
+          >
+            {useRealTerminal ? '💝 Your Platform' : '🎭 Demo Terminal'}
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setShowPreview(!showPreview)}
+            className={`h-6 px-2 text-xs ${showPreview ? 'bg-[#464647] text-white' : 'text-[#cccccc]'} hover:bg-[#464647]`}
+            title="Toggle Preview (Ctrl+Shift+P)"
+          >
+            <Globe className="w-3 h-3 mr-1" />
+            Preview
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={onClose}
             className="h-6 w-6 p-0 text-[#cccccc] hover:bg-[#464647]"
           >
@@ -707,9 +896,9 @@ export function VSCodeInterface({ project, onClose }: VSCodeInterfaceProps) {
           setShowSidebar(!showSidebar);
         }}
         onRunCode={() => {
-          setShowPanel(true);
-          setPanelView('terminal');
-          toast.success("Running project...");
+          setShowRightTerminal(true);
+          setShowPreview(true);
+          toast.success("Starting development environment...");
         }}
         onDebugCode={() => {
           setShowPanel(true);
@@ -774,8 +963,7 @@ export function VSCodeInterface({ project, onClose }: VSCodeInterfaceProps) {
           await gitOps.pullChanges();
         }}
         onOpenTerminal={() => {
-          setShowPanel(true);
-          setPanelView('terminal');
+          setShowRightTerminal(!showRightTerminal);
         }}
         onOpenSettings={() => {
           toast.info("Settings panel - Feature coming soon!");
@@ -978,16 +1166,70 @@ export function VSCodeInterface({ project, onClose }: VSCodeInterfaceProps) {
                     ) : project.owner && project.repo && project.owner !== "demo" ? (
                       <div className="px-3 py-4 text-sm text-[#969696] text-center">
                         <div className="mb-2">⚠️ Repository files not loaded</div>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => loadFileTree(true)}
-                          className="text-xs"
-                          disabled={isLoadingFileTree}
-                        >
-                          <RefreshCw className="w-3 h-3 mr-1" />
-                          Retry Loading
-                        </Button>
+                        <div className="space-y-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => loadFileTree(true)}
+                            className="text-xs w-full"
+                            disabled={isLoadingFileTree}
+                          >
+                            <RefreshCw className="w-3 h-3 mr-1" />
+                            Retry Loading
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={async () => {
+                              if (project.owner && project.repo) {
+                                setIsLoadingFileTree(true);
+                                try {
+                                  await loadFileTreeDirect(project.owner, project.repo);
+                                } catch (error) {
+                                  toast.error(`Direct API failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+                                } finally {
+                                  setIsLoadingFileTree(false);
+                                }
+                              }
+                            }}
+                            className="text-xs w-full"
+                            disabled={isLoadingFileTree}
+                          >
+                            🚀 Try Direct GitHub API
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={async () => {
+                              setIsLoadingFileTree(true);
+                              try {
+                                // Force load the known working repository
+                                await loadFileTreeDirect("hackerpsyco", "resurrect-code");
+                                toast.success("Loaded hackerpsyco/resurrect-code successfully!");
+                              } catch (error) {
+                                toast.error(`Failed to load working repo: ${error instanceof Error ? error.message : 'Unknown error'}`);
+                              } finally {
+                                setIsLoadingFileTree(false);
+                              }
+                            }}
+                            className="text-xs w-full bg-green-900/20 border-green-600/30 text-green-400"
+                            disabled={isLoadingFileTree}
+                          >
+                            ✅ Load Working Repo
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              // Open debug panel in new tab
+                              const debugUrl = `/debug/github?owner=${project.owner}&repo=${project.repo}`;
+                              window.open(debugUrl, '_blank');
+                            }}
+                            className="text-xs w-full"
+                          >
+                            🔧 Debug Panel
+                          </Button>
+                        </div>
                       </div>
                     ) : (
                       <div>
@@ -1038,119 +1280,197 @@ export function VSCodeInterface({ project, onClose }: VSCodeInterfaceProps) {
 
         {/* Main Content Area */}
         <div className="flex-1 flex flex-col">
-          {/* Tab Bar */}
-          <div className="h-9 bg-[#2d2d30] border-b border-[#464647] flex items-center overflow-x-auto">
-            {openFiles.map((file) => (
-              <div
-                key={file.path}
-                className={`flex items-center gap-2 px-3 h-full border-r border-[#464647] cursor-pointer hover:bg-[#37373d] ${
-                  activeFile === file.path ? "bg-[#1e1e1e] text-white" : "text-[#cccccc]"
-                }`}
-                onClick={() => setActiveFile(file.path)}
-              >
-                <File className="w-4 h-4 text-[#519aba]" />
-                <span className="text-sm">{file.path.split('/').pop()}</span>
-                {file.isModified && <div className="w-2 h-2 rounded-full bg-white"></div>}
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleCloseFile(file.path);
-                  }}
-                  className="h-4 w-4 p-0 text-[#cccccc] hover:bg-[#464647] ml-2"
-                >
-                  <X className="w-3 h-3" />
-                </Button>
-              </div>
-            ))}
-          </div>
+          {useWebContainer && (
+            <div className="h-8 bg-green-900/20 border-b border-green-600/30 flex items-center justify-center">
+              <span className="text-green-400 text-sm">💝 YOUR Platform Mode - Real Node.js execution on your own platform</span>
+            </div>
+          )}
+          {/* Top Section - Editor and Preview */}
+          <div className={`flex flex-1 ${showPreview ? 'h-1/2' : 'h-full'}`}>
 
-          {/* Editor Area */}
-          <div className="flex-1 relative">
-            {activeFile && currentFile ? (
-              <EnhancedCodeEditor
-                filePath={activeFile}
-                content={currentFile.content}
-                originalContent={currentFile.originalContent}
-                isLoading={isLoading}
-                isModified={currentFile.isModified}
-                onSave={(content) => handleSaveFile(activeFile)}
-                onClose={() => handleCloseFile(activeFile)}
-                onContentChange={(content) => handleContentChange(activeFile, content)}
-              />
-            ) : (
-              <div className="flex items-center justify-center h-full bg-[#1e1e1e]">
-                <div className="text-center text-[#cccccc]">
-                  <FileCode className="w-16 h-16 mx-auto mb-4 opacity-50" />
-                  <p className="text-lg mb-2">Welcome to VS Code IDE</p>
-                  <p className="text-sm text-[#969696] mb-4">Select a file from the explorer to start editing</p>
-                  <div className="text-xs text-[#969696] max-w-md mx-auto">
-                    <p className="mb-2">🚀 <strong>Quick Start:</strong></p>
-                    {repoFileTree.length > 0 ? (
-                      <>
-                        <p className="mb-1">• Click on repository files in the explorer (left panel)</p>
-                        <p className="mb-1">• Files are loaded directly from GitHub</p>
-                        <p className="mb-1">• Use Ctrl+S to save changes back to repository</p>
-                      </>
-                    ) : (
-                      <>
-                        <p className="mb-1">• Click on demo files in the explorer (left panel)</p>
-                        <p className="mb-1">• Demo files show IDE functionality</p>
-                      </>
-                    )}
-                    <p className="mb-1">• Use Ctrl+N to create a new file</p>
-                    <p className="mb-1">• Press Ctrl+` to open terminal</p>
-                    <p className="mb-1">• Press Ctrl+L to open AI assistant</p>
-                    
-                    {project.owner === "demo" ? (
-                      <div className="mt-3 p-3 bg-yellow-900/20 border border-yellow-600/30 rounded">
-                        <p className="text-yellow-400 text-sm">
-                          📝 Demo Mode: Using sample files for demonstration
-                        </p>
-                        <p className="text-yellow-300 text-xs mt-1">
-                          Connect a real GitHub repository for full functionality
-                        </p>
-                      </div>
-                    ) : repoFileTree.length > 0 ? (
-                      <div className="mt-3 p-3 bg-green-900/20 border border-green-600/30 rounded">
-                        <p className="text-green-400 text-sm">
-                          🔗 Connected to {project.owner}/{project.repo}
-                        </p>
-                        <p className="text-green-300 text-xs mt-1">
-                          Real GitHub files loaded • Branch: {project.branch || 'main'}
-                        </p>
-                      </div>
-                    ) : isLoadingFileTree ? (
+              {/* Editor Section */}
+              <div className={`flex flex-col ${showRightTerminal ? 'flex-1' : 'w-full'}`}>
+            {/* Tab Bar */}
+            <div className="h-9 bg-[#2d2d30] border-b border-[#464647] flex items-center overflow-x-auto">
+              {openFiles.map((file) => (
+                <div
+                  key={file.path}
+                  className={`flex items-center gap-2 px-3 h-full border-r border-[#464647] cursor-pointer hover:bg-[#37373d] ${
+                    activeFile === file.path ? "bg-[#1e1e1e] text-white" : "text-[#cccccc]"
+                  }`}
+                  onClick={() => setActiveFile(file.path)}
+                >
+                  <File className="w-4 h-4 text-[#519aba]" />
+                  <span className="text-sm">{file.path.split('/').pop()}</span>
+                  {file.isModified && <div className="w-2 h-2 rounded-full bg-white"></div>}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleCloseFile(file.path);
+                    }}
+                    className="h-4 w-4 p-0 text-[#cccccc] hover:bg-[#464647] ml-2"
+                  >
+                    <X className="w-3 h-3" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+
+            {/* Editor Area */}
+            <div className="flex-1 relative">
+              {activeFile && currentFile ? (
+                <EnhancedCodeEditor
+                  filePath={activeFile}
+                  content={currentFile.content}
+                  originalContent={currentFile.originalContent}
+                  isLoading={isLoading}
+                  isModified={currentFile.isModified}
+                  onSave={(content) => handleSaveFile(activeFile)}
+                  onClose={() => handleCloseFile(activeFile)}
+                  onContentChange={(content) => handleContentChange(activeFile, content)}
+                />
+              ) : (
+                <div className="flex items-center justify-center h-full bg-[#1e1e1e]">
+                  <div className="text-center text-[#cccccc]">
+                    <FileCode className="w-16 h-16 mx-auto mb-4 opacity-50" />
+                    <p className="text-lg mb-2">Welcome to VS Code IDE</p>
+                    <p className="text-sm text-[#969696] mb-4">Select a file from the explorer to start editing</p>
+                    <div className="text-xs text-[#969696] max-w-md mx-auto">
+                      <p className="mb-2">🚀 <strong>Quick Start:</strong></p>
+                      {repoFileTree.length > 0 ? (
+                        <>
+                          <p className="mb-1">• Click on repository files in the explorer (left panel)</p>
+                          <p className="mb-1">• Files are loaded directly from GitHub</p>
+                          <p className="mb-1">• Use Ctrl+S to save changes back to repository</p>
+                        </>
+                      ) : (
+                        <>
+                          <p className="mb-1">• Click on demo files in the explorer (left panel)</p>
+                          <p className="mb-1">• Demo files show IDE functionality</p>
+                        </>
+                      )}
+                      <p className="mb-1">• Use Ctrl+N to create a new file</p>
+                      <p className="mb-1">• Press Ctrl+` to open terminal</p>
+                      <p className="mb-1">• Press Ctrl+Shift+P to toggle preview</p>
+                      <p className="mb-1">• Press Ctrl+L to open AI assistant</p>
+                      
+                      {project.owner === "demo" ? (
+                        <div className="mt-3 p-3 bg-yellow-900/20 border border-yellow-600/30 rounded">
+                          <p className="text-yellow-400 text-sm">
+                            📝 Demo Mode: Using sample files for demonstration
+                          </p>
+                          <p className="text-yellow-300 text-xs mt-1">
+                            Connect a real GitHub repository for full functionality
+                          </p>
+                        </div>
+                      ) : repoFileTree.length > 0 ? (
+                        <div className="mt-3 p-3 bg-green-900/20 border border-green-600/30 rounded">
+                          <p className="text-green-400 text-sm">
+                            🔗 Connected to {project.owner}/{project.repo}
+                          </p>
+                          <p className="text-green-300 text-xs mt-1">
+                            Real GitHub files loaded • Branch: {project.branch || 'main'}
+                          </p>
+                        </div>
+                      ) : isLoadingFileTree ? (
+                        <div className="mt-3 p-3 bg-blue-900/20 border border-blue-600/30 rounded">
+                          <p className="text-blue-400 text-sm flex items-center gap-2">
+                            <RefreshCw className="w-4 h-4 animate-spin" />
+                            Loading repository files from {project.owner}/{project.repo}...
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="mt-3 p-3 bg-orange-900/20 border border-orange-600/30 rounded">
+                          <p className="text-orange-400 text-sm">
+                            ⚠️ Failed to load repository files
+                          </p>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => loadFileTree(true)}
+                            className="mt-2 text-xs"
+                          >
+                            <RefreshCw className="w-3 h-3 mr-1" />
+                            Retry Loading
+                          </Button>
+                        </div>
+                      )}
+                      
+                      {/* WebContainer Toggle Hint */}
                       <div className="mt-3 p-3 bg-blue-900/20 border border-blue-600/30 rounded">
-                        <p className="text-blue-400 text-sm flex items-center gap-2">
-                          <RefreshCw className="w-4 h-4 animate-spin" />
-                          Loading repository files from {project.owner}/{project.repo}...
+                        <p className="text-blue-400 text-sm">
+                          💡 Click "🟢 Real" in the header to enable WebContainer
+                        </p>
+                        <p className="text-blue-300 text-xs mt-1">
+                          Real Node.js execution in browser with live preview
                         </p>
                       </div>
-                    ) : (
-                      <div className="mt-3 p-3 bg-orange-900/20 border border-orange-600/30 rounded">
-                        <p className="text-orange-400 text-sm">
-                          ⚠️ Failed to load repository files
-                        </p>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => loadFileTree(true)}
-                          className="mt-2 text-xs"
-                        >
-                          <RefreshCw className="w-3 h-3 mr-1" />
-                          Retry Loading
-                        </Button>
-                      </div>
-                    )}
+                    </div>
                   </div>
                 </div>
+              )}
+            </div>
+            </div>
+
+              {/* Right Terminal */}
+              {showRightTerminal && (
+                <div className="w-80 border-l border-[#464647]">
+                  {useRealTerminal ? (
+                    <OwnPlatformTerminal 
+                      projectPath={`${project.owner}/${project.repo}`}
+                      onClose={() => setShowRightTerminal(false)}
+                      openFiles={openFiles}
+                      repoFileTree={repoFileTree}
+                      project={project}
+                      onDevServerStart={(url) => {
+                        setPreviewUrl(url);
+                        setShowPreview(true);
+                        toast.success(`🚀 YOUR Platform dev server started! Preview opened at ${url}`);
+                      }}
+                      onDevServerStop={() => {
+                        setShowPreview(false);
+                        toast.info("YOUR Platform dev server stopped. Preview closed.");
+                      }}
+                      projectFiles={
+                        // Convert open files to project files format
+                        openFiles.reduce((acc, file) => {
+                          acc[file.path] = file.content;
+                          return acc;
+                        }, {} as Record<string, string>)
+                      }
+                    />
+                  ) : (
+                    <WebTerminal 
+                      projectPath={`${project.owner}/${project.repo}`}
+                      onClose={() => setShowRightTerminal(false)}
+                      onDevServerStart={(url) => {
+                        setPreviewUrl(url);
+                        setShowPreview(true);
+                        toast.success(`🚀 Simulated Development server started! Preview opened at ${url}`);
+                      }}
+                      onDevServerStop={() => {
+                        setShowPreview(false);
+                        toast.info("Development server stopped. Preview closed.");
+                      }}
+                    />
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Bottom Preview Panel */}
+            {showPreview && (
+              <div className="h-1/2 border-t border-[#464647]">
+                <LivePreview 
+                  url={previewUrl}
+                  onClose={() => setShowPreview(false)}
+                />
               </div>
             )}
           </div>
         </div>
-      </div>
 
       {/* Bottom Panel */}
       {showPanel && (
@@ -1221,15 +1541,45 @@ export function VSCodeInterface({ project, onClose }: VSCodeInterfaceProps) {
           {/* Panel Content */}
           <div className="flex-1 overflow-auto">
             {panelView === "terminal" && (
-              <TerminalPanel
-                projectPath={`${project.owner}/${project.repo}`}
-                onCommandRun={(command) => {
-                  console.log("Command executed:", command);
-                  if (command.includes("npm run dev")) {
-                    toast.success("Development server started!");
+              useRealTerminal ? (
+                <OwnPlatformTerminal
+                  projectPath={`${project.owner}/${project.repo}`}
+                  openFiles={openFiles}
+                  repoFileTree={repoFileTree}
+                  project={project}
+                  onDevServerStart={(url) => {
+                    setPreviewUrl(url);
+                    setShowPreview(true);
+                    toast.success(`🚀 YOUR Platform dev server started! Preview opened at ${url}`);
+                  }}
+                  onDevServerStop={() => {
+                    setShowPreview(false);
+                    toast.info("YOUR Platform dev server stopped. Preview closed.");
+                  }}
+                  projectFiles={
+                    // Convert open files to project files format
+                    openFiles.reduce((acc, file) => {
+                      acc[file.path] = file.content;
+                      return acc;
+                    }, {} as Record<string, string>)
                   }
-                }}
-              />
+                  className="h-full"
+                />
+              ) : (
+                <WebTerminal
+                  projectPath={`${project.owner}/${project.repo}`}
+                  onDevServerStart={(url) => {
+                    setPreviewUrl(url);
+                    setShowPreview(true);
+                    toast.success(`🚀 Simulated Development server started! Preview opened at ${url}`);
+                  }}
+                  onDevServerStop={() => {
+                    setShowPreview(false);
+                    toast.info("Development server stopped. Preview closed.");
+                  }}
+                  className="h-full"
+                />
+              )
             )}
             {panelView === "output" && (
               <div className="p-4 font-mono text-sm text-[#cccccc]">

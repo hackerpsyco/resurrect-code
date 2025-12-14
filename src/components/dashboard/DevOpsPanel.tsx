@@ -144,24 +144,10 @@ export function DevOpsPanel({ onClose }: DevOpsPanelProps) {
       } catch (error) {
         console.error('Failed to load user data:', error);
         
-        // Fallback to environment variables for demo
-        const envVercelToken = import.meta.env.VITE_VERCEL_TOKEN;
-        if (envVercelToken && !vercelService.isAuthenticated()) {
-          console.log('🔑 Using fallback environment token...');
-          try {
-            const user = await vercelService.verifyToken(envVercelToken);
-            vercelService.setToken(envVercelToken);
-            vercelService.cacheUser(user);
-            
-            setIsConnected(true);
-            setVercelToken(envVercelToken);
-            
-            console.log('✅ Connected to Vercel as:', user.username);
-            toast.success(`🚀 Connected to Vercel as ${user.username}!`);
-          } catch (error) {
-            console.warn('Environment token failed:', error);
-          }
-        }
+        // 🔒 SECURITY: Do NOT auto-connect with environment token for new users
+        // Each user must provide their own Vercel token
+        console.log('🔐 New user detected - no auto-connection for security');
+        toast.info('🔐 Please connect your own Vercel account for security');
       }
       
       // Check if already connected to Vercel

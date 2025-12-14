@@ -43,6 +43,8 @@ import { useGitHub } from "@/hooks/useGitHub";
 import { useVercel } from "@/hooks/useVercel";
 import { useAuth } from "@/hooks/useAuth";
 import { projectCache } from "@/services/projectCache";
+import { Navigate } from "react-router-dom";
+import { toast } from "sonner";
 
 interface Project {
   id: string;
@@ -134,6 +136,14 @@ const activityLog = [
 ];
 
 export default function Dashboard() {
+  const { user, signOut } = useAuth();
+  
+  // 🔒 SECURITY: Redirect to auth if not logged in
+  if (!user) {
+    console.log('🔐 Unauthorized access to dashboard - redirecting to auth');
+    return <Navigate to="/auth" replace />;
+  }
+
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [ideProject, setIdeProject] = useState<Project | null>(null);
   const [activeView, setActiveView] = useState<"dashboard" | "editor" | "extensions" | "issues" | "devops" | "settings">("dashboard");
@@ -808,16 +818,40 @@ export default function Dashboard() {
 
         {/* User Profile */}
         <div className="p-4 border-t border-[#30363d]">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 mb-3">
             <Avatar className="w-8 h-8">
               <AvatarImage src="/placeholder-avatar.jpg" />
-              <AvatarFallback className="bg-[#238636] text-white">AC</AvatarFallback>
+              <AvatarFallback className="bg-[#238636] text-white">
+                {user?.email?.charAt(0).toUpperCase() || 'U'}
+              </AvatarFallback>
             </Avatar>
             <div className="flex-1 min-w-0">
-              <div className="text-sm font-medium">Alex Chen</div>
-              <div className="text-xs text-[#7d8590]">Pro Plan</div>
+              <div className="text-sm font-medium">{user?.email?.split('@')[0] || 'User'}</div>
+              <div className="text-xs text-[#7d8590]">
+                {user?.email ? user.email.substring(0, 20) + (user.email.length > 20 ? '...' : '') : 'Authenticated'}
+              </div>
             </div>
           </div>
+          
+          {/* 🔐 LOGOUT BUTTON */}
+          <Button
+            variant="ghost"
+            className="w-full justify-start gap-3 h-9 text-red-400 hover:text-red-300 hover:bg-red-500/10"
+            onClick={async () => {
+              try {
+                console.log('🔐 Logging out user...');
+                await signOut();
+                toast.success('👋 Logged out successfully');
+                // Navigation will happen automatically due to auth state change
+              } catch (error) {
+                console.error('Logout failed:', error);
+                toast.error('❌ Logout failed');
+              }
+            }}
+          >
+            <ArrowUpRight className="w-4 h-4 rotate-45" />
+            Logout
+          </Button>
         </div>
       </div>
 

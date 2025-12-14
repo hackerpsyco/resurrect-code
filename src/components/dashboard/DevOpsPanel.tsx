@@ -39,6 +39,7 @@ import { deploymentMonitor, RealDeployment } from '@/services/deploymentMonitor'
 import { automatedActionService, AutomatedAction } from '@/services/automatedActionService';
 import { kestraService } from '@/services/kestraService';
 import { coderabbitService } from '@/services/coderabbitService';
+import { userStorageService } from '@/services/userStorageService';
 
 interface DeploymentStatus {
   id: string;
@@ -92,23 +93,74 @@ export function DevOpsPanel({ onClose }: DevOpsPanelProps) {
   // Initialize deployment monitoring and load data
   useEffect(() => {
     const initializeMonitoring = async () => {
-      // Auto-connect with token from .env if available
-      const envVercelToken = import.meta.env.VITE_VERCEL_TOKEN || 'XvC1d3slP23CjVN4SNJqC8Nn';
-      
-      if (envVercelToken && !vercelService.isAuthenticated()) {
-        console.log('🔑 Auto-connecting with Vercel token from environment...');
-        try {
-          const user = await vercelService.verifyToken(envVercelToken);
-          vercelService.setToken(envVercelToken);
-          vercelService.cacheUser(user);
-          
-          setIsConnected(true);
-          setVercelToken(envVercelToken);
-          
-          console.log('✅ Auto-connected to Vercel as:', user.username);
-          toast.success(`🚀 Auto-connected to Vercel as ${user.username}!`);
-        } catch (error) {
-          console.warn('Auto-connect failed:', error);
+      // Load user-specific credentials and settings
+      try {
+        const credentials = await userStorageService.getCredentials();
+        const settings = await userStorageService.getSettings();
+        
+        console.log('🔐 Loading user-specific data...');
+        
+        // Load Vercel token for this user
+        if (credentials.vercelToken && !vercelService.isAuthenticated()) {
+          console.log('🔑 Loading user Vercel token...');
+          try {
+            const user = await vercelService.verifyToken(credentials.vercelToken);
+            vercelService.setToken(credentials.vercelToken);
+            vercelService.cacheUser(user);
+            
+            setIsConnected(true);
+            setVercelToken(credentials.vercelToken);
+            
+            console.log('✅ Connected to Vercel as:', user.username);
+            toast.success(`🚀 Connected to Vercel as ${user.username}!`);
+          } catch (error) {
+            console.warn('Stored Vercel token invalid:', error);
+            // Clear invalid token
+            await userStorageService.storeCredentials({ ...credentials, vercelToken: undefined });
+          }
+        }
+        
+        // Load other credentials
+        if (credentials.geminiApiKey) {
+          setGeminiApiKey(credentials.geminiApiKey);
+          deploymentMonitor.setGeminiApiKey(credentials.geminiApiKey);
+        }
+        
+        // Load user settings
+        if (settings.autoDeployEnabled !== undefined) {
+          setAutoDeployEnabled(settings.autoDeployEnabled);
+        }
+        if (settings.isAutomationEnabled !== undefined) {
+          setIsAutomationEnabled(settings.isAutomationEnabled);
+          automatedActionService.setEnabled(settings.isAutomationEnabled);
+        }
+        if (settings.selectedProject) {
+          setSelectedProject(settings.selectedProject);
+        }
+        if (settings.deploymentEnvironment) {
+          setDeploymentEnvironment(settings.deploymentEnvironment);
+        }
+        
+      } catch (error) {
+        console.error('Failed to load user data:', error);
+        
+        // Fallback to environment variables for demo
+        const envVercelToken = import.meta.env.VITE_VERCEL_TOKEN;
+        if (envVercelToken && !vercelService.isAuthenticated()) {
+          console.log('🔑 Using fallback environment token...');
+          try {
+            const user = await vercelService.verifyToken(envVercelToken);
+            vercelService.setToken(envVercelToken);
+            vercelService.cacheUser(user);
+            
+            setIsConnected(true);
+            setVercelToken(envVercelToken);
+            
+            console.log('✅ Connected to Vercel as:', user.username);
+            toast.success(`🚀 Connected to Vercel as ${user.username}!`);
+          } catch (error) {
+            console.warn('Environment token failed:', error);
+          }
         }
       }
       
@@ -250,50 +302,22 @@ export function DevOpsPanel({ onClose }: DevOpsPanelProps) {
         }
       })));
       
-      toast.success(`✅ Connected to Vercel as ${user.username}!`);
+      // 🔐 Save Vercel token for this user
+      const currentCredentials = await userStorageService.getCredentials();
+      await userStorageService.storeCredentials({
+        ...currentCredentials,
+        vercelToken: vercelToken
+      });
+      
+      console.log('💾 Vercel token saved for user');
+      toast.success(`✅ Connected to Vercel as ${user.username}! Token saved securely.`);
       
       // Trigger settings update event
       window.dispatchEvent(new CustomEvent('vercel-settings-updated'));
       
     } catch (error) {
-      console.warn('Real Vercel API failed, using mock data:', error);
-      
-      // Fallback to mock data for demo
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      setIsConnected(true);
-      const mockProjects: VercelProject[] = [
-        {
-          id: 'proj_1',
-          name: 'resurrect-code',
-          framework: 'vite',
-          gitRepository: {
-            type: 'github',
-            repo: 'hackerpsyco/resurrect-code'
-          },
-          targets: {
-            production: {
-              domain: 'resurrect-code.vercel.app'
-            }
-          }
-        },
-        {
-          id: 'proj_2',
-          name: 'extract-nexus',
-          framework: 'nextjs',
-          gitRepository: {
-            type: 'github',
-            repo: 'hackerpsyco/extract-nexus'
-          },
-          targets: {
-            production: {
-              domain: 'extract-nexus.vercel.app'
-            }
-          }
-        }
-      ];
-      setProjects(mockProjects);
-      toast.success('✅ Connected to Vercel (Demo Mode)');
+      console.warn('Real Vercel API failed:', error);
+      toast.error('❌ Invalid Vercel token or connection failed');
     } finally {
       setIsLoading(false);
     }
@@ -342,14 +366,28 @@ export function DevOpsPanel({ onClose }: DevOpsPanelProps) {
     }
   };
 
-  const configureGemini = () => {
+  const configureGemini = async () => {
     if (!geminiApiKey.trim()) {
       toast.error('Please enter your Gemini API key');
       return;
     }
 
-    deploymentMonitor.setGeminiApiKey(geminiApiKey);
-    toast.success('🤖 Gemini AI configured for automatic error fixing!');
+    try {
+      deploymentMonitor.setGeminiApiKey(geminiApiKey);
+      
+      // 🔐 Save Gemini API key for this user
+      const currentCredentials = await userStorageService.getCredentials();
+      await userStorageService.storeCredentials({
+        ...currentCredentials,
+        geminiApiKey: geminiApiKey
+      });
+      
+      console.log('💾 Gemini API key saved for user');
+      toast.success('🤖 Gemini AI configured and saved securely!');
+    } catch (error) {
+      console.error('Failed to save Gemini API key:', error);
+      toast.error('❌ Failed to save API key');
+    }
   };
 
   const getStatusIcon = (status: DeploymentStatus['status']) => {
@@ -393,14 +431,45 @@ export function DevOpsPanel({ onClose }: DevOpsPanelProps) {
             <span className="text-lg font-semibold text-white">DevOps Automation Center</span>
           </div>
         </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={onClose}
-          className="text-gray-400 hover:text-white"
-        >
-          ✕
-        </Button>
+        <div className="flex items-center gap-3">
+          {userStorageService.isAuthenticated() && (
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 px-3 py-1 bg-[#2d2d30] rounded-lg">
+                <div className="w-2 h-2 rounded-full bg-green-400"></div>
+                <span className="text-xs text-gray-300">
+                  User: {userStorageService.getCurrentUserId()?.substring(0, 8)}...
+                </span>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={async () => {
+                  await userStorageService.clearUserData();
+                  // Reset all states
+                  setVercelToken('');
+                  setIsConnected(false);
+                  setProjects([]);
+                  setGeminiApiKey('');
+                  setSelectedProject('');
+                  setAutoDeployEnabled(true);
+                  setIsAutomationEnabled(true);
+                  toast.info('🔐 User data cleared');
+                }}
+                className="text-gray-400 hover:text-white text-xs"
+              >
+                Clear Data
+              </Button>
+            </div>
+          )}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onClose}
+            className="text-gray-400 hover:text-white"
+          >
+            ✕
+          </Button>
+        </div>
       </div>
 
       {/* Main Content */}
@@ -568,13 +637,20 @@ export function DevOpsPanel({ onClose }: DevOpsPanelProps) {
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-semibold text-white">Real Vercel Deployments</h2>
               <div className="flex items-center gap-2">
-                <Select value={selectedProject} onValueChange={(projectId) => {
+                <Select value={selectedProject} onValueChange={async (projectId) => {
                   setSelectedProject(projectId);
                   // Find the project name for the selected ID
                   const project = projects.find(p => p.id === projectId);
                   if (project) {
                     console.log(`✅ Selected project: ${project.name} (ID: ${projectId})`);
                     toast.info(`Selected project: ${project.name}`);
+                    
+                    // Save selected project for this user
+                    const currentSettings = await userStorageService.getSettings();
+                    await userStorageService.storeSettings({
+                      ...currentSettings,
+                      selectedProject: projectId
+                    });
                   }
                 }}>
                   <SelectTrigger className="w-48 bg-[#2d2d30] border-[#464647]">
@@ -588,7 +664,15 @@ export function DevOpsPanel({ onClose }: DevOpsPanelProps) {
                     ))}
                   </SelectContent>
                 </Select>
-                <Select value={deploymentEnvironment} onValueChange={(value: 'production' | 'preview') => setDeploymentEnvironment(value)}>
+                <Select value={deploymentEnvironment} onValueChange={async (value: 'production' | 'preview') => {
+                  setDeploymentEnvironment(value);
+                  // Save deployment environment for this user
+                  const currentSettings = await userStorageService.getSettings();
+                  await userStorageService.storeSettings({
+                    ...currentSettings,
+                    deploymentEnvironment: value
+                  });
+                }}>
                   <SelectTrigger className="w-32 bg-[#2d2d30] border-[#464647]">
                     <SelectValue />
                   </SelectTrigger>
@@ -988,6 +1072,23 @@ export function DevOpsPanel({ onClose }: DevOpsPanelProps) {
 
           {/* Settings Tab */}
           <TabsContent value="settings" className="space-y-6">
+            {userStorageService.isAuthenticated() && (
+              <Card className="bg-[#161b22] border-[#30363d]">
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-3">
+                    <Shield className="w-5 h-5 text-green-400" />
+                    <div>
+                      <h4 className="font-medium text-white">User-Specific Storage</h4>
+                      <p className="text-sm text-gray-400">
+                        Your credentials and settings are stored securely and only visible to you.
+                        Other users cannot see your Vercel projects or API keys.
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+            
             <Card className="bg-[#161b22] border-[#30363d]">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -1029,7 +1130,15 @@ export function DevOpsPanel({ onClose }: DevOpsPanelProps) {
                   </div>
                   <Switch 
                     checked={autoDeployEnabled}
-                    onCheckedChange={setAutoDeployEnabled}
+                    onCheckedChange={async (enabled) => {
+                      setAutoDeployEnabled(enabled);
+                      // Save setting for this user
+                      const currentSettings = await userStorageService.getSettings();
+                      await userStorageService.storeSettings({
+                        ...currentSettings,
+                        autoDeployEnabled: enabled
+                      });
+                    }}
                   />
                 </div>
               </CardContent>
@@ -1100,9 +1209,15 @@ export function DevOpsPanel({ onClose }: DevOpsPanelProps) {
                     </Badge>
                     <Switch 
                       checked={isAutomationEnabled}
-                      onCheckedChange={(enabled) => {
+                      onCheckedChange={async (enabled) => {
                         setIsAutomationEnabled(enabled);
                         automatedActionService.setEnabled(enabled);
+                        // Save setting for this user
+                        const currentSettings = await userStorageService.getSettings();
+                        await userStorageService.storeSettings({
+                          ...currentSettings,
+                          isAutomationEnabled: enabled
+                        });
                       }}
                     />
                   </div>

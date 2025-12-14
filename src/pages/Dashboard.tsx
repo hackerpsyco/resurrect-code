@@ -45,6 +45,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { projectCache } from "@/services/projectCache";
 import { Navigate } from "react-router-dom";
 import { toast } from "sonner";
+import { NewUserOnboarding } from "@/components/onboarding/NewUserOnboarding";
+import { WelcomeMessage } from "@/components/dashboard/WelcomeMessage";
 
 interface Project {
   id: string;
@@ -143,6 +145,27 @@ export default function Dashboard() {
     console.log('🔐 Unauthorized access to dashboard - redirecting to auth');
     return <Navigate to="/auth" replace />;
   }
+
+  // Check if this is a new user (first time accessing dashboard)
+  const [isNewUser, setIsNewUser] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  
+  useEffect(() => {
+    const isNewUserFlag = localStorage.getItem('is_new_user') === 'true';
+    const hasConnectedBefore = localStorage.getItem('github_token') || localStorage.getItem('vercel_token') || 
+                               githubService.isAuthenticated() || vercelService.isAuthenticated();
+    
+    if (isNewUserFlag || !hasConnectedBefore) {
+      setIsNewUser(true);
+      
+      // Show onboarding for new users
+      if (isNewUserFlag) {
+        setShowOnboarding(true);
+        // Clear the new user flag
+        localStorage.removeItem('is_new_user');
+      }
+    }
+  }, []);
 
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [ideProject, setIdeProject] = useState<Project | null>(null);
@@ -477,10 +500,16 @@ export default function Dashboard() {
       <div className="flex-1 p-6 overflow-auto">
         {/* Welcome Section */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-2">Welcome back, {user?.email?.split('@')[0] || 'Developer'}</h1>
-          <p className="text-[#7d8590] mb-6">
-            You have {projects.filter(p => p.status === "deployed").length} active deployments and {projects.filter(p => p.status === "building").length} building projects.
-          </p>
+          {isNewUser && projects.length === 0 ? (
+            <WelcomeMessage onOpenSettings={() => setActiveView("settings")} />
+          ) : (
+            <>
+              <h1 className="text-3xl font-bold mb-2">Welcome back, {user?.email?.split('@')[0] || 'Developer'}</h1>
+              <p className="text-[#7d8590] mb-6">
+                You have {projects.filter(p => p.status === "deployed").length} active deployments and {projects.filter(p => p.status === "building").length} building projects.
+              </p>
+            </>
+          )}
           
           <div className="flex gap-3">
            
@@ -595,36 +624,76 @@ export default function Dashboard() {
                     <p className="text-[#7d8590] mb-4">
                       You're connected to {githubService.isAuthenticated() && vercelService.isAuthenticated() ? 'GitHub and Vercel' : githubService.isAuthenticated() ? 'GitHub' : 'Vercel'}, but haven't selected any projects to show in your dashboard.
                     </p>
-                    <div className="space-y-2">
+                    <div className="space-y-3">
                       <Button onClick={() => setActiveView("settings")} className="bg-[#238636] hover:bg-[#2ea043]">
                         <Settings className="w-4 h-4 mr-2" />
-                        Configure Integrations
+                        Select Projects in Settings
                       </Button>
-                      <p className="text-xs text-[#7d8590]">
-                        Go to Settings → Integrations to select projects
-                      </p>
+                      <div className="bg-[#161b22] border border-[#30363d] rounded-lg p-4 text-left max-w-md mx-auto">
+                        <h4 className="text-sm font-medium text-white mb-2">Quick Setup:</h4>
+                        <ol className="text-xs text-[#7d8590] space-y-1">
+                          <li>1. Go to Settings → Integrations</li>
+                          <li>2. Select repositories from your connected accounts</li>
+                          <li>3. Save settings to see projects here</li>
+                        </ol>
+                      </div>
                     </div>
                   </>
                 ) : (
-                  // Not connected to any service
+                  // Not connected to any service - New user flow
                   <>
-                    <div className="flex items-center justify-center gap-4 mb-4">
-                      <Github className="w-8 h-8 text-[#7d8590]" />
-                      <Plus className="w-4 h-4 text-[#7d8590]" />
-                      <Globe className="w-8 h-8 text-[#7d8590]" />
-                    </div>
-                    <h3 className="text-lg font-semibold mb-2">Connect Your Accounts to Get Started</h3>
-                    <p className="text-[#7d8590] mb-4">
-                      Connect GitHub to access your repositories and Vercel to manage deployments.
-                    </p>
-                    <div className="space-y-2">
-                      <Button onClick={() => setActiveView("settings")} className="bg-[#238636] hover:bg-[#2ea043]">
-                        <Zap className="w-4 h-4 mr-2" />
-                        Connect Integrations
-                      </Button>
-                      <p className="text-xs text-[#7d8590]">
-                        Go to Settings → Integrations to connect GitHub and Vercel
-                      </p>
+                    <div className="max-w-md mx-auto">
+                      <div className="flex items-center justify-center gap-4 mb-6">
+                        <div className="w-12 h-12 rounded-lg bg-[#238636]/20 border border-[#238636]/30 flex items-center justify-center">
+                          <Github className="w-6 h-6 text-[#238636]" />
+                        </div>
+                        <Plus className="w-4 h-4 text-[#7d8590]" />
+                        <div className="w-12 h-12 rounded-lg bg-black/20 border border-gray-600/30 flex items-center justify-center">
+                          <Globe className="w-6 h-6 text-white" />
+                        </div>
+                      </div>
+                      
+                      {isNewUser ? (
+                        <>
+                          <h3 className="text-xl font-semibold mb-2">👋 Welcome to ResurrectCI!</h3>
+                          <p className="text-[#7d8590] mb-6">
+                            Let's connect your GitHub and Vercel accounts to get started with your projects.
+                          </p>
+                        </>
+                      ) : (
+                        <>
+                          <h3 className="text-lg font-semibold mb-2">Connect Your Accounts</h3>
+                          <p className="text-[#7d8590] mb-6">
+                            Connect GitHub to access your repositories and Vercel to manage deployments.
+                          </p>
+                        </>
+                      )}
+                      
+                      <div className="space-y-3">
+                        <Button 
+                          onClick={() => setActiveView("settings")} 
+                          className="w-full bg-[#238636] hover:bg-[#2ea043]"
+                          size="lg"
+                        >
+                          <Zap className="w-4 h-4 mr-2" />
+                          Connect GitHub & Vercel
+                        </Button>
+                        
+                        <div className="bg-[#161b22] border border-[#30363d] rounded-lg p-4 text-left">
+                          <h4 className="text-sm font-medium text-white mb-2">What you'll need:</h4>
+                          <ul className="text-xs text-[#7d8590] space-y-1">
+                            <li>• GitHub Personal Access Token (from github.com/settings/tokens)</li>
+                            <li>• Vercel API Token (from vercel.com/account/tokens)</li>
+                            <li>• Select which repositories to show in your dashboard</li>
+                          </ul>
+                        </div>
+                        
+                        {isNewUser && (
+                          <p className="text-xs text-[#7d8590]">
+                            Don't worry - we'll guide you through each step! 🚀
+                          </p>
+                        )}
+                      </div>
                     </div>
                   </>
                 )}
@@ -724,9 +793,23 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0d1117] text-white flex">
-      {/* Sidebar */}
-      <div className="w-64 bg-[#161b22] border-r border-[#30363d] flex flex-col">
+    <>
+      {/* New User Onboarding */}
+      {showOnboarding && (
+        <NewUserOnboarding
+          onComplete={() => {
+            setShowOnboarding(false);
+            setActiveView("settings");
+          }}
+          onSkip={() => {
+            setShowOnboarding(false);
+          }}
+        />
+      )}
+      
+      <div className="min-h-screen bg-[#0d1117] text-white flex">
+        {/* Sidebar */}
+        <div className="w-64 bg-[#161b22] border-r border-[#30363d] flex flex-col">
         {/* Logo */}
         <div className="p-4 border-b border-[#30363d]">
           <div className="flex items-center gap-2">
@@ -923,6 +1006,7 @@ export default function Dashboard() {
           onClose={() => setGithubBrowserOpen(false)}
         />
       )}
-    </div>
+      </div>
+    </>
   );
 }

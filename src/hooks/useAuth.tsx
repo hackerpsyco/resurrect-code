@@ -39,23 +39,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signUp = async (email: string, password: string) => {
+    console.log('🔐 Supabase signup attempt:', { email, passwordLength: password.length });
     const redirectUrl = `${window.location.origin}/`;
     
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
         emailRedirectTo: redirectUrl,
       },
     });
+    
+    console.log('🔐 Supabase signup response:', { 
+      user: data.user?.email, 
+      session: !!data.session,
+      error: error?.message 
+    });
+    
     return { error };
   };
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({
+    console.log('🔐 Supabase signin attempt:', { email, passwordLength: password.length });
+    
+    const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
+    
+    console.log('🔐 Supabase signin response:', { 
+      user: data.user?.email, 
+      session: !!data.session,
+      error: error?.message 
+    });
+    
     return { error };
   };
 

@@ -210,7 +210,12 @@ export function GitHubIntegration({ onClose }: GitHubIntegrationProps) {
 
   const handleSaveSettings = () => {
     if (!isConnected) {
-      // Silent error
+      toast.error("Please connect to GitHub first");
+      return;
+    }
+
+    if (selectedRepos.size === 0) {
+      toast.error("Please select at least one repository");
       return;
     }
 
@@ -219,7 +224,7 @@ export function GitHubIntegration({ onClose }: GitHubIntegrationProps) {
     localStorage.setItem('github_selected_repos', JSON.stringify(Array.from(selectedRepos)));
     localStorage.setItem('github_user', JSON.stringify(user));
     
-    // Silent success
+    toast.success(`✅ Settings saved! ${selectedRepos.size} repositories selected.`);
     
     // Trigger dashboard refresh
     window.dispatchEvent(new CustomEvent('github-settings-updated'));
@@ -574,22 +579,38 @@ export function GitHubIntegration({ onClose }: GitHubIntegrationProps) {
 
       {/* Save Settings */}
       {isConnected && (
-        <div className="flex justify-end gap-3">
-          <Button
-            variant="outline"
-            onClick={onClose}
-            className="border-[#30363d] text-[#7d8590] hover:text-white"
-          >
-            Cancel
-          </Button>
-          <Button
-            onClick={handleSaveSettings}
-            className="bg-[#238636] hover:bg-[#2ea043]"
-          >
-            <CheckCircle className="w-4 h-4 mr-2" />
-            Save Settings
-          </Button>
-        </div>
+        <Card className="bg-[#161b22] border-[#30363d]">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <CheckCircle className="w-5 h-5 text-green-400" />
+                <div>
+                  <h4 className="font-medium text-white">Ready to Save</h4>
+                  <p className="text-sm text-[#7d8590]">
+                    {selectedRepos.size} repositories selected • Settings will be applied to your dashboard
+                  </p>
+                </div>
+              </div>
+              <div className="flex gap-3">
+                <Button
+                  variant="outline"
+                  onClick={onClose}
+                  className="border-[#30363d] text-[#7d8590] hover:text-white"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleSaveSettings}
+                  disabled={selectedRepos.size === 0}
+                  className="bg-[#238636] hover:bg-[#2ea043]"
+                >
+                  <CheckCircle className="w-4 h-4 mr-2" />
+                  Save & Apply Settings
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       {/* Help Section */}

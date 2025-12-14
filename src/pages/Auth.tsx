@@ -27,33 +27,47 @@ export default function Auth() {
     e.preventDefault();
     setIsLoading(true);
 
+    console.log(`🔐 Attempting ${isLogin ? 'login' : 'signup'} with:`, { email, passwordLength: password.length });
+
     try {
       if (isLogin) {
         const { error } = await signIn(email, password);
+        console.log('🔐 Login result:', { error: error?.message });
+        
         if (error) {
           if (error.message.includes("Invalid login credentials")) {
             toast.error("Invalid email or password");
+            console.log('❌ Invalid credentials for:', email);
           } else {
             toast.error(error.message);
+            console.log('❌ Login error:', error.message);
           }
         } else {
           toast.success("Welcome back!");
+          console.log('✅ Login successful for:', email);
           navigate("/dashboard");
         }
       } else {
         const { error } = await signUp(email, password);
+        console.log('🔐 Signup result:', { error: error?.message });
+        
         if (error) {
           if (error.message.includes("already registered")) {
             toast.error("This email is already registered. Try logging in.");
+            console.log('⚠️ User already exists:', email);
           } else {
             toast.error(error.message);
+            console.log('❌ Signup error:', error.message);
           }
         } else {
-          toast.success("Account created! You can now access the dashboard.");
-          navigate("/dashboard");
+          toast.success("🎉 Account created! Check your email to confirm your account, then you can log in.");
+          console.log('✅ Signup successful for:', email);
+          // Don't auto-navigate after signup - user needs to confirm email first
+          setIsLogin(true); // Switch to login mode
         }
       }
     } catch (err) {
+      console.error('🔥 Auth error:', err);
       toast.error("Something went wrong. Please try again.");
     } finally {
       setIsLoading(false);

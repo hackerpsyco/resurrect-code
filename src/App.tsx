@@ -8,6 +8,7 @@ import { WebContainerProvider } from "@/contexts/WebContainerContext";
 import Index from "./pages/Index";
 import Dashboard from "./pages/Dashboard";
 import Auth from "./pages/Auth";
+import AuthCallback from "./pages/AuthCallback";
 import NotFound from "./pages/NotFound";
 import { GitHubDebugPanel } from "./components/debug/GitHubDebugPanel";
 import { SimpleGitHubIDE } from "./components/dashboard/SimpleGitHubIDE";
@@ -27,6 +28,7 @@ const App = () => (
             <Route path="/" element={<Index />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/auth" element={<Auth />} />
+            <Route path="/auth/callback" element={<AuthCallback />} />
             <Route path="/debug/github" element={<GitHubDebugPanel />} />
             <Route path="/github-ide" element={<SimpleGitHubIDE />} />
 

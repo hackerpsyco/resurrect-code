@@ -1,22 +1,36 @@
 # .coderabbit.yaml
-# This config is optimized for the "Captain Code" award
+# Optimized for professional PR reviews + hackathon judging
 version: "2"
 
 reviews:
-  # Judges love high-level summaries. Keep this true.
+  # Clear architectural context for reviewers & judges
   high_level_summary: true
-  
-  # This adds a "Walkthrough" section to your PRs. very professional.
+
+  # Step-by-step explanation of changes (very OSS-friendly)
   walkthrough: true
-  
-  # Enable the poem. It's CodeRabbit's signature feature.
-  # It proves to judges you are actually using the tool.
+
+  # CodeRabbit signature feature (kept minimal & tasteful)
   poem: true
-  
-  # Auto-review every commit to show "solid OSS workflows"
+
+  # Review all commits to show strong CI/review discipline
   auto_review:
     enabled: true
+    on_pull_request: true
+    on_commit: true
+
+  # Focus on quality, not noise
+  severity_threshold: medium
+
+  # Ignore trivial files to keep reviews clean
+  exclude:
+    - "**/*.lock"
+    - "**/*.min.*"
+    - "**/dist/**"
+    - "**/build/**"
 
 chat:
-  # Allows you to talk to the bot in PR comments
+  # Enables interactive discussions in PR comments
   auto_reply: true
+
+  # Keep responses concise & professional
+  tone: professional

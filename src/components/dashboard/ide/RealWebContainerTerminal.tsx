@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { X, Plus, Terminal, Square, Copy } from "lucide-react";
 import { useWebContainer } from "@/contexts/WebContainerContext";
+import { useGitHub } from "@/hooks/useGitHub";
 
 interface RealWebContainerTerminalProps {
   onClose: () => void;
@@ -13,6 +14,7 @@ interface RealWebContainerTerminalProps {
     name: string;
     owner?: string;
     repo?: string;
+    branch?: string;
   };
 }
 
@@ -51,8 +53,12 @@ export function RealWebContainerTerminal({
   const [isInitialized, setIsInitialized] = useState(false);
   
   const { webContainer, isReady } = useWebContainer();
+  const { fetchFile, fetchFileTree } = useGitHub();
   const terminalRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLDivElement>(null);
+  const outputBufferRef = useRef<string>('');
+  const bufferTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [hasAutoInstalled, setHasAutoInstalled] = useState(false);
 
   const activeSession = sessions.find(s => s.id === activeSessionId);
 
@@ -70,7 +76,7 @@ export function RealWebContainerTerminal({
     }
   }, []);
 
-  // Initialize WebContainer with real project files
+  // Initialize WebContainer with real project files from GitHub
   useEffect(() => {
     const initializeWebContainer = async () => {
       if (!webContainer || !isReady || isInitialized) return;
@@ -78,118 +84,153 @@ export function RealWebContainerTerminal({
       try {
         addOutput("🚀 Initializing WebContainer...");
         
-        // Create package.json with real dependencies
-        const packageJson = {
-          name: project?.name || "webcontainer-project",
-          version: "1.0.0",
-          description: `Real WebContainer project: ${project?.name || 'VS Code Project'}`,
-          main: "index.js",
-          type: "module",
-          scripts: {
-            dev: "vite",
-            build: "vite build",
-            preview: "vite preview",
-            start: "node server.js"
-          },
-          dependencies: {
-            "vite": "^5.0.0",
-            "express": "^4.18.0"
-          },
-          devDependencies: {
-            "@types/node": "^20.0.0"
-          }
-        };
-
-        await webContainer.fs.writeFile('package.json', JSON.stringify(packageJson, null, 2));
-
-        // Create index.html
-        const indexHtml = `<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>${project?.name || 'WebContainer Project'}</title>
-    <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            margin: 0;
-            padding: 40px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        .container {
-            text-align: center;
-            background: rgba(255,255,255,0.1);
-            padding: 60px;
-            border-radius: 20px;
-            backdrop-filter: blur(10px);
-            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
-        }
-        h1 { font-size: 3em; margin-bottom: 20px; }
-        p { font-size: 1.2em; margin-bottom: 30px; opacity: 0.9; }
-        .status {
-            background: rgba(46, 204, 113, 0.2);
-            padding: 15px 30px;
-            border-radius: 50px;
-            display: inline-block;
-            margin-top: 20px;
-            border: 2px solid rgba(46, 204, 113, 0.5);
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h1>🚀 ${project?.name || 'WebContainer Project'}</h1>
-        <p>Real WebContainer with Vite development server!</p>
-        <div class="status">✅ Development Server Active</div>
-        <p style="margin-top: 40px; font-size: 0.9em; opacity: 0.7;">
-            Built with WebContainer • Real Node.js Environment
-        </p>
-    </div>
-</body>
-</html>`;
-
-        await webContainer.fs.writeFile('index.html', indexHtml);
-
-        // Create vite.config.js
-        const viteConfig = `import { defineConfig } from 'vite'
-
-export default defineConfig({
-  server: {
-    port: 3000,
-    host: true
-  },
-  build: {
-    outDir: 'dist'
-  }
-})`;
-
-        await webContainer.fs.writeFile('vite.config.js', viteConfig);
-
-        // Write project files if provided
-        if (Object.keys(projectFiles).length > 0) {
-          for (const [filePath, content] of Object.entries(projectFiles)) {
-            try {
-              // Create directory if needed
-              const pathParts = filePath.split('/');
-              if (pathParts.length > 1) {
-                const dirPath = pathParts.slice(0, -1).join('/');
-                await webContainer.fs.mkdir(dirPath, { recursive: true });
+        // If project has GitHub owner/repo, load real files
+        if (project?.owner && project?.repo) {
+          addOutput(`📥 Loading project files from GitHub: ${project.owner}/${project.repo}`);
+          
+          try {
+            // Get file tree
+            const files = await fetchFileTree(project.owner, project.repo, project.branch || 'main');
+            
+            if (files && files.length > 0) {
+              // Filter out node_modules, .git, etc.
+              const projectFiles = files.filter(file => 
+                !file.path.includes('node_modules') && 
+                !file.path.includes('.git/') &&
+                !file.path.includes('dist/') &&
+                !file.path.includes('build/')
+              );
+              
+              addOutput(`📂 Found ${projectFiles.length} files, loading...`);
+              
+              // Load files into WebContainer (limit to important files first)
+              const importantFiles = projectFiles.filter(file => 
+                file.type === 'file' && (
+                  file.path === 'package.json' ||
+                  file.path === 'package-lock.json' ||
+                  file.path === 'yarn.lock' ||
+                  file.path === 'tsconfig.json' ||
+                  file.path === 'vite.config.js' ||
+                  file.path === 'vite.config.ts' ||
+                  file.path === 'index.html' ||
+                  file.path.startsWith('src/') ||
+                  file.path.startsWith('app/') ||
+                  file.path.startsWith('components/') ||
+                  file.path.endsWith('.ts') ||
+                  file.path.endsWith('.tsx') ||
+                  file.path.endsWith('.js') ||
+                  file.path.endsWith('.jsx')
+                )
+              ).slice(0, 50); // Limit to first 50 important files
+              
+              let loadedCount = 0;
+              for (const file of importantFiles) {
+                try {
+                  const fileContent = await fetchFile(project.owner!, project.repo!, file.path, project.branch);
+                  if (fileContent?.content) {
+                    // Create directory if needed
+                    const pathParts = file.path.split('/');
+                    if (pathParts.length > 1) {
+                      const dirPath = pathParts.slice(0, -1).join('/');
+                      await webContainer.fs.mkdir(dirPath, { recursive: true });
+                    }
+                    await webContainer.fs.writeFile(file.path, fileContent.content);
+                    loadedCount++;
+                  }
+                } catch (error) {
+                  console.warn(`Failed to load ${file.path}:`, error);
+                }
               }
-              await webContainer.fs.writeFile(filePath, content);
-            } catch (error) {
-              console.warn(`Failed to create ${filePath}:`, error);
+              
+              addOutput(`✅ Loaded ${loadedCount} project files`);
+              
+              // Check if package.json exists and auto-install
+              try {
+                const packageJsonContent = await webContainer.fs.readFile('package.json', 'utf-8');
+                if (packageJsonContent) {
+                  addOutput("📦 Found package.json, installing dependencies...");
+                  addOutput("");
+                  
+                  // Auto-run npm install
+                  const installProcess = await webContainer.spawn('npm', ['install']);
+                  const installReader = installProcess.output.getReader();
+                  const installDecoder = new TextDecoder();
+                  
+                  (async () => {
+                    try {
+                      while (true) {
+                        const { done, value } = await installReader.read();
+                        if (done) break;
+                        if (!value) continue;
+                        
+                        let text = "";
+                        if (value instanceof Uint8Array) {
+                          text = installDecoder.decode(value);
+                        } else if (value instanceof ArrayBuffer) {
+                          text = installDecoder.decode(new Uint8Array(value));
+                        } else if (typeof value === 'string') {
+                          text = value;
+                        } else {
+                          continue;
+                        }
+                        
+                        const cleaned = stripAnsiCodes(text);
+                        if (cleaned.trim()) {
+                          addToBuffer(cleaned);
+                        }
+                      }
+                      
+                      const exitCode = await installProcess.exit;
+                      if (exitCode === 0) {
+                        addOutput("");
+                        addOutput("✅ Dependencies installed successfully!");
+                        addOutput("💡 Ready to run: npm run dev");
+                      } else {
+                        addOutput("");
+                        addOutput(`⚠️ npm install exited with code ${exitCode}`);
+                      }
+                      addOutput("");
+                      setHasAutoInstalled(true);
+                    } catch (e) {
+                      console.warn("npm install stream error:", e);
+                    }
+                  })();
+                }
+              } catch (error) {
+                // No package.json found, that's okay
+                addOutput("ℹ️ No package.json found, skipping auto-install");
+              }
+            } else {
+              addOutput("⚠️ No files found in repository");
             }
+          } catch (error) {
+            console.error("Failed to load GitHub files:", error);
+            addOutput(`⚠️ Could not load files from GitHub: ${error instanceof Error ? error.message : 'Unknown error'}`);
+            addOutput("💡 You can still use the terminal manually");
           }
-          addOutput(`📁 Created ${Object.keys(projectFiles).length} project files`);
+        } else {
+          // No GitHub project, use provided projectFiles or create demo
+          if (Object.keys(projectFiles || {}).length > 0) {
+            for (const [filePath, content] of Object.entries(projectFiles!)) {
+              try {
+                const pathParts = filePath.split('/');
+                if (pathParts.length > 1) {
+                  const dirPath = pathParts.slice(0, -1).join('/');
+                  await webContainer.fs.mkdir(dirPath, { recursive: true });
+                }
+                await webContainer.fs.writeFile(filePath, content);
+              } catch (error) {
+                console.warn(`Failed to create ${filePath}:`, error);
+              }
+            }
+            addOutput(`📁 Created ${Object.keys(projectFiles!).length} project files`);
+          }
         }
 
         addOutput("✅ WebContainer initialized with real Node.js environment");
-        addOutput("💡 Try: npm install, npm run dev, ls, cat package.json");
+        if (!hasAutoInstalled) {
+          addOutput("💡 Try: npm install, npm run dev, ls, cat package.json");
+        }
         addOutput("");
         setIsInitialized(true);
         
@@ -202,7 +243,7 @@ export default defineConfig({
     if (webContainer && isReady) {
       initializeWebContainer();
     }
-  }, [webContainer, isReady, projectFiles, project, isInitialized]);
+  }, [webContainer, isReady, projectFiles, project, isInitialized, fetchFileTree, fetchFile, hasAutoInstalled]);
 
   const addOutput = (text: string) => {
     setSessions(prev => prev.map(session => 
@@ -220,6 +261,92 @@ export default defineConfig({
     ));
   };
 
+  // Strip ANSI escape codes from terminal output - AGGRESSIVE filtering
+  const stripAnsiCodes = (text: string): string => {
+    if (!text) return '';
+    
+    // Remove ALL ANSI escape sequences
+    let cleaned = text
+      .replace(/\x1b\[[0-9;]*[a-zA-Z]/g, '') // ANSI escape codes [0K, [1G, [31m, etc.
+      .replace(/\x1b\]8;;.*?\x1b\\/g, '') // Hyperlink escape sequences
+      .replace(/\x1b\[K/g, '') // Clear line
+      .replace(/\x1b\[[0-9]+G/g, '') // Cursor positioning
+      .replace(/\x1b\[[0-9]+m/g, '') // Color codes
+      .replace(/\x1b\[H/g, '') // Home cursor
+      .replace(/\x1b\[J/g, '') // Clear screen
+      .replace(/\x1b\[2J/g, '') // Clear entire screen
+      .replace(/\r\n/g, '\n') // Normalize line endings
+      .replace(/\r/g, '\n')
+      .replace(/\x1b/g, '') // Remove any remaining escape characters
+      .replace(/\x08/g, ''); // Remove backspace
+    
+    // Filter out spinner patterns (single chars or patterns like \|/-\|/-)
+    const lines = cleaned.split('\n');
+    const filteredLines = lines.filter(line => {
+      const trimmed = line.trim();
+      
+      // Filter out single-character spinner lines
+      if (trimmed.length === 1 && ['/', '-', '\\', '|'].includes(trimmed)) {
+        return false;
+      }
+      
+      // Filter out spinner patterns like \|/-\|/-
+      if (/^[\\|/\-]+$/.test(trimmed)) {
+        return false;
+      }
+      
+      // Filter out lines that are just escape sequences
+      if (/^\[[0-9;]*[a-zA-Z]$/.test(trimmed)) {
+        return false;
+      }
+      
+      return true;
+    });
+    
+    return filteredLines.join('\n');
+  };
+
+  const flushOutputBuffer = () => {
+    if (outputBufferRef.current.trim()) {
+      const cleaned = stripAnsiCodes(outputBufferRef.current);
+      if (cleaned.trim()) {
+        const lines = cleaned.split('\n').filter(line => {
+          const trimmed = line.trim();
+          // Skip single-character spinner lines
+          if (trimmed.length === 1 && ['/', '-', '\\', '|'].includes(trimmed)) {
+            return false;
+          }
+          return true;
+        });
+        
+        lines.forEach(line => {
+          if (line.trim() || (line === '' && outputBufferRef.current.includes('\n'))) {
+            addOutput(line);
+          }
+        });
+      }
+      outputBufferRef.current = '';
+    }
+    if (bufferTimeoutRef.current) {
+      clearTimeout(bufferTimeoutRef.current);
+      bufferTimeoutRef.current = null;
+    }
+  };
+
+  const addToBuffer = (text: string) => {
+    outputBufferRef.current += text;
+    
+    // Flush buffer if we have a newline or after 100ms
+    if (text.includes('\n')) {
+      if (bufferTimeoutRef.current) clearTimeout(bufferTimeoutRef.current);
+      flushOutputBuffer();
+    } else {
+      // Debounce single characters
+      if (bufferTimeoutRef.current) clearTimeout(bufferTimeoutRef.current);
+      bufferTimeoutRef.current = setTimeout(flushOutputBuffer, 100);
+    }
+  };
+
   const executeRealCommand = async (command: string) => {
     if (!webContainer || !isReady) {
       addOutput("❌ WebContainer not ready");
@@ -227,78 +354,105 @@ export default defineConfig({
     }
 
     setIsRunning(true);
+    // Reset output buffer for new command
+    outputBufferRef.current = '';
+    if (bufferTimeoutRef.current) {
+      clearTimeout(bufferTimeoutRef.current);
+      bufferTimeoutRef.current = null;
+    }
     addOutput(`$ ${command}`);
 
     try {
-      // Special handling for dev server commands
+      // Special handling for dev server commands (long-running)
       if (command.includes('npm run dev') || command.includes('vite')) {
         // Start dev server
         const process = await webContainer.spawn('npm', ['run', 'dev']);
         
-        // Handle output
+        // Handle output with proper stream reading
         const reader = process.output.getReader();
+        const decoder = new TextDecoder();
         
-        // Read initial output
-        setTimeout(async () => {
+        // Read output stream continuously (don't wait for exit)
+        (async () => {
           try {
-            const { value } = await reader.read();
-            if (value) {
-              const text = new TextDecoder().decode(value);
-              addOutput(text);
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+              if (!value) continue;
+
+              // Handle different value types
+              let text = "";
+              if (value instanceof Uint8Array) {
+                text = decoder.decode(value);
+              } else if (value instanceof ArrayBuffer) {
+                text = decoder.decode(new Uint8Array(value));
+              } else if (typeof value === 'string') {
+                text = value;
+              } else {
+                continue;
+              }
+
+              // Add to buffer (will be flushed automatically)
+              addToBuffer(text);
             }
           } catch (e) {
-            // Ignore read errors for dev server
+            console.warn("Dev server stream read error:", e);
           }
-        }, 1000);
+        })();
 
-        // Set dev server URL and notify parent
-        const url = "http://localhost:3000";
-        setDevServerUrl(url);
-        onDevServerStart?.(url);
-        
-        addMultipleOutput([
-          "",
-          "  VITE v5.0.0  ready in 1247 ms",
-          "",
-          "  ➜  Local:   http://localhost:3000/",
-          "  ➜  Network: use --host to expose",
-          "",
-          "🚀 Development server started!"
-        ]);
+        // Don't wait for dev server to exit (it runs indefinitely)
+        // Just mark as not running so user can type new commands
+        setTimeout(() => {
+          setIsRunning(false);
+        }, 2000);
         
         return;
       }
 
-      // Execute regular commands
+      // Execute regular commands (npm install, ls, etc.)
       const process = await webContainer.spawn('sh', ['-c', command]);
       
       // Handle output streaming
       const reader = process.output.getReader();
+      const decoder = new TextDecoder();
       let output = "";
       
       try {
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
-          
-          const text = new TextDecoder().decode(value);
-          output += text;
-          
-          // Stream output in real-time
-          if (text.trim()) {
-            const lines = text.split('\n').filter(line => line.trim());
-            addMultipleOutput(lines);
+          if (!value) continue;
+
+          // Handle different value types from WebContainer stream
+          let text = "";
+          if (value instanceof Uint8Array) {
+            text = decoder.decode(value);
+          } else if (value instanceof ArrayBuffer) {
+            text = decoder.decode(new Uint8Array(value));
+          } else if (typeof value === 'string') {
+            text = value;
+          } else {
+            continue;
           }
+
+          // Add to buffer (will be flushed automatically)
+          output += text;
+          addToBuffer(text);
         }
       } catch (readError) {
         console.warn("Stream read error:", readError);
+      } finally {
+        // Flush any remaining buffered output
+        if (bufferTimeoutRef.current) clearTimeout(bufferTimeoutRef.current);
+        flushOutputBuffer();
       }
       
       // Wait for process to complete
       const exitCode = await process.exit;
       
-      if (exitCode !== 0 && !output.trim()) {
-        addOutput(`Process exited with code ${exitCode}`);
+      // Show exit code if command failed
+      if (exitCode !== 0) {
+        addOutput(`\n❌ Command exited with code ${exitCode}`);
       }
       
       addOutput("");

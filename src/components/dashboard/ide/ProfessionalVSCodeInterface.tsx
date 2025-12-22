@@ -732,6 +732,12 @@ export function ProfessionalVSCodeInterface({ project, onClose }: ProfessionalVS
           }}
         >
           <RealWebContainerTerminal
+            project={{
+              name: project.name,
+              owner: project.owner,
+              repo: project.repo,
+              branch: project.branch
+            }}
             onClose={() => setShowTerminal(false)}
             onDevServerStart={(url) => {
               setPreviewUrl(url);

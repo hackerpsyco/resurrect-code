@@ -183,13 +183,6 @@ export function DevOpsPanel({ onClose }: DevOpsPanelProps) {
         }
       }
 
-      // Load existing Gemini API key
-      const savedGeminiKey = localStorage.getItem('gemini_api_key');
-      if (savedGeminiKey) {
-        setGeminiApiKey(savedGeminiKey);
-        deploymentMonitor.setGeminiApiKey(savedGeminiKey);
-      }
-
       // Load deployments from monitor
       setDeployments(deploymentMonitor.getDeployments());
       setIsMonitoring(deploymentMonitor.isMonitoringActive());

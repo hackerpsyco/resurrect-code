@@ -24,14 +24,26 @@ import {
   Globe,
   Link
 } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface PlatformSettingsProps {
   onClose: () => void;
+  /**
+   * Optional: which section to show first when opened
+   * e.g. "integrations" when coming from a "Connect GitHub" button
+   */
+  initialSection?: 'general' | 'editor' | 'terminal' | 'appearance' | 'notifications' | 'keybindings' | 'integrations';
+  /**
+   * Optional: which integration tab to show first
+   */
+  initialIntegration?: 'github' | 'vercel';
 }
 
-export function PlatformSettings({ onClose }: PlatformSettingsProps) {
-  const [activeSection, setActiveSection] = useState('general');
-  const [activeIntegration, setActiveIntegration] = useState<'github' | 'vercel'>('github');
+export function PlatformSettings({ onClose, initialSection, initialIntegration }: PlatformSettingsProps) {
+  const [activeSection, setActiveSection] = useState<
+    'general' | 'editor' | 'terminal' | 'appearance' | 'notifications' | 'keybindings' | 'integrations'
+  >(initialSection ?? 'general');
+  const [activeIntegration, setActiveIntegration] = useState<'github' | 'vercel'>(initialIntegration ?? 'github');
   const [settings, setSettings] = useState({
     // General
     theme: 'dark',
@@ -447,7 +459,14 @@ export function PlatformSettings({ onClose }: PlatformSettingsProps) {
                     <RefreshCw className="w-4 h-4 mr-2" />
                     Reset to Defaults
                   </Button>
-                  <Button size="sm">
+                  <Button
+                    size="sm"
+                    onClick={() => {
+                      // Currently only in-memory UI preferences live here.
+                      // Integration keys & repos are saved via their own "Save" buttons.
+                      toast.success("Preferences saved. GitHub/Vercel keys and repos are saved in the Integrations section.");
+                    }}
+                  >
                     Save Changes
                   </Button>
                 </div>

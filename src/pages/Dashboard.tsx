@@ -47,6 +47,7 @@ import { Navigate } from "react-router-dom";
 import { toast } from "sonner";
 import { NewUserOnboarding } from "@/components/onboarding/NewUserOnboarding";
 import { WelcomeMessage } from "@/components/dashboard/WelcomeMessage";
+import { userStorageService } from "@/services/userStorageService";
 
 interface Project {
   id: string;
@@ -96,55 +97,82 @@ const detectFramework = (repoName: string, description?: string): string => {
   return "Web App"; // Default
 };
 
-const automatedFixes = [
-  {
-    id: "1",
-    title: "Fixed null pointer in auth.ts",
-    description: "AI detected potential crash in service",
-    timeAgo: "2h ago",
-    type: "fix"
-  },
-  {
-    id: "2", 
-    title: "Updated react-dom dependency",
-    description: "Security vulnerability found in v16.8.0",
-    timeAgo: "4h ago",
-    type: "security"
-  }
-];
+// Remove demo data - everything should be user-specific
+const automatedFixes: any[] = []; // Empty - will be populated from user's actual data
 
-const activityLog = [
-  {
-    id: "1",
-    title: "Deployment #3424 ready",
-    description: "E-commerce API • Production",
-    timeAgo: "10m ago",
-    type: "deployment"
-  },
-  {
-    id: "2",
-    title: "PR #12 merged by Sarah",
-    description: "Data Pipeline v2 • feature/auth", 
-    timeAgo: "45m ago",
-    type: "pr"
-  },
-  {
-    id: "3",
-    title: "Build failed on Client Dash",
-    description: "Webpack configuration error",
-    timeAgo: "1h ago", 
-    type: "error"
-  }
-];
+const activityLog: any[] = []; // Empty - will be populated from user's actual activity
 
 export default function Dashboard() {
-  const { user, signOut } = useAuth();
+  const { user, signOut, loading } = useAuth();
   
-  // 🔒 SECURITY: Redirect to auth if not logged in
+  // While auth status is being determined, show a loader
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-muted-foreground">Loading your dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // 🔒 SECURITY: Redirect to auth if not logged in (after loading is done)
   if (!user) {
     console.log('🔐 Unauthorized access to dashboard - redirecting to auth');
     return <Navigate to="/auth" replace />;
   }
+
+  // 🔒 SECURITY: Clear any cached data from previous users on mount
+  useEffect(() => {
+    const initializeUserData = async () => {
+      const currentUserEmail = user?.email;
+      const lastUserEmail = localStorage.getItem('last_user_email');
+      
+      // If different user, clear all cached data
+      if (lastUserEmail && lastUserEmail !== currentUserEmail) {
+        console.log('🧹 Different user detected, clearing previous user data');
+        
+        // Clear GitHub data
+        localStorage.removeItem('github_token');
+        localStorage.removeItem('github_user');
+        localStorage.removeItem('github_selected_repos');
+        
+        // Clear Vercel data
+        localStorage.removeItem('vercel_token');
+        localStorage.removeItem('vercel_user');
+        localStorage.removeItem('vercel_teams');
+        localStorage.removeItem('vercel_selected_projects');
+        
+        // Clear other cached data
+        localStorage.removeItem('gemini_api_key');
+        localStorage.removeItem('is_new_user');
+        
+        // Clear service instances
+        githubService.clearToken();
+        vercelService.clearToken();
+        
+        console.log('✅ Previous user data cleared');
+      }
+      
+      // Store current user email
+      if (currentUserEmail) {
+        localStorage.setItem('last_user_email', currentUserEmail);
+        
+        // Load current user's data from database to localStorage
+        try {
+          await userStorageService.loadUserDataToLocalStorage();
+          console.log('✅ User data loaded from database');
+        } catch (error) {
+          console.error('Failed to load user data:', error);
+        }
+      }
+    };
+    
+    if (user) {
+      initializeUserData();
+    }
+  }, [user?.email]);
 
   // Check if this is a new user (first time accessing dashboard)
   const [isNewUser, setIsNewUser] = useState(false);
@@ -174,6 +202,11 @@ export default function Dashboard() {
   const [connectDialogOpen, setConnectDialogOpen] = useState(false);
   const [githubBrowserOpen, setGithubBrowserOpen] = useState(false);
   const [showGitHubDashboard, setShowGitHubDashboard] = useState(false);
+  const [settingsInitialSection, setSettingsInitialSection] = useState<
+    'general' | 'editor' | 'terminal' | 'appearance' | 'notifications' | 'keybindings' | 'integrations'
+  >('general');
+  const [settingsInitialIntegration, setSettingsInitialIntegration] = useState<'github' | 'vercel'>('github');
+  const [hasSelectedGithubRepos, setHasSelectedGithubRepos] = useState(false);
   
   const { isAuthenticated, repositories } = useGitHubAuth();
   const [extensionsOpen, setExtensionsOpen] = useState(false);
@@ -185,32 +218,40 @@ export default function Dashboard() {
   const { fetchRepo, fetchFileTree, isLoading: githubLoading } = useGitHub();
   const { fetchProjects: fetchVercelProjects, fetchDeployments, isLoading: vercelLoading } = useVercel();
 
-  // Load real projects from GitHub and Vercel
+  // Load real projects from GitHub and Vercel - ONLY user's own projects
   useEffect(() => {
     const loadProjects = async () => {
       setIsLoading(true);
+      console.log('🔄 Loading projects for authenticated user only...');
+      
       try {
-        // Check GitHub authentication
+        let userProjects: Project[] = [];
+        
+        // Check GitHub authentication - STRICT user isolation
         setGithubStatus("checking");
         
         if (githubService.isAuthenticated()) {
           try {
-            // Get user info to verify token
-            const user = await githubService.getUser();
+            // Verify token is valid and get user info
+            const githubUser = await githubService.getUser();
             setGithubStatus("connected");
+            console.log(`✅ GitHub connected as: ${githubUser.login}`);
             
-            // Get selected repositories from settings
+            // Get ONLY selected repositories from THIS user's settings
             const selectedRepoIds = githubService.getSelectedRepositories();
+            setHasSelectedGithubRepos(selectedRepoIds.length > 0);
             
             if (selectedRepoIds.length > 0) {
-              // Get all user repositories
+              console.log(`📂 Loading ${selectedRepoIds.length} selected repositories...`);
+              
+              // Get user's repositories
               const allRepos = await githubService.getRepositories({
                 sort: 'updated',
                 direction: 'desc',
                 per_page: 100
               });
               
-              // Filter to only selected repositories
+              // Filter to ONLY selected repositories
               const selectedRepos = allRepos.filter(repo => selectedRepoIds.includes(repo.id));
               
               if (selectedRepos.length > 0) {
@@ -227,83 +268,95 @@ export default function Dashboard() {
                   repo: repo.name
                 }));
                 
-                setProjects(githubProjects);
-                console.log(`✅ Loaded ${githubProjects.length} selected GitHub repositories`);
+                userProjects = [...userProjects, ...githubProjects];
+                console.log(`✅ Added ${githubProjects.length} GitHub repositories`);
                 
-                // Preload projects in background for instant access
+                // Preload projects for instant access
                 githubProjects.forEach(project => {
                   if (project.owner && project.repo) {
                     projectCache.preload(project.owner, project.repo, project.branch, fetchFileTree);
                   }
                 });
               } else {
-                // No selected repositories found
-                setProjects([]);
-                console.log("⚠️ No selected repositories found in settings");
+                console.log("⚠️ No selected repositories found - user needs to select repos in settings");
               }
             } else {
-              // No repositories selected in settings
-              setProjects([]);
-              console.log("⚠️ No repositories selected in GitHub integration settings");
+              console.log("⚠️ No repositories selected - user needs to configure GitHub integration");
             }
           } catch (error) {
-            console.error("GitHub authentication failed:", error);
+            console.error("❌ GitHub authentication failed:", error);
             setGithubStatus("disconnected");
-            setProjects([]);
           }
         } else {
-          // Not authenticated with GitHub
           setGithubStatus("disconnected");
-          setProjects([]);
-          console.log("⚠️ GitHub not connected - showing empty dashboard");
+          console.log("⚠️ GitHub not connected");
         }
 
-        // Also check Vercel connection
+        // Check Vercel connection - STRICT user isolation
         setVercelStatus("checking");
+        
         if (vercelService.isAuthenticated()) {
           try {
+            // Verify token is valid and get user info
             const vercelUser = await vercelService.getUser();
             setVercelStatus("connected");
-            console.log(`✅ Vercel connected as ${vercelUser.username}`);
+            console.log(`✅ Vercel connected as: ${vercelUser.username}`);
             
-            // Load Vercel projects if selected
+            // Get ONLY selected projects from THIS user's settings
             const selectedProjectIds = JSON.parse(localStorage.getItem('vercel_selected_projects') || '[]');
+            
             if (selectedProjectIds.length > 0) {
+              console.log(`📂 Loading ${selectedProjectIds.length} selected Vercel projects...`);
+              
               const vercelProjects = await vercelService.getProjects({ limit: 50 });
               const selectedVercelProjects = vercelProjects.filter(project => selectedProjectIds.includes(project.id));
               
-              // Convert Vercel projects to dashboard format
-              const vercelDashboardProjects: Project[] = selectedVercelProjects.map((project: VercelProject) => ({
-                id: `vercel-${project.id}`,
-                name: project.name,
-                branch: project.link?.repo ? 'main' : 'vercel',
-                status: "deployed" as const,
-                lastCommit: `Vercel deployment`,
-                timeAgo: `Updated ${new Date(project.updatedAt).toLocaleDateString()}`,
-                language: project.framework?.substring(0, 2).toUpperCase() || "JS",
-                framework: project.framework || "Web App",
-                owner: vercelUser.username,
-                repo: project.name,
-                vercelProjectId: project.id
-              }));
-              
-              // Merge with GitHub projects
-              setProjects(prev => [...prev, ...vercelDashboardProjects]);
-              console.log(`✅ Added ${vercelDashboardProjects.length} Vercel projects`);
+              if (selectedVercelProjects.length > 0) {
+                const vercelDashboardProjects: Project[] = selectedVercelProjects.map((project: VercelProject) => ({
+                  id: `vercel-${project.id}`,
+                  name: project.name,
+                  branch: project.link?.repo ? 'main' : 'vercel',
+                  status: "deployed" as const,
+                  lastCommit: `Vercel deployment`,
+                  timeAgo: `Updated ${new Date(project.updatedAt).toLocaleDateString()}`,
+                  language: project.framework?.substring(0, 2).toUpperCase() || "JS",
+                  framework: project.framework || "Web App",
+                  owner: vercelUser.username,
+                  repo: project.name,
+                  vercelProjectId: project.id
+                }));
+                
+                userProjects = [...userProjects, ...vercelDashboardProjects];
+                console.log(`✅ Added ${vercelDashboardProjects.length} Vercel projects`);
+              } else {
+                console.log("⚠️ No selected Vercel projects found - user needs to select projects in settings");
+              }
+            } else {
+              console.log("⚠️ No Vercel projects selected - user needs to configure Vercel integration");
             }
           } catch (error) {
-            console.error("Vercel connection failed:", error);
+            console.error("❌ Vercel authentication failed:", error);
             setVercelStatus("disconnected");
           }
         } else {
           setVercelStatus("disconnected");
+          console.log("⚠️ Vercel not connected");
+        }
+
+        // Set ONLY user's projects - NEVER show demo/default data
+        setProjects(userProjects);
+        
+        if (userProjects.length === 0) {
+          console.log("📭 No projects to display - user needs to connect and configure integrations");
+        } else {
+          console.log(`📊 Dashboard loaded with ${userProjects.length} user projects`);
         }
 
       } catch (error) {
-        console.error("Error loading projects:", error);
+        console.error("❌ Error loading user projects:", error);
         setGithubStatus("disconnected");
         setVercelStatus("disconnected");
-        // Silent error - no popup
+        setProjects([]); // Ensure no projects are shown on error
       } finally {
         setIsLoading(false);
       }
@@ -332,16 +385,106 @@ export default function Dashboard() {
   }, []);
 
   const handleNewProject = () => {
+    console.log('🔍 Checking user integrations before opening New Project dialog...');
+    
+    // Strict authentication check
+    const hasGitHubToken = githubService.getToken();
+    const hasVercelToken = vercelService.getToken();
+    const isGitHubAuth = githubService.isAuthenticated();
+    const isVercelAuth = vercelService.isAuthenticated();
+    
+    console.log('Integration status:', {
+      hasGitHubToken: !!hasGitHubToken,
+      hasVercelToken: !!hasVercelToken,
+      isGitHubAuth,
+      isVercelAuth
+    });
+    
+    if (!isGitHubAuth && !isVercelAuth) {
+      console.log('❌ No integrations connected');
+      toast.error("🔐 Please connect your GitHub or Vercel account first to add projects.", {
+        duration: 5000,
+        action: {
+          label: "Connect Now",
+          onClick: () => {
+            setSettingsInitialSection('integrations');
+            setSettingsInitialIntegration('github');
+            setActiveView("settings");
+          }
+        }
+      });
+      setSettingsInitialSection('integrations');
+      setSettingsInitialIntegration('github');
+      setActiveView("settings");
+      return;
+    }
+    
+    // Check if user has selected repositories/projects
+    if (isGitHubAuth) {
+      const selectedRepos = githubService.getSelectedRepositories();
+      if (selectedRepos.length === 0) {
+        console.log('❌ GitHub connected but no repositories selected');
+        toast.error("Please select repositories in Settings → GitHub Integration first.", {
+          duration: 5000,
+          action: {
+            label: "Select Repos",
+            onClick: () => {
+              setSettingsInitialSection('integrations');
+              setSettingsInitialIntegration('github');
+              setActiveView("settings");
+            }
+          }
+        });
+        setSettingsInitialSection('integrations');
+        setSettingsInitialIntegration('github');
+        setActiveView("settings");
+        return;
+      }
+    }
+    
+    if (isVercelAuth) {
+      const selectedProjects = JSON.parse(localStorage.getItem('vercel_selected_projects') || '[]');
+      if (selectedProjects.length === 0) {
+        console.log('❌ Vercel connected but no projects selected');
+        toast.error("Please select projects in Settings → Vercel Integration first.", {
+          duration: 5000,
+          action: {
+            label: "Select Projects",
+            onClick: () => {
+              setSettingsInitialSection('integrations');
+              setSettingsInitialIntegration('vercel');
+              setActiveView("settings");
+            }
+          }
+        });
+        setSettingsInitialSection('integrations');
+        setSettingsInitialIntegration('vercel');
+        setActiveView("settings");
+        return;
+      }
+    }
+    
+    console.log('✅ User has proper integrations, opening New Project dialog');
     setConnectDialogOpen(true);
   };
 
   const handleImportFromGitHub = () => {
     if (githubService.isAuthenticated()) {
+      // Check if user has selected repositories
+      const selectedRepos = githubService.getSelectedRepositories();
+      if (selectedRepos.length === 0) {
+        toast.error("Please select repositories in Settings → Integrations → GitHub first.");
+        setSettingsInitialSection('integrations');
+        setSettingsInitialIntegration('github');
+        setActiveView("settings");
+        return;
+      }
       setShowGitHubDashboard(true);
     } else {
-      // Redirect to settings to connect GitHub
+      toast.error("Please connect your GitHub account first in Settings → Integrations.");
+      setSettingsInitialSection('integrations');
+      setSettingsInitialIntegration('github');
       setActiveView("settings");
-      // Silent redirect - no popup
     }
   };
 
@@ -451,7 +594,11 @@ export default function Dashboard() {
 
     if (activeView === "settings") {
       return (
-        <PlatformSettings onClose={() => setActiveView("dashboard")} />
+      <PlatformSettings 
+        onClose={() => setActiveView("dashboard")}
+        initialSection={settingsInitialSection}
+        initialIntegration={settingsInitialIntegration}
+      />
       );
     }
 
@@ -527,7 +674,11 @@ export default function Dashboard() {
               onClick={handleImportFromGitHub}
             >
               <Download className="w-4 h-4 mr-2" />
-              {isAuthenticated ? "Browse GitHub Repos" : "Connect GitHub"}
+              {!githubService.isAuthenticated()
+                ? "Connect GitHub"
+                : hasSelectedGithubRepos
+                  ? "Browse GitHub Repos"
+                  : "Select GitHub Repos"}
             </Button>
             <Button 
               variant="outline" 
@@ -703,57 +854,72 @@ export default function Dashboard() {
 
           {/* Right Sidebar */}
           <div className="space-y-6">
-            {/* Automated Fixes */}
-            <div>
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold">Automated Fixes</h3>
-                <Button variant="ghost" className="text-[#238636] hover:text-[#2ea043] text-sm">
-                  Beta
-                </Button>
+            {/* Automated Fixes - Only show if user has actual fixes */}
+            {automatedFixes.length > 0 && (
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold">Automated Fixes</h3>
+                  <Button variant="ghost" className="text-[#238636] hover:text-[#2ea043] text-sm">
+                    Beta
+                  </Button>
+                </div>
+                
+                <div className="space-y-3">
+                  {automatedFixes.map((fix) => (
+                    <div key={fix.id} className="bg-[#161b22] border border-[#30363d] rounded-lg p-3">
+                      <div className="flex items-start gap-3">
+                        <div className="w-6 h-6 bg-green-500/20 rounded-full flex items-center justify-center mt-0.5">
+                          <CheckCircle2 className="w-3 h-3 text-green-400" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h4 className="text-sm font-medium text-white">{fix.title}</h4>
+                          <p className="text-xs text-[#7d8590] mt-1">{fix.description}</p>
+                          <span className="text-xs text-[#7d8590]">{fix.timeAgo}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
-              
-              <div className="space-y-3">
-                {automatedFixes.map((fix) => (
-                  <div key={fix.id} className="bg-[#161b22] border border-[#30363d] rounded-lg p-3">
-                    <div className="flex items-start gap-3">
-                      <div className="w-6 h-6 bg-green-500/20 rounded-full flex items-center justify-center mt-0.5">
-                        <CheckCircle2 className="w-3 h-3 text-green-400" />
+            )}
+
+            {/* Activity Log - Only show if user has actual activity */}
+            {activityLog.length > 0 && (
+              <div>
+                <h3 className="text-lg font-semibold mb-4">Activity Log</h3>
+                
+                <div className="space-y-3">
+                  {activityLog.map((activity) => (
+                    <div key={activity.id} className="flex items-start gap-3">
+                      <div className={`w-6 h-6 rounded-full flex items-center justify-center mt-0.5 ${
+                        activity.type === "deployment" ? "bg-purple-500/20" :
+                        activity.type === "pr" ? "bg-green-500/20" : "bg-red-500/20"
+                      }`}>
+                        {activity.type === "deployment" && <Zap className="w-3 h-3 text-purple-400" />}
+                        {activity.type === "pr" && <ArrowUpRight className="w-3 h-3 text-green-400" />}
+                        {activity.type === "error" && <AlertTriangle className="w-3 h-3 text-red-400" />}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <h4 className="text-sm font-medium text-white">{fix.title}</h4>
-                        <p className="text-xs text-[#7d8590] mt-1">{fix.description}</p>
-                        <span className="text-xs text-[#7d8590]">{fix.timeAgo}</span>
+                        <h4 className="text-sm font-medium text-white">{activity.title}</h4>
+                        <p className="text-xs text-[#7d8590]">{activity.description}</p>
+                        <span className="text-xs text-[#7d8590]">{activity.timeAgo}</span>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
 
-            {/* Activity Log */}
-            <div>
-              <h3 className="text-lg font-semibold mb-4">Activity Log</h3>
-              
-              <div className="space-y-3">
-                {activityLog.map((activity) => (
-                  <div key={activity.id} className="flex items-start gap-3">
-                    <div className={`w-6 h-6 rounded-full flex items-center justify-center mt-0.5 ${
-                      activity.type === "deployment" ? "bg-purple-500/20" :
-                      activity.type === "pr" ? "bg-green-500/20" : "bg-red-500/20"
-                    }`}>
-                      {activity.type === "deployment" && <Zap className="w-3 h-3 text-purple-400" />}
-                      {activity.type === "pr" && <ArrowUpRight className="w-3 h-3 text-green-400" />}
-                      {activity.type === "error" && <AlertTriangle className="w-3 h-3 text-red-400" />}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h4 className="text-sm font-medium text-white">{activity.title}</h4>
-                      <p className="text-xs text-[#7d8590]">{activity.description}</p>
-                      <span className="text-xs text-[#7d8590]">{activity.timeAgo}</span>
-                    </div>
-                  </div>
-                ))}
+            {/* Show message when no activity yet */}
+            {automatedFixes.length === 0 && activityLog.length === 0 && projects.length > 0 && (
+              <div className="text-center py-8">
+                <Activity className="w-8 h-8 text-[#7d8590] mx-auto mb-2" />
+                <h3 className="text-sm font-medium text-white mb-1">No Activity Yet</h3>
+                <p className="text-xs text-[#7d8590]">
+                  Activity will appear here as you use ResurrectCI features
+                </p>
               </div>
-            </div>
+            )}
           </div>
         </div>
       </div>
@@ -921,8 +1087,27 @@ export default function Dashboard() {
             className="w-full justify-start gap-3 h-9 text-red-400 hover:text-red-300 hover:bg-red-500/10"
             onClick={async () => {
               try {
-                console.log('🔐 Logging out user...');
+                console.log('🔐 Logging out user and clearing all data...');
+                
+                // Clear all cached data before signing out
+                localStorage.removeItem('github_token');
+                localStorage.removeItem('github_user');
+                localStorage.removeItem('github_selected_repos');
+                localStorage.removeItem('vercel_token');
+                localStorage.removeItem('vercel_user');
+                localStorage.removeItem('vercel_teams');
+                localStorage.removeItem('vercel_selected_projects');
+                localStorage.removeItem('is_new_user');
+                localStorage.removeItem('last_user_email');
+                
+                // Clear service instances
+                githubService.clearToken();
+                vercelService.clearToken();
+                
+                // Sign out from Supabase
                 await signOut();
+                
+                console.log('✅ User logged out and all data cleared');
                 toast.success('👋 Logged out successfully');
                 // Navigation will happen automatically due to auth state change
               } catch (error) {

@@ -20,8 +20,9 @@ import {
   Link,
   Zap
 } from 'lucide-react';
-// Toast removed for clean UI
+import { toast } from 'sonner';
 import { githubOAuthService } from '@/services/githubOAuthService';
+import { userStorageService } from '@/services/userStorageService';
 
 interface GitHubUser {
   login: string;
@@ -58,32 +59,52 @@ export function GitHubIntegration({ onClose }: GitHubIntegrationProps) {
   const [authMethod, setAuthMethod] = useState<'token' | 'oauth'>('token');
   const [clientId, setClientId] = useState('');
 
-  // Load saved settings on mount
+  // Load saved settings on mount (per Supabase user)
   useEffect(() => {
-    const savedToken = localStorage.getItem('github_token');
-    const savedRepos = localStorage.getItem('github_selected_repos');
-    
-    // Check if we're returning from OAuth callback
-    const oauthCallback = githubOAuthService.isOAuthCallback();
-    if (oauthCallback.isCallback) {
-      if (oauthCallback.error) {
-        // Silent error
-        // Clean up URL
-        window.history.replaceState({}, document.title, window.location.pathname);
-      } else if (oauthCallback.code && oauthCallback.state) {
-        handleOAuthCallback(oauthCallback.code, oauthCallback.state);
+    const initializeFromStorage = async () => {
+      // Handle possible GitHub OAuth callback in URL
+      const oauthCallback = githubOAuthService.isOAuthCallback();
+      if (oauthCallback.isCallback) {
+        if (oauthCallback.error) {
+          // Clean up URL silently
+          window.history.replaceState({}, document.title, window.location.pathname);
+        } else if (oauthCallback.code && oauthCallback.state) {
+          await handleOAuthCallback(oauthCallback.code, oauthCallback.state);
+        }
+        return;
       }
-      return;
-    }
-    
-    if (savedToken) {
-      setToken(savedToken);
-      checkConnection(savedToken);
-    }
-    
-    if (savedRepos) {
-      setSelectedRepos(new Set(JSON.parse(savedRepos)));
-    }
+
+      // Prefer per-user data from Supabase
+      try {
+        const credentials = await userStorageService.getCredentials();
+        const settings = await userStorageService.getSettings();
+
+        if (credentials.githubToken) {
+          setToken(credentials.githubToken);
+          await checkConnection(credentials.githubToken);
+        } else {
+          // Fallback to legacy localStorage (single-user) if no DB record yet
+          const savedToken = localStorage.getItem('github_token');
+          if (savedToken) {
+            setToken(savedToken);
+            await checkConnection(savedToken);
+          }
+        }
+
+        if (settings.githubSelectedRepos) {
+          setSelectedRepos(new Set(settings.githubSelectedRepos));
+        } else {
+          const savedRepos = localStorage.getItem('github_selected_repos');
+          if (savedRepos) {
+            setSelectedRepos(new Set(JSON.parse(savedRepos)));
+          }
+        }
+      } catch (error) {
+        console.error('Failed to initialize GitHub integration from storage:', error);
+      }
+    };
+
+    initializeFromStorage();
   }, []);
 
   const checkConnection = async (tokenToCheck: string) => {
@@ -200,7 +221,7 @@ export function GitHubIntegration({ onClose }: GitHubIntegrationProps) {
     setRepositories([]);
     setSelectedRepos(new Set());
     
-    // Clear saved data
+    // Clear saved data (legacy localStorage)
     localStorage.removeItem('github_token');
     localStorage.removeItem('github_selected_repos');
     localStorage.removeItem('github_user');
@@ -208,29 +229,36 @@ export function GitHubIntegration({ onClose }: GitHubIntegrationProps) {
     // Silent success
   };
 
-  const handleSaveSettings = () => {
+  const handleSaveSettings = async () => {
     if (!isConnected) {
       toast.error("Please connect to GitHub first");
       return;
     }
 
-    if (selectedRepos.size === 0) {
-      toast.error("Please select at least one repository");
-      return;
-    }
+    try {
+      const repoArray = Array.from(selectedRepos);
 
-    // Save token and selected repositories
-    localStorage.setItem('github_token', token);
-    localStorage.setItem('github_selected_repos', JSON.stringify(Array.from(selectedRepos)));
-    localStorage.setItem('github_user', JSON.stringify(user));
-    
-    toast.success(`✅ Settings saved! ${selectedRepos.size} repositories selected.`);
-    
-    // Trigger dashboard refresh
-    window.dispatchEvent(new CustomEvent('github-settings-updated'));
-    
-    if (onClose) {
-      onClose();
+      // Save to database via userStorageService
+      await userStorageService.storeGitHubToken(token, repoArray);
+      
+      // Also save user info
+      localStorage.setItem('github_user', JSON.stringify(user));
+      
+      if (repoArray.length === 0) {
+        toast.success("✅ GitHub token saved. Select repositories any time to show them in your dashboard.");
+      } else {
+        toast.success(`✅ Settings saved! ${repoArray.length} repositories selected.`);
+      }
+      
+      // Trigger dashboard refresh
+      window.dispatchEvent(new CustomEvent('github-settings-updated'));
+      
+      if (onClose && repoArray.length > 0) {
+        onClose();
+      }
+    } catch (error) {
+      console.error('Failed to save GitHub settings:', error);
+      toast.error("Failed to save settings. Please try again.");
     }
   };
 
@@ -601,7 +629,7 @@ export function GitHubIntegration({ onClose }: GitHubIntegrationProps) {
                 </Button>
                 <Button
                   onClick={handleSaveSettings}
-                  disabled={selectedRepos.size === 0}
+                  disabled={!isConnected}
                   className="bg-[#238636] hover:bg-[#2ea043]"
                 >
                   <CheckCircle className="w-4 h-4 mr-2" />

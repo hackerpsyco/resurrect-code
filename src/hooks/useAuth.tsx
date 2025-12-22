@@ -1,14 +1,14 @@
 import { useState, useEffect, createContext, useContext, ReactNode } from "react";
-import { User, Session } from "@supabase/supabase-js";
+import { User, Session, AuthError } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 
 interface AuthContextType {
   user: User | null;
   session: Session | null;
   loading: boolean;
-  signUp: (email: string, password: string) => Promise<{ error: Error | null }>;
-  signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
-  signInWithGoogle: () => Promise<{ error: Error | null }>;
+  signUp: (email: string, password: string) => Promise<{ error: AuthError | null }>;
+  signIn: (email: string, password: string) => Promise<{ error: AuthError | null }>;
+  signInWithGoogle: () => Promise<{ error: AuthError | null }>;
   signOut: () => Promise<void>;
 }
 
@@ -20,110 +20,79 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Set up auth state listener FIRST
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        console.log('🔐 Auth state change:', { event, user: session?.user?.email, pathname: window.location.pathname });
-        setSession(session);
-        setUser(session?.user ?? null);
-        setLoading(false);
-        
-        // Handle OAuth callback and new-user flag
-        if (event === 'SIGNED_IN' && session?.user) {
-          console.log('✅ User signed in:', session.user.email);
-          
-          // Mark as new user if this is their first login (Google OAuth users)
-          const isNewUser = session.user.created_at === session.user.last_sign_in_at;
-          if (isNewUser) {
-            console.log('🆕 New user detected, setting flag');
-            localStorage.setItem('is_new_user', 'true');
-          }
-          
-          // Do NOT navigate here – let route components decide redirects
-        }
-        
-        // Handle sign out
-        if (event === 'SIGNED_OUT') {
-          console.log('👋 User signed out');
-          localStorage.removeItem('is_new_user');
-        }
-      }
-    );
-
-    // THEN check for existing session
+    // 1. Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
-      console.log('🔐 Initial session check:', { user: session?.user?.email, pathname: window.location.pathname });
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
     });
 
+    // 2. Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, currentSession) => {
+        console.log('🔐 Auth event:', event);
+        setSession(currentSession);
+        setUser(currentSession?.user ?? null);
+        setLoading(false);
+
+        if (event === 'SIGNED_IN' && currentSession?.user) {
+          const isNewUser = currentSession.user.created_at === currentSession.user.last_sign_in_at;
+          if (isNewUser) {
+            localStorage.setItem('is_new_user', 'true');
+          }
+        }
+
+        if (event === 'SIGNED_OUT') {
+          localStorage.removeItem('is_new_user');
+          // Optional: redirect to login page
+        }
+      }
+    );
+
     return () => subscription.unsubscribe();
   }, []);
 
   const signUp = async (email: string, password: string) => {
-    console.log('🔐 Supabase signup attempt:', { email, passwordLength: password.length });
-    
-    const { data, error } = await supabase.auth.signUp({
+    const { error } = await supabase.auth.signUp({
       email,
       password,
       options: {
         emailRedirectTo: `${window.location.origin}/dashboard`,
       },
     });
-    
-    console.log('🔐 Supabase signup response:', { 
-      user: data.user?.email, 
-      session: !!data.session,
-      error: error?.message 
-    });
-    
     return { error };
   };
 
   const signIn = async (email: string, password: string) => {
-    console.log('🔐 Supabase signin attempt:', { email, passwordLength: password.length });
-    
-    const { data, error } = await supabase.auth.signInWithPassword({
+    const { error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
-    
-    console.log('🔐 Supabase signin response:', { 
-      user: data.user?.email, 
-      session: !!data.session,
-      error: error?.message 
-    });
-    
     return { error };
   };
 
   const signInWithGoogle = async () => {
-    console.log('🔐 Google OAuth signin attempt');
+    console.log('🚀 Initiating Google Redirect to:', `${window.location.origin}/dashboard`);
     
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
+        // Change: Redirecting to dashboard directly if you don't have a callback route
+        // Ensure "https://resurrect-code.vercel.app/dashboard" is in Supabase Redirect URLs
+        redirectTo: `${window.location.origin}/dashboard`, 
         queryParams: {
           access_type: 'offline',
           prompt: 'consent',
         },
       },
     });
-    
-    console.log('🔐 Google OAuth response:', { 
-      url: data.url ? 'redirect_url_generated' : 'no_url',
-      error: error?.message 
-    });
-    
-    return { error };
+
+    if (error) console.error("Google Auth Error:", error.message);
+    return { error: error as AuthError | null };
   };
 
   const signOut = async () => {
-    console.log('🔐 Signing out user');
     await supabase.auth.signOut();
-    // Clear any cached data
     localStorage.removeItem('is_new_user');
   };
 
@@ -134,7 +103,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       loading, 
       signUp, 
       signIn, 
-      signInWithGoogle,
+      signInWithGoogle, 
       signOut 
     }}>
       {children}

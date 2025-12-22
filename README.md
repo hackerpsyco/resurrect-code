@@ -305,7 +305,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 <div align="center">
 
-**Made with ❤️ by the ResurrectCI Team**
+**Made by the ResurrectCI Team**
 
 [Website](https://resurrectci.com) • [Documentation](https://docs.resurrectci.com) • [Community](https://discord.gg/resurrectci)
 

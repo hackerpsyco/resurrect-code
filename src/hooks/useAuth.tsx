@@ -79,7 +79,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       options: {
         // Change: Redirecting to dashboard directly if you don't have a callback route
         // Ensure "https://resurrect-code.vercel.app/dashboard" is in Supabase Redirect URLs
-        redirectTo: `${window.location.origin}/dashboard`, 
+        redirectTo: "https://resurrect-code.vercel.app/dashboard", 
         queryParams: {
           access_type: 'offline',
           prompt: 'consent',

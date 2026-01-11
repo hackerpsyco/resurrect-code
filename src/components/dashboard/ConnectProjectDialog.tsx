@@ -108,13 +108,13 @@ export function ConnectProjectDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg bg-card border-border">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <FolderGit className="w-5 h-5 text-primary" />
-            Connect Project
+      <DialogContent className="sm:max-w-lg bg-card border-border max-h-[90vh] overflow-y-auto">
+        <DialogHeader className="text-left">
+          <DialogTitle className="flex items-center gap-2 text-lg sm:text-xl">
+            <FolderGit className="w-5 h-5 text-primary flex-shrink-0" />
+            <span className="truncate">Connect Project</span>
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-xs sm:text-sm">
             Link your GitHub repository and Vercel project for automatic error detection.
           </DialogDescription>
         </DialogHeader>
@@ -122,7 +122,7 @@ export function ConnectProjectDialog({
         {step === "repo" && (
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="repo-url">GitHub Repository URL</Label>
+              <Label htmlFor="repo-url" className="text-sm">GitHub Repository URL</Label>
               <div className="relative">
                 <Github className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
@@ -130,25 +130,25 @@ export function ConnectProjectDialog({
                   placeholder="https://github.com/username/repo"
                   value={repoUrl}
                   onChange={(e) => setRepoUrl(e.target.value)}
-                  className="pl-10 bg-background border-border"
+                  className="pl-10 bg-background border-border text-sm"
                 />
               </div>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="branch">Default Branch</Label>
+              <Label htmlFor="branch" className="text-sm">Default Branch</Label>
               <Input
                 id="branch"
                 placeholder="main"
                 value={branch}
                 onChange={(e) => setBranch(e.target.value)}
-                className="bg-background border-border"
+                className="bg-background border-border text-sm"
               />
             </div>
 
-            <Card className="p-4 bg-background border-border">
-              <h4 className="text-sm font-medium mb-2">What ResurrectCI will access:</h4>
-              <ul className="text-sm text-muted-foreground space-y-1">
+            <Card className="p-3 sm:p-4 bg-background border-border">
+              <h4 className="text-xs sm:text-sm font-medium mb-2">What ResurrectCI will access:</h4>
+              <ul className="text-xs sm:text-sm text-muted-foreground space-y-1">
                 <li>• Read repository files and structure</li>
                 <li>• Create branches for fixes (resurrect-fix)</li>
                 <li>• Open pull requests with solutions</li>
@@ -158,7 +158,7 @@ export function ConnectProjectDialog({
             <Button
               onClick={handleConnectRepo}
               disabled={isGitHubLoading}
-              className="w-full bg-primary hover:bg-primary/90"
+              className="w-full bg-primary hover:bg-primary/90 text-sm"
             >
               {isGitHubLoading ? (
                 <>
@@ -178,7 +178,7 @@ export function ConnectProjectDialog({
         {step === "vercel" && (
           <div className="space-y-4 py-4">
             <div className="flex items-center gap-2 mb-2">
-              <Triangle className="w-5 h-5 text-foreground" />
+              <Triangle className="w-5 h-5 text-foreground flex-shrink-0" />
               <h4 className="text-sm font-medium">Connect Vercel Project</h4>
             </div>
             <p className="text-xs text-muted-foreground">
@@ -195,28 +195,28 @@ export function ConnectProjectDialog({
                   <button
                     key={project.id}
                     onClick={() => handleSelectVercelProject(project.id)}
-                    className={`w-full flex items-center justify-between p-3 rounded-lg border transition-colors ${
+                    className={`w-full flex items-center justify-between p-2 sm:p-3 rounded-lg border transition-colors text-sm ${
                       selectedVercelProject === project.id
                         ? "border-primary bg-primary/10"
                         : "border-border bg-background hover:bg-secondary/50"
                     }`}
                   >
-                    <div className="flex items-center gap-3">
-                      <Triangle className="w-4 h-4" />
-                      <div className="text-left">
-                        <p className="text-sm font-medium">{project.name}</p>
-                        <p className="text-xs text-muted-foreground">{project.framework}</p>
+                    <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                      <Triangle className="w-4 h-4 flex-shrink-0" />
+                      <div className="text-left min-w-0">
+                        <p className="text-xs sm:text-sm font-medium truncate">{project.name}</p>
+                        <p className="text-xs text-muted-foreground truncate">{project.framework}</p>
                       </div>
                     </div>
                     {selectedVercelProject === project.id && (
-                      <CheckCircle className="w-4 h-4 text-primary" />
+                      <CheckCircle className="w-4 h-4 text-primary flex-shrink-0" />
                     )}
                   </button>
                 ))}
               </div>
             ) : (
-              <Card className="p-4 bg-background border-border text-center">
-                <p className="text-sm text-muted-foreground">
+              <Card className="p-3 sm:p-4 bg-background border-border text-center">
+                <p className="text-xs sm:text-sm text-muted-foreground">
                   No Vercel projects found. Make sure your Vercel token has access.
                 </p>
               </Card>
@@ -226,14 +226,14 @@ export function ConnectProjectDialog({
               <Button
                 variant="outline"
                 onClick={handleSkipVercel}
-                className="flex-1"
+                className="flex-1 text-sm"
               >
                 Skip
               </Button>
               <Button
                 onClick={handleContinueToWebhook}
                 disabled={!selectedVercelProject && projects.length > 0}
-                className="flex-1 bg-primary hover:bg-primary/90"
+                className="flex-1 bg-primary hover:bg-primary/90 text-sm"
               >
                 Continue
                 <ChevronRight className="w-4 h-4 ml-1" />
@@ -245,20 +245,20 @@ export function ConnectProjectDialog({
         {step === "webhook" && (
           <div className="space-y-4 py-4">
             {/* Pro Plan Webhook Option */}
-            <Card className="p-4 bg-background border-border">
-              <div className="flex items-start gap-3">
-                <Webhook className="w-5 h-5 text-primary mt-0.5" />
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1">
-                    <h4 className="text-sm font-medium">Option 1: Webhook (Pro Plan)</h4>
-                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-500 border border-amber-500/30">
+            <Card className="p-3 sm:p-4 bg-background border-border">
+              <div className="flex items-start gap-2 sm:gap-3">
+                <Webhook className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1 flex-wrap">
+                    <h4 className="text-xs sm:text-sm font-medium">Option 1: Webhook (Pro Plan)</h4>
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-500 border border-amber-500/30 flex-shrink-0">
                       PRO
                     </span>
                   </div>
                   <p className="text-xs text-muted-foreground mb-2">
                     Vercel webhooks require a Pro or Enterprise plan.
                   </p>
-                  <code className="block p-2 bg-card rounded text-xs font-mono break-all border border-border">
+                  <code className="block p-2 bg-card rounded text-xs font-mono break-all border border-border overflow-x-auto">
                     {webhookUrl}
                   </code>
                   <ol className="text-xs text-muted-foreground space-y-1 mt-2">
@@ -270,13 +270,13 @@ export function ConnectProjectDialog({
             </Card>
 
             {/* Free Tier Polling Option */}
-            <Card className="p-4 bg-primary/5 border-primary/30">
-              <div className="flex items-start gap-3">
-                <CheckCircle className="w-5 h-5 text-primary mt-0.5" />
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1">
-                    <h4 className="text-sm font-medium">Option 2: Manual / Polling (Free)</h4>
-                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/20 text-primary border border-primary/30">
+            <Card className="p-3 sm:p-4 bg-primary/5 border-primary/30">
+              <div className="flex items-start gap-2 sm:gap-3">
+                <CheckCircle className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1 flex-wrap">
+                    <h4 className="text-xs sm:text-sm font-medium">Option 2: Manual / Polling (Free)</h4>
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/20 text-primary border border-primary/30 flex-shrink-0">
                       FREE
                     </span>
                   </div>
@@ -287,17 +287,17 @@ export function ConnectProjectDialog({
               </div>
             </Card>
 
-            <div className="flex gap-2">
+            <div className="flex flex-col sm:flex-row gap-2">
               <Button
                 variant="outline"
                 onClick={handleSetupWebhook}
-                className="flex-1"
+                className="flex-1 text-sm"
               >
                 Skip (Use Polling)
               </Button>
               <Button
                 onClick={handleSetupWebhook}
-                className="flex-1 bg-primary hover:bg-primary/90"
+                className="flex-1 bg-primary hover:bg-primary/90 text-sm"
               >
                 I've Added Webhook
               </Button>
@@ -311,12 +311,12 @@ export function ConnectProjectDialog({
               <CheckCircle className="w-8 h-8 text-primary" />
             </div>
             <h3 className="text-lg font-semibold">Project Connected!</h3>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-xs sm:text-sm text-muted-foreground">
               ResurrectCI will now monitor your deployments and automatically fix build errors.
             </p>
             <Button
               onClick={handleComplete}
-              className="w-full bg-primary hover:bg-primary/90"
+              className="w-full bg-primary hover:bg-primary/90 text-sm"
             >
               Go to Dashboard
             </Button>

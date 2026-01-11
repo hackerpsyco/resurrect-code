@@ -220,6 +220,8 @@ export function EnhancedCodeEditor({
   
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
   const monacoRef = useRef<typeof monaco | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [isEditorReady, setIsEditorReady] = useState(false);
 
   // Detect language from file path
   useEffect(() => {
@@ -242,39 +244,89 @@ export function EnhancedCodeEditor({
     }
   }, [filePath, content]);
 
-  // Handle editor mount
+  // Ensure container has dimensions before mounting editor
+  useEffect(() => {
+    setIsEditorReady(false); // Reset when filePath changes
+    if (containerRef.current) {
+      const checkDimensions = () => {
+        const rect = containerRef.current?.getBoundingClientRect();
+        if (rect && rect.width > 0 && rect.height > 0) {
+          setIsEditorReady(true);
+        } else {
+          // Retry after a short delay (max 10 attempts = 1 second)
+          let attempts = 0;
+          const retry = setInterval(() => {
+            attempts++;
+            const newRect = containerRef.current?.getBoundingClientRect();
+            if (newRect && newRect.width > 0 && newRect.height > 0) {
+              setIsEditorReady(true);
+              clearInterval(retry);
+            } else if (attempts >= 10) {
+              // Force ready after 1 second even if dimensions aren't perfect
+              setIsEditorReady(true);
+              clearInterval(retry);
+            }
+          }, 100);
+          return () => clearInterval(retry);
+        }
+      };
+      // Small delay to ensure DOM is updated
+      const timeout = setTimeout(checkDimensions, 50);
+      return () => clearTimeout(timeout);
+    } else {
+      // If container doesn't exist yet, try again after a delay
+      const timeout = setTimeout(() => setIsEditorReady(true), 200);
+      return () => clearTimeout(timeout);
+    }
+  }, [filePath]);
+
+  // Handle editor mount with proper error handling
   const handleEditorDidMount = useCallback((editor: monaco.editor.IStandaloneCodeEditor, monaco: typeof import("monaco-editor")) => {
-    editorRef.current = editor;
-    monacoRef.current = monaco;
+    try {
+      editorRef.current = editor;
+      monacoRef.current = monaco;
 
-    // Set up keyboard shortcuts
-    setupKeyboardShortcuts(editor, monaco);
-    
-    // Set up AI-powered features
-    setupAIFeatures(editor, monaco);
-    
-    // Set up error markers
-    updateErrorMarkers(editor, monaco);
+      // Wait for editor to be fully ready
+      setTimeout(() => {
+        try {
+          // Set up keyboard shortcuts
+          setupKeyboardShortcuts(editor, monaco);
+          
+          // Set up AI-powered features
+          setupAIFeatures(editor, monaco);
+          
+          // Set up error markers
+          updateErrorMarkers(editor, monaco);
 
-    // Auto-save on Ctrl+S
-    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {
-      handleSave();
-    });
+          // Auto-save on Ctrl+S
+          editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {
+            handleSave();
+          });
 
-    // AI code generation on Ctrl+K
-    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyK, () => {
-      handleAIGenerate();
-    });
+          // AI code generation on Ctrl+K
+          editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyK, () => {
+            handleAIGenerate();
+          });
 
-    // AI explain on Ctrl+E
-    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyE, () => {
-      handleAIExplain();
-    });
+          // AI explain on Ctrl+E
+          editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyE, () => {
+            handleAIExplain();
+          });
 
-    // Format document on Shift+Alt+F
-    editor.addCommand(monaco.KeyMod.Shift | monaco.KeyMod.Alt | monaco.KeyCode.KeyF, () => {
-      handleFormatDocument();
-    });
+          // Format document on Shift+Alt+F
+          editor.addCommand(monaco.KeyMod.Shift | monaco.KeyMod.Alt | monaco.KeyCode.KeyF, () => {
+            handleFormatDocument();
+          });
+
+          // Force layout update to prevent null reference errors
+          editor.layout();
+        } catch (err) {
+          console.error('Error setting up editor features:', err);
+        }
+      }, 100);
+    } catch (err) {
+      console.error('Error mounting Monaco Editor:', err);
+    }
   }, []);
 
   const setupKeyboardShortcuts = (editor: monaco.editor.IStandaloneCodeEditor, monaco: typeof import("monaco-editor")) => {
@@ -683,114 +735,118 @@ export function EnhancedCodeEditor({
             </div>
           </div>
         ) : (
-          <Editor
-            height="100%"
-            language={currentLangConfig?.monacoLanguage || 'javascript'}
-            value={content}
-            onChange={(value) => onContentChange(value || '')}
-            onMount={handleEditorDidMount}
-            theme="vs-dark"
-            options={{
-              minimap: { 
-                enabled: showMinimap,
-                side: 'right',
-                showSlider: 'mouseover',
-                renderCharacters: true,
-                maxColumn: 120
-              },
-              wordWrap: wordWrap ? 'on' : 'off',
-              fontSize: fontSize,
-              lineNumbers: 'on',
-              lineNumbersMinChars: 3,
-              glyphMargin: true,
-              folding: true,
-              foldingHighlight: true,
-              foldingStrategy: 'indentation',
-              showFoldingControls: 'mouseover',
-              roundedSelection: false,
-              scrollBeyondLastLine: false,
-              automaticLayout: true,
-              tabSize: 2,
-              insertSpaces: true,
-              detectIndentation: true,
-              renderWhitespace: 'selection',
-              renderControlCharacters: false,
-              fontFamily: "'Cascadia Code', 'JetBrains Mono', 'Fira Code', Consolas, 'Courier New', monospace",
-              fontLigatures: true,
-              fontWeight: '400',
-              letterSpacing: 0,
-              lineHeight: 1.5,
-              cursorBlinking: 'blink',
-              cursorSmoothCaretAnimation: 'on',
-              cursorStyle: 'line',
-              cursorWidth: 2,
-              smoothScrolling: true,
-              contextmenu: true,
-              mouseWheelZoom: true,
-              multiCursorModifier: 'ctrlCmd',
-              selectionHighlight: true,
-              occurrencesHighlight: 'singleFile',
-              codeLens: true,
-              colorDecorators: true,
-              lightbulb: { enabled: 'on' },
-              linkedEditing: true,
-              matchBrackets: 'always',
-              renderLineHighlight: 'line',
-              renderValidationDecorations: 'on',
-              scrollbar: {
-                vertical: 'visible',
-                horizontal: 'visible',
-                useShadows: false,
-                verticalHasArrows: false,
-                horizontalHasArrows: false,
-                verticalScrollbarSize: 14,
-                horizontalScrollbarSize: 14
-              },
-              overviewRulerBorder: false,
-              overviewRulerLanes: 3,
-              hideCursorInOverviewRuler: false,
-              suggest: {
-                showInlineDetails: true,
-                showStatusBar: true,
-                preview: true,
-                previewMode: 'prefix',
-                showIcons: true,
-                maxVisibleSuggestions: 12,
-                insertMode: 'insert',
-                filterGraceful: true,
-                snippetsPreventQuickSuggestions: false,
-                localityBonus: true,
-                shareSuggestSelections: true,
-                selectionMode: 'always',
-                showDeprecated: true
-              },
-              quickSuggestions: {
-                other: 'on',
-                comments: 'off',
-                strings: 'off'
-              },
-              quickSuggestionsDelay: 10,
-              suggestOnTriggerCharacters: true,
-              acceptSuggestionOnEnter: 'on',
-              acceptSuggestionOnCommitCharacter: true,
-              tabCompletion: 'on',
-              wordBasedSuggestions: 'matchingDocuments',
-              wordBasedSuggestionsOnlySameLanguage: false,
-              parameterHints: { 
-                enabled: true,
-                cycle: true
-              },
-              autoClosingBrackets: 'always',
-              autoClosingQuotes: 'always',
-              autoClosingDelete: 'always',
-              autoSurround: 'languageDefined',
-              autoIndent: 'full',
-              formatOnType: true,
-              formatOnPaste: true,
-              dragAndDrop: true,
-              links: true,
-              find: {
-                cursorMoveOnType: true,
+          <div ref={containerRef} className="w-full h-full">
+            {isEditorReady ? (
+              <Editor
+                height="100%"
+                language={currentLangConfig?.monacoLanguage || 'javascript'}
+                value={content}
+                onChange={(value) => onContentChange(value || '')}
+                onMount={handleEditorDidMount}
+                theme="vs-dark"
+                loading={<div className="flex items-center justify-center h-full"><Loader2 className="w-8 h-8 animate-spin" /></div>}
+                options={{
+                  minimap: { 
+                    enabled: showMinimap,
+                    side: 'right',
+                    showSlider: 'mouseover',
+                    renderCharacters: true,
+                    maxColumn: 120
+                  },
+                  wordWrap: wordWrap ? 'on' : 'off',
+                  fontSize: fontSize,
+                  lineNumbers: 'on',
+                  lineNumbersMinChars: 3,
+                  glyphMargin: true,
+                  folding: true,
+                  foldingHighlight: true,
+                  foldingStrategy: 'indentation',
+                  showFoldingControls: 'mouseover',
+                  roundedSelection: false,
+                  scrollBeyondLastLine: false,
+                  automaticLayout: true,
+                  fixedOverflowWidgets: true,
+                  tabSize: 2,
+                  insertSpaces: true,
+                  detectIndentation: true,
+                  renderWhitespace: 'selection',
+                  renderControlCharacters: false,
+                  fontFamily: "'Cascadia Code', 'JetBrains Mono', 'Fira Code', Consolas, 'Courier New', monospace",
+                  fontLigatures: true,
+                  fontWeight: '400',
+                  letterSpacing: 0,
+                  lineHeight: 1.5,
+                  cursorBlinking: 'blink',
+                  cursorSmoothCaretAnimation: 'on',
+                  cursorStyle: 'line',
+                  cursorWidth: 2,
+                  smoothScrolling: true,
+                  contextmenu: true,
+                  mouseWheelZoom: true,
+                  multiCursorModifier: 'ctrlCmd',
+                  selectionHighlight: true,
+                  occurrencesHighlight: 'singleFile',
+                  codeLens: true,
+                  colorDecorators: true,
+                  lightbulb: { enabled: 'on' },
+                  linkedEditing: true,
+                  matchBrackets: 'always',
+                  renderLineHighlight: 'line',
+                  renderValidationDecorations: 'on',
+                  scrollbar: {
+                    vertical: 'visible',
+                    horizontal: 'visible',
+                    useShadows: false,
+                    verticalHasArrows: false,
+                    horizontalHasArrows: false,
+                    verticalScrollbarSize: 14,
+                    horizontalScrollbarSize: 14
+                  },
+                  overviewRulerBorder: false,
+                  overviewRulerLanes: 3,
+                  hideCursorInOverviewRuler: false,
+                  suggest: {
+                    showInlineDetails: true,
+                    showStatusBar: true,
+                    preview: true,
+                    previewMode: 'prefix',
+                    showIcons: true,
+                    maxVisibleSuggestions: 12,
+                    insertMode: 'insert',
+                    filterGraceful: true,
+                    snippetsPreventQuickSuggestions: false,
+                    localityBonus: true,
+                    shareSuggestSelections: true,
+                    selectionMode: 'always',
+                    showDeprecated: true
+                  },
+                  quickSuggestions: {
+                    other: 'on',
+                    comments: 'off',
+                    strings: 'off'
+                  },
+                  quickSuggestionsDelay: 10,
+                  suggestOnTriggerCharacters: true,
+                  acceptSuggestionOnEnter: 'on',
+                  acceptSuggestionOnCommitCharacter: true,
+                  tabCompletion: 'on',
+                  wordBasedSuggestions: 'matchingDocuments',
+                  wordBasedSuggestionsOnlySameLanguage: false,
+                  parameterHints: { 
+                    enabled: true,
+                    cycle: true
+                  },
+                  autoClosingBrackets: 'always',
+                  autoClosingQuotes: 'always',
+                  autoClosingDelete: 'always',
+                  autoSurround: 'languageDefined',
+                  autoIndent: 'full',
+                  formatOnType: true,
+                  formatOnPaste: true,
+                  dragAndDrop: true,
+                  links: true,
+                  find: {
+                    cursorMoveOnType: true,
                 seedSearchStringFromSelection: 'always',
                 autoFindInSelection: 'never',
                 addExtraSpaceOnTop: true,
@@ -828,6 +884,12 @@ export function EnhancedCodeEditor({
               }
             }}
           />
+            ) : (
+              <div className="flex items-center justify-center h-full">
+                <Loader2 className="w-8 h-8 animate-spin text-primary" />
+              </div>
+            )}
+          </div>
         )}
       </div>
 

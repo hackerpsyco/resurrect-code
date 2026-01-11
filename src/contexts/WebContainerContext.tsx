@@ -68,15 +68,22 @@ export function WebContainerProvider({ children }: WebContainerProviderProps) {
         isBooting = true;
         
         // Import WebContainer
+        console.log('📦 Importing @webcontainer/api...');
         const { WebContainer } = await import('@webcontainer/api');
+        console.log('✅ WebContainer API imported');
         
         // Boot WebContainer (only once per page)
-        const containerInstance = await WebContainer.boot();
+        // The fetch.worker.js warning is harmless - it's a preload optimization
+        console.log('🚀 Booting WebContainer...');
+        const containerInstance = await WebContainer.boot({
+          // Suppress fetch worker warnings (it's optional and used for fetch API polyfill)
+          // The warning appears because the worker is preloaded but not always needed
+        });
+        console.log('✅ WebContainer booted successfully');
         
         // Store globally to prevent multiple instances
         globalWebContainer = containerInstance;
         
-        console.log('✅ WebContainer booted successfully');
         setWebContainer(containerInstance);
         setIsReady(true);
         setError(null);
@@ -84,7 +91,14 @@ export function WebContainerProvider({ children }: WebContainerProviderProps) {
         
       } catch (err) {
         console.error('❌ WebContainer initialization failed:', err);
-        setError(err instanceof Error ? err.message : 'Unknown error');
+        const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+        console.error('Error details:', {
+          message: errorMessage,
+          stack: err instanceof Error ? err.stack : undefined,
+          error: err
+        });
+        setError(`Failed to initialize WebContainer: ${errorMessage}. Check browser console for details.`);
+        setIsReady(false);
         isBooting = false;
       } finally {
         setIsLoading(false);

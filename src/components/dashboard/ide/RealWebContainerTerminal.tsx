@@ -52,7 +52,7 @@ export function RealWebContainerTerminal({
   const [devServerUrl, setDevServerUrl] = useState<string | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
   
-  const { webContainer, isReady } = useWebContainer();
+  const { webContainer, isReady, isLoading, error: webContainerError } = useWebContainer();
   const { fetchFile, fetchFileTree } = useGitHub();
   const terminalRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLDivElement>(null);
@@ -75,6 +75,35 @@ export function RealWebContainerTerminal({
       inputRef.current.focus();
     }
   }, []);
+
+  // Show WebContainer status
+  useEffect(() => {
+    if (isLoading) {
+      addOutput("⏳ Loading WebContainer...");
+      return;
+    }
+    
+    if (webContainerError) {
+      addOutput(`❌ WebContainer Error: ${webContainerError}`);
+      addOutput("💡 Please refresh the page to retry");
+      return;
+    }
+    
+    if (!webContainer || !isReady) {
+      addOutput("⏳ Waiting for WebContainer to initialize...");
+      return;
+    }
+    
+    // WebContainer is ready, but don't initialize project files if already done
+    if (isInitialized) return;
+    
+    // Clear loading message and proceed with initialization
+    setSessions(prev => prev.map(s => 
+      s.id === activeSessionId 
+        ? { ...s, output: ["✅ WebContainer ready", ""] }
+        : s
+    ));
+  }, [isLoading, webContainerError, webContainer, isReady, isInitialized, activeSessionId]);
 
   // Initialize WebContainer with real project files from GitHub
   useEffect(() => {
@@ -103,102 +132,166 @@ export function RealWebContainerTerminal({
               
               addOutput(`📂 Found ${projectFiles.length} files, loading...`);
               
-              // Load files into WebContainer (limit to important files first)
-              const importantFiles = projectFiles.filter(file => 
-                file.type === 'file' && (
-                  file.path === 'package.json' ||
-                  file.path === 'package-lock.json' ||
-                  file.path === 'yarn.lock' ||
-                  file.path === 'tsconfig.json' ||
-                  file.path === 'vite.config.js' ||
-                  file.path === 'vite.config.ts' ||
-                  file.path === 'index.html' ||
-                  file.path.startsWith('src/') ||
-                  file.path.startsWith('app/') ||
-                  file.path.startsWith('components/') ||
-                  file.path.endsWith('.ts') ||
-                  file.path.endsWith('.tsx') ||
-                  file.path.endsWith('.js') ||
-                  file.path.endsWith('.jsx')
-                )
-              ).slice(0, 50); // Limit to first 50 important files
+              // GitHub API returns type: 'blob' for files, 'tree' for folders
+              // Filter to only files (blobs)
+              const fileNodes = projectFiles.filter(node => node.type === 'blob');
+              
+              addOutput(`📋 Found ${fileNodes.length} files (excluding folders)`);
+              
+              // First, prioritize package.json and config files - load these FIRST
+              const priorityFiles = fileNodes.filter(node => 
+                node.path === 'package.json' ||
+                node.path === 'package-lock.json' ||
+                node.path === 'yarn.lock' ||
+                node.path === 'pnpm-lock.yaml' ||
+                node.path === 'tsconfig.json' ||
+                node.path === 'jsconfig.json' ||
+                node.path === 'vite.config.js' ||
+                node.path === 'vite.config.ts' ||
+                node.path === 'next.config.js' ||
+                node.path === 'index.html' ||
+                node.path === 'README.md'
+              );
+              
+              // Then get source files and other important files
+              const sourceFiles = fileNodes.filter(node => 
+                (node.path.startsWith('src/') ||
+                node.path.startsWith('app/') ||
+                node.path.startsWith('components/') ||
+                node.path.startsWith('pages/') ||
+                node.path.startsWith('lib/') ||
+                node.path.startsWith('public/') ||
+                node.path.endsWith('.ts') ||
+                node.path.endsWith('.tsx') ||
+                node.path.endsWith('.js') ||
+                node.path.endsWith('.jsx') ||
+                node.path.endsWith('.json') ||
+                node.path.endsWith('.css') ||
+                node.path.endsWith('.html') ||
+                node.path.endsWith('.md')) &&
+                !priorityFiles.some(pf => pf.path === node.path)
+              );
+              
+              // Combine: priority files first, then source files
+              const filesToLoad = [...priorityFiles, ...sourceFiles].slice(0, 100);
+              
+              addOutput(`📦 Loading ${filesToLoad.length} files (${priorityFiles.length} config files + ${Math.min(sourceFiles.length, 100 - priorityFiles.length)} source files)...`);
               
               let loadedCount = 0;
-              for (const file of importantFiles) {
+              let failedCount = 0;
+              let packageJsonLoaded = false;
+              
+              // Load files sequentially to avoid rate limits
+              for (const file of filesToLoad) {
                 try {
-                  const fileContent = await fetchFile(project.owner!, project.repo!, file.path, project.branch);
-                  if (fileContent?.content) {
+                  // Only show progress for first few files to avoid spam
+                  if (loadedCount < 5 || file.path === 'package.json') {
+                    addOutput(`  📥 ${file.path}`);
+                  }
+                  
+                  const fileContent = await fetchFile(project.owner!, project.repo!, file.path, project.branch || 'main');
+                  
+                  if (fileContent && fileContent.content !== undefined && fileContent.content !== null && fileContent.content !== '') {
                     // Create directory if needed
                     const pathParts = file.path.split('/');
                     if (pathParts.length > 1) {
                       const dirPath = pathParts.slice(0, -1).join('/');
-                      await webContainer.fs.mkdir(dirPath, { recursive: true });
+                      try {
+                        await webContainer.fs.mkdir(dirPath, { recursive: true });
+                      } catch (mkdirError) {
+                        // Directory might already exist, that's fine
+                      }
                     }
+                    
                     await webContainer.fs.writeFile(file.path, fileContent.content);
                     loadedCount++;
+                    
+                    if (file.path === 'package.json') {
+                      packageJsonLoaded = true;
+                    }
+                  } else {
+                    console.warn(`No content for ${file.path}`);
+                    failedCount++;
                   }
                 } catch (error) {
-                  console.warn(`Failed to load ${file.path}:`, error);
+                  console.error(`Failed to load ${file.path}:`, error);
+                  failedCount++;
+                  // Don't spam terminal with errors
+                  if (failedCount <= 3) {
+                    addOutput(`  ❌ Failed: ${file.path}`);
+                  }
                 }
               }
               
-              addOutput(`✅ Loaded ${loadedCount} project files`);
+              if (loadedCount > 5) {
+                addOutput(`  ... and ${loadedCount - 5} more files`);
+              }
+              
+              addOutput(`✅ Loaded ${loadedCount} files${failedCount > 0 ? ` (${failedCount} failed)` : ''}`);
+              
+              if (packageJsonLoaded) {
+                addOutput(`📦 package.json found and loaded`);
+              }
               
               // Check if package.json exists and auto-install
-              try {
-                const packageJsonContent = await webContainer.fs.readFile('package.json', 'utf-8');
-                if (packageJsonContent) {
-                  addOutput("📦 Found package.json, installing dependencies...");
-                  addOutput("");
-                  
-                  // Auto-run npm install
-                  const installProcess = await webContainer.spawn('npm', ['install']);
-                  const installReader = installProcess.output.getReader();
-                  const installDecoder = new TextDecoder();
-                  
-                  (async () => {
-                    try {
-                      while (true) {
-                        const { done, value } = await installReader.read();
-                        if (done) break;
-                        if (!value) continue;
+              if (packageJsonLoaded) {
+                try {
+                  const packageJsonContent = await webContainer.fs.readFile('package.json', 'utf-8');
+                  if (packageJsonContent && packageJsonContent.trim()) {
+                    addOutput("");
+                    addOutput("📦 Installing dependencies from package.json...");
+                    addOutput("");
+                    
+                    // Auto-run npm install
+                    const installProcess = await webContainer.spawn('npm', ['install']);
+                    const installReader = installProcess.output.getReader();
+                    const installDecoder = new TextDecoder();
+                    
+                    (async () => {
+                      try {
+                        while (true) {
+                          const { done, value } = await installReader.read();
+                          if (done) break;
+                          if (!value) continue;
+                          
+                          let text = "";
+                          if (value instanceof Uint8Array) {
+                            text = installDecoder.decode(value);
+                          } else if (value instanceof ArrayBuffer) {
+                            text = installDecoder.decode(new Uint8Array(value));
+                          } else if (typeof value === 'string') {
+                            text = value;
+                          } else {
+                            continue;
+                          }
+                          
+                          const cleaned = stripAnsiCodes(text);
+                          if (cleaned.trim()) {
+                            addToBuffer(cleaned);
+                          }
+                        }
                         
-                        let text = "";
-                        if (value instanceof Uint8Array) {
-                          text = installDecoder.decode(value);
-                        } else if (value instanceof ArrayBuffer) {
-                          text = installDecoder.decode(new Uint8Array(value));
-                        } else if (typeof value === 'string') {
-                          text = value;
+                        const exitCode = await installProcess.exit;
+                        if (exitCode === 0) {
+                          addOutput("");
+                          addOutput("✅ Dependencies installed successfully!");
+                          addOutput("💡 Ready to run: npm run dev");
                         } else {
-                          continue;
+                          addOutput("");
+                          addOutput(`⚠️ npm install exited with code ${exitCode}`);
                         }
-                        
-                        const cleaned = stripAnsiCodes(text);
-                        if (cleaned.trim()) {
-                          addToBuffer(cleaned);
-                        }
-                      }
-                      
-                      const exitCode = await installProcess.exit;
-                      if (exitCode === 0) {
                         addOutput("");
-                        addOutput("✅ Dependencies installed successfully!");
-                        addOutput("💡 Ready to run: npm run dev");
-                      } else {
-                        addOutput("");
-                        addOutput(`⚠️ npm install exited with code ${exitCode}`);
+                        setHasAutoInstalled(true);
+                      } catch (e) {
+                        console.warn("npm install stream error:", e);
                       }
-                      addOutput("");
-                      setHasAutoInstalled(true);
-                    } catch (e) {
-                      console.warn("npm install stream error:", e);
-                    }
-                  })();
+                    })();
+                  }
+                } catch (error) {
+                  // No package.json found or read failed, that's okay
+                  console.warn("Could not read package.json or install failed:", error);
+                  addOutput("ℹ️ Could not install dependencies automatically");
                 }
-              } catch (error) {
-                // No package.json found, that's okay
-                addOutput("ℹ️ No package.json found, skipping auto-install");
               }
             } else {
               addOutput("⚠️ No files found in repository");
@@ -243,7 +336,7 @@ export function RealWebContainerTerminal({
     if (webContainer && isReady) {
       initializeWebContainer();
     }
-  }, [webContainer, isReady, projectFiles, project, isInitialized, fetchFileTree, fetchFile, hasAutoInstalled]);
+  }, [webContainer, isReady, projectFiles, project, isInitialized, fetchFileTree, fetchFile, hasAutoInstalled, isLoading, webContainerError]);
 
   const addOutput = (text: string) => {
     setSessions(prev => prev.map(session => 
@@ -348,8 +441,20 @@ export function RealWebContainerTerminal({
   };
 
   const executeRealCommand = async (command: string) => {
+    if (isLoading) {
+      addOutput("⏳ WebContainer is still loading. Please wait...");
+      return;
+    }
+    
+    if (webContainerError) {
+      addOutput(`❌ WebContainer Error: ${webContainerError}`);
+      addOutput("💡 Please refresh the page to retry");
+      return;
+    }
+    
     if (!webContainer || !isReady) {
-      addOutput("❌ WebContainer not ready");
+      addOutput("❌ WebContainer not ready yet");
+      addOutput("💡 Waiting for initialization...");
       return;
     }
 
@@ -582,7 +687,17 @@ export function RealWebContainerTerminal({
               Dev Server: {devServerUrl}
             </span>
           )}
-          {webContainer && isReady && (
+          {isLoading && (
+            <span className="text-xs bg-yellow-500/20 text-yellow-400 px-2 py-1 rounded">
+              Loading...
+            </span>
+          )}
+          {webContainerError && (
+            <span className="text-xs bg-red-500/20 text-red-400 px-2 py-1 rounded">
+              Error
+            </span>
+          )}
+          {webContainer && isReady && !webContainerError && (
             <span className="text-xs bg-blue-500/20 text-blue-400 px-2 py-1 rounded">
               Node.js Ready
             </span>

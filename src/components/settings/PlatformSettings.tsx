@@ -375,9 +375,25 @@ export function PlatformSettings({ onClose, initialSection, initialIntegration }
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-[#1e1e1e] flex">
-      {/* Header */}
-      <div className="absolute top-0 left-0 right-0 h-12 bg-[#323233] border-b border-[#464647] flex items-center justify-between px-4 z-10">
+    <div className="fixed inset-0 z-50 bg-[#1e1e1e] flex flex-col md:flex-row overflow-hidden">
+      {/* Header - Mobile */}
+      <div className="md:hidden h-12 bg-[#323233] border-b border-[#464647] flex items-center justify-between px-4 z-10 flex-shrink-0">
+        <div className="flex items-center gap-2">
+          <Settings className="w-4 h-4 text-blue-400" />
+          <span className="text-sm font-medium text-white truncate">Settings</span>
+        </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onClose}
+          className="h-8 w-8 p-0 text-gray-400 hover:text-white hover:bg-[#464647]"
+        >
+          <X className="w-4 h-4" />
+        </Button>
+      </div>
+
+      {/* Header - Desktop */}
+      <div className="hidden md:flex absolute top-0 left-0 right-0 h-12 bg-[#323233] border-b border-[#464647] items-center justify-between px-4 z-10">
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 rounded-full bg-[#ff5f57]"></div>
@@ -399,9 +415,9 @@ export function PlatformSettings({ onClose, initialSection, initialIntegration }
         </Button>
       </div>
 
-      {/* Sidebar */}
-      <div className="w-64 bg-[#252526] border-r border-[#464647] pt-12">
-        <div className="p-4">
+      {/* Sidebar - Desktop Only */}
+      <div className="hidden md:flex md:w-64 bg-[#252526] border-r border-[#464647] pt-12 flex-col flex-shrink-0">
+        <div className="p-4 flex-1 overflow-y-auto">
           <h2 className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-4">
             PREFERENCES
           </h2>
@@ -418,8 +434,8 @@ export function PlatformSettings({ onClose, initialSection, initialIntegration }
                       : 'text-gray-300 hover:bg-[#2a2d2e] hover:text-white'
                   }`}
                 >
-                  <Icon className="w-4 h-4" />
-                  {section.label}
+                  <Icon className="w-4 h-4 flex-shrink-0" />
+                  <span className="truncate">{section.label}</span>
                 </button>
               );
             })}
@@ -427,12 +443,35 @@ export function PlatformSettings({ onClose, initialSection, initialIntegration }
         </div>
       </div>
 
+      {/* Mobile Tabs */}
+      <div className="md:hidden h-12 bg-[#252526] border-b border-[#464647] flex items-center overflow-x-auto flex-shrink-0">
+        <div className="flex gap-1 px-2 w-full overflow-x-auto">
+          {sidebarSections.map((section) => {
+            const Icon = section.icon;
+            return (
+              <button
+                key={section.id}
+                onClick={() => setActiveSection(section.id)}
+                className={`flex items-center gap-2 px-3 py-2 text-xs rounded-md transition-colors whitespace-nowrap flex-shrink-0 ${
+                  activeSection === section.id
+                    ? 'bg-[#37373d] text-white'
+                    : 'text-gray-300 hover:bg-[#2a2d2e] hover:text-white'
+                }`}
+              >
+                <Icon className="w-4 h-4" />
+                <span className="hidden sm:inline">{section.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       {/* Main Content */}
-      <div className="flex-1 pt-12">
-        <div className="h-full overflow-auto">
-          <div className="max-w-4xl mx-auto p-6">
-            {/* Search Bar */}
-            <div className="mb-6">
+      <div className="flex-1 pt-12 md:pt-12 overflow-auto">
+        <div className="w-full h-full">
+          <div className="max-w-4xl mx-auto p-4 sm:p-6">
+            {/* Search Bar - Hidden on mobile for space */}
+            <div className="mb-6 hidden sm:block">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
                 <Input
@@ -447,27 +486,26 @@ export function PlatformSettings({ onClose, initialSection, initialIntegration }
 
             {/* Footer */}
             <div className="mt-8 pt-6 border-t border-[#464647]">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 text-sm text-gray-400">
-                  <Heart className="w-4 h-4 text-red-400" />
-                  <span>YOUR Platform Settings</span>
-                  <span className="text-gray-600">•</span>
-                  <span>You own and control everything</span>
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div className="flex items-center gap-2 text-xs sm:text-sm text-gray-400">
+                  <Heart className="w-4 h-4 text-red-400 flex-shrink-0" />
+                  <span className="truncate">YOUR Platform Settings</span>
+                  <span className="text-gray-600 hidden sm:inline">•</span>
+                  <span className="hidden sm:inline">You own and control everything</span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Button variant="outline" size="sm">
+                <div className="flex items-center gap-2 w-full sm:w-auto">
+                  <Button variant="outline" size="sm" className="flex-1 sm:flex-none">
                     <RefreshCw className="w-4 h-4 mr-2" />
-                    Reset to Defaults
+                    Reset
                   </Button>
                   <Button
                     size="sm"
                     onClick={() => {
-                      // Currently only in-memory UI preferences live here.
-                      // Integration keys & repos are saved via their own "Save" buttons.
                       toast.success("Preferences saved. GitHub/Vercel keys and repos are saved in the Integrations section.");
                     }}
+                    className="flex-1 sm:flex-none"
                   >
-                    Save Changes
+                    Save
                   </Button>
                 </div>
               </div>

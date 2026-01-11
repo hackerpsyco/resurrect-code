@@ -1,14 +1,14 @@
 import { useState, useEffect, createContext, useContext, ReactNode } from "react";
-import { User, Session, AuthError } from "@supabase/supabase-js";
+import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 
 interface AuthContextType {
   user: User | null;
   session: Session | null;
   loading: boolean;
-  signUp: (email: string, password: string) => Promise<{ error: AuthError | null }>;
-  signIn: (email: string, password: string) => Promise<{ error: AuthError | null }>;
-  signInWithGoogle: () => Promise<{ error: AuthError | null }>;
+  sendOtp: (email: string, password: string, isSignup: boolean) => Promise<{ error: Error | null }>;
+  verifyOtpAndAuth: (email: string, password: string, token: string, isSignup: boolean) => Promise<{ error: Error | null }>;
+  signInWithGoogle: () => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
 }
 
@@ -20,75 +20,153 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // 1. Get initial session
+    // Set up auth state listener FIRST
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        console.log('🔐 Auth state change:', { event, user: session?.user?.email });
+        setSession(session);
+        setUser(session?.user ?? null);
+        setLoading(false);
+        
+        // Handle OAuth callback and new-user flag
+        if (event === 'SIGNED_IN' && session?.user) {
+          console.log('✅ User signed in:', session.user.email);
+          
+          // Mark as new user if this is their first login
+          const isNewUser = session.user.created_at === session.user.last_sign_in_at;
+          if (isNewUser) {
+            console.log('🆕 New user detected');
+            localStorage.setItem('is_new_user', 'true');
+          }
+        }
+        
+        // Handle sign out
+        if (event === 'SIGNED_OUT') {
+          console.log('👋 User signed out');
+          localStorage.removeItem('is_new_user');
+        }
+      }
+    );
+
+    // Check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
+      console.log('🔐 Initial session check:', { user: session?.user?.email });
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
     });
 
-    // 2. Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, currentSession) => {
-        console.log('🔐 Auth event:', event);
-        setSession(currentSession);
-        setUser(currentSession?.user ?? null);
-        setLoading(false);
-
-        if (event === 'SIGNED_IN' && currentSession?.user) {
-          const isNewUser = currentSession.user.created_at === currentSession.user.last_sign_in_at;
-          if (isNewUser) {
-            localStorage.setItem('is_new_user', 'true');
-          }
-        }
-
-        if (event === 'SIGNED_OUT') {
-          localStorage.removeItem('is_new_user');
-          // Optional: redirect to login page
-        }
-      }
-    );
-
     return () => subscription.unsubscribe();
   }, []);
 
-  const signUp = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signUp({
+  const sendOtp = async (email: string, password: string, isSignup: boolean) => {
+    console.log('🔐 Sending OTP:', { email, isSignup });
+    
+    // Store credentials temporarily for verification step
+    sessionStorage.setItem(`auth_email_${email}`, email);
+    sessionStorage.setItem(`auth_password_${email}`, password);
+    sessionStorage.setItem(`auth_isSignup_${email}`, isSignup ? 'true' : 'false');
+    
+    // For signup: create user, for login: just send OTP
+    const { error } = await supabase.auth.signInWithOtp({
       email,
-      password,
       options: {
-        emailRedirectTo: `${window.location.origin}/dashboard`,
-      },
+        shouldCreateUser: isSignup, // Create user on signup
+        emailRedirectTo: `${window.location.origin}/auth/callback`,
+      }
     });
-    return { error };
+    
+    if (error) {
+      console.error('Failed to send OTP:', error);
+      
+      const errorMessage = error.message.toLowerCase();
+      if (errorMessage.includes('rate limit') || error.status === 429) {
+        const rateLimitError = new Error(
+          'Email rate limit exceeded. Please wait a few minutes before requesting another code.'
+        );
+        (rateLimitError as any).code = 'RATE_LIMIT';
+        return { error: rateLimitError };
+      }
+      
+      return { error };
+    }
+    
+    console.log('✅ OTP sent successfully');
+    return { error: null };
   };
 
-  const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-    return { error };
+  const verifyOtpAndAuth = async (email: string, password: string, token: string, isSignup: boolean) => {
+    console.log('🔐 Verifying OTP and authenticating:', { email, isSignup });
+    
+    try {
+      // Step 1: Verify OTP - this automatically signs in the user
+      const { data: otpData, error: otpError } = await supabase.auth.verifyOtp({
+        email,
+        token,
+        type: 'email',
+      });
+      
+      if (otpError) {
+        console.error('OTP verification failed:', otpError);
+        return { error: otpError };
+      }
+      
+      console.log('✅ OTP verified and user authenticated');
+      
+      // Step 2: If signup, update user profile with password info
+      if (isSignup) {
+        console.log('🔐 New user account created via OTP');
+        localStorage.setItem('is_new_user', 'true');
+        
+        // Update user metadata
+        const { error: updateError } = await supabase.auth.updateUser({
+          data: { 
+            signup_method: 'otp',
+            created_at: new Date().toISOString()
+          }
+        });
+        
+        if (updateError) {
+          console.warn('Failed to update user metadata:', updateError);
+        }
+        
+        console.log('✅ Account created successfully');
+      } else {
+        console.log('✅ Login successful');
+      }
+      
+      // Clear stored credentials
+      sessionStorage.removeItem(`auth_email_${email}`);
+      sessionStorage.removeItem(`auth_password_${email}`);
+      sessionStorage.removeItem(`auth_isSignup_${email}`);
+      
+      return { error: null };
+    } catch (err) {
+      console.error('Auth error:', err);
+      return { error: err as Error };
+    }
   };
 
   const signInWithGoogle = async () => {
-    console.log('🚀 Initiating Google Redirect to:', `${window.location.origin}/dashboard`);
+    console.log('🔐 Google OAuth signin attempt');
     
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        // Change: Redirecting to dashboard directly if you don't have a callback route
-        // Ensure "https://resurrect-code.vercel.app/dashboard" is in Supabase Redirect URLs
-        redirectTo: "https://resurrect-code.vercel.app/dashboard", 
+        redirectTo: `${window.location.origin}/auth/callback`,
         queryParams: {
           access_type: 'offline',
           prompt: 'consent',
         },
       },
     });
-
-    if (error) console.error("Google Auth Error:", error.message);
-    return { error: error as AuthError | null };
+    
+    console.log('🔐 Google OAuth response:', { 
+      url: data.url ? 'redirect_url_generated' : 'no_url',
+      error: error?.message 
+    });
+    
+    return { error };
   };
 
   const signOut = async () => {
@@ -101,9 +179,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user, 
       session, 
       loading, 
-      signUp, 
-      signIn, 
-      signInWithGoogle, 
+      sendOtp,
+      verifyOtpAndAuth,
+      signInWithGoogle,
       signOut 
     }}>
       {children}

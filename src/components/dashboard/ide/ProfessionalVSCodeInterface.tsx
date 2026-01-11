@@ -732,12 +732,7 @@ export function ProfessionalVSCodeInterface({ project, onClose }: ProfessionalVS
           }}
         >
           <RealWebContainerTerminal
-            project={{
-              name: project.name,
-              owner: project.owner,
-              repo: project.repo,
-              branch: project.branch
-            }}
+            project={project}
             onClose={() => setShowTerminal(false)}
             onDevServerStart={(url) => {
               setPreviewUrl(url);
@@ -755,7 +750,6 @@ export function ProfessionalVSCodeInterface({ project, onClose }: ProfessionalVS
               }, {} as Record<string, string>)
             }
             fontSize={terminalFontSize}
-            project={project}
           />
           
           {/* Terminal Controls */}

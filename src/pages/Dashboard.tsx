@@ -11,6 +11,7 @@ import { useGitHubAuth } from "@/hooks/useGitHubAuth";
 // ExtensionsManager removed - not needed
 import { PlatformSettings } from "@/components/settings/PlatformSettings";
 import { DevOpsPanel } from "@/components/dashboard/DevOpsPanel";
+import { MobileResponsiveDashboard } from "@/components/dashboard/MobileResponsiveDashboard";
 import { githubService, GitHubRepository, GitHubUser } from "@/services/githubService";
 import { vercelService, VercelProject, VercelUser } from "@/services/vercelService";
 import {
@@ -186,9 +187,11 @@ export default function Dashboard() {
     if (isNewUserFlag || !hasConnectedBefore) {
       setIsNewUser(true);
       
-      // Show onboarding for new users
-      if (isNewUserFlag) {
-        setShowOnboarding(true);
+      // For new users, redirect directly to GitHub integration
+      if (isNewUserFlag || !hasConnectedBefore) {
+        setActiveView('settings');
+        setSettingsInitialSection('integrations');
+        setSettingsInitialIntegration('github');
         // Clear the new user flag
         localStorage.removeItem('is_new_user');
       }
@@ -973,170 +976,53 @@ export default function Dashboard() {
         />
       )}
       
-      <div className="min-h-screen bg-[#0d1117] text-white flex">
-        {/* Sidebar */}
-        <div className="w-64 bg-[#161b22] border-r border-[#30363d] flex flex-col">
-        {/* Logo */}
-        <div className="p-4 border-b border-[#30363d]">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-[#238636] rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-sm">D</span>
-            </div>
-            <span className="font-semibold text-lg">DevStudio</span>
-          </div>
-        </div>
-
-        {/* Navigation */}
-        <div className="flex-1 p-4">
-          <nav className="space-y-2">
-            <Button
-              variant="ghost"
-              className={`w-full justify-start gap-3 h-10 ${
-                activeView === "dashboard" 
-                  ? "bg-[#238636]/20 text-[#238636] border-l-2 border-[#238636]" 
-                  : "text-[#7d8590] hover:text-white hover:bg-[#21262d]"
-              }`}
-              onClick={() => setActiveView("dashboard")}
-            >
-              <LayoutDashboard className="w-5 h-5" />
-              Dashboard
-            </Button>
-            <Button
-              variant="ghost"
-              className={`w-full justify-start gap-3 h-10 ${
-                activeView === "editor" 
-                  ? "bg-[#238636]/20 text-[#238636] border-l-2 border-[#238636]" 
-                  : "text-[#7d8590] hover:text-white hover:bg-[#21262d]"
-              }`}
-              onClick={() => setActiveView("editor")}
-            >
-              <Code className="w-5 h-5" />
-              Editor
-            </Button>
-            <Button
-              variant="ghost"
-              className={`w-full justify-start gap-3 h-10 ${
-                activeView === "extensions" 
-                  ? "bg-[#238636]/20 text-[#238636] border-l-2 border-[#238636]" 
-                  : "text-[#7d8590] hover:text-white hover:bg-[#21262d]"
-              }`}
-              onClick={() => setActiveView("extensions")}
-            >
-              <Puzzle className="w-5 h-5" />
-              Extensions
-            </Button>
-            <Button
-              variant="ghost"
-              className={`w-full justify-start gap-3 h-10 ${
-                activeView === "issues" 
-                  ? "bg-[#238636]/20 text-[#238636] border-l-2 border-[#238636]" 
-                  : "text-[#7d8590] hover:text-white hover:bg-[#21262d]"
-              }`}
-              onClick={() => setActiveView("issues")}
-            >
-              <Bug className="w-5 h-5" />
-              Issues
-            </Button>
-            <Button
-              variant="ghost"
-              className={`w-full justify-start gap-3 h-10 ${
-                activeView === "devops" 
-                  ? "bg-[#238636]/20 text-[#238636] border-l-2 border-[#238636]" 
-                  : "text-[#7d8590] hover:text-white hover:bg-[#21262d]"
-              }`}
-              onClick={() => setActiveView("devops")}
-            >
-              <Zap className="w-5 h-5" />
-              DevOps
-            </Button>
-            <Button
-              variant="ghost"
-              className={`w-full justify-start gap-3 h-10 ${
-                activeView === "settings" 
-                  ? "bg-[#238636]/20 text-[#238636] border-l-2 border-[#238636]" 
-                  : "text-[#7d8590] hover:text-white hover:bg-[#21262d]"
-              }`}
-              onClick={() => setActiveView("settings")}
-            >
-              <Settings className="w-5 h-5" />
-              Settings
-            </Button>
-          </nav>
-        </div>
-
-        {/* User Profile */}
-        <div className="p-4 border-t border-[#30363d]">
-          <div className="flex items-center gap-3 mb-3">
-            <Avatar className="w-8 h-8">
-              <AvatarImage src="/placeholder-avatar.jpg" />
-              <AvatarFallback className="bg-[#238636] text-white">
-                {user?.email?.charAt(0).toUpperCase() || 'U'}
-              </AvatarFallback>
-            </Avatar>
-            <div className="flex-1 min-w-0">
-              <div className="text-sm font-medium">{user?.email?.split('@')[0] || 'User'}</div>
-              <div className="text-xs text-[#7d8590]">
-                {user?.email ? user.email.substring(0, 20) + (user.email.length > 20 ? '...' : '') : 'Authenticated'}
-              </div>
-            </div>
-          </div>
-          
-          {/* 🔐 LOGOUT BUTTON */}
-          <Button
-            variant="ghost"
-            className="w-full justify-start gap-3 h-9 text-red-400 hover:text-red-300 hover:bg-red-500/10"
-            onClick={async () => {
-              try {
-                console.log('🔐 Logging out user and clearing all data...');
-                
-                // Clear all cached data before signing out
-                localStorage.removeItem('github_token');
-                localStorage.removeItem('github_user');
-                localStorage.removeItem('github_selected_repos');
-                localStorage.removeItem('vercel_token');
-                localStorage.removeItem('vercel_user');
-                localStorage.removeItem('vercel_teams');
-                localStorage.removeItem('vercel_selected_projects');
-                localStorage.removeItem('is_new_user');
-                localStorage.removeItem('last_user_email');
-                
-                // Clear service instances
-                githubService.clearToken();
-                vercelService.clearToken();
-                
-                // Sign out from Supabase
-                await signOut();
-                
-                console.log('✅ User logged out and all data cleared');
-                toast.success('👋 Logged out successfully');
-                // Navigation will happen automatically due to auth state change
-              } catch (error) {
-                console.error('Logout failed:', error);
-                toast.error('❌ Logout failed');
-              }
-            }}
-          >
-            <ArrowUpRight className="w-4 h-4 rotate-45" />
-            Logout
-          </Button>
-        </div>
-      </div>
-
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col">
-        {/* Top Header */}
-        <div className="h-14 bg-[#161b22] border-b border-[#30363d] flex items-center justify-between px-6">
-          <div className="flex items-center gap-4">
+      <MobileResponsiveDashboard
+        activeView={activeView}
+        onViewChange={setActiveView}
+        user={user}
+        onSignOut={async () => {
+          try {
+            console.log('🔐 Logging out user and clearing all data...');
+            
+            // Clear all cached data before signing out
+            localStorage.removeItem('github_token');
+            localStorage.removeItem('github_user');
+            localStorage.removeItem('github_selected_repos');
+            localStorage.removeItem('vercel_token');
+            localStorage.removeItem('vercel_user');
+            localStorage.removeItem('vercel_teams');
+            localStorage.removeItem('vercel_selected_projects');
+            localStorage.removeItem('is_new_user');
+            localStorage.removeItem('last_user_email');
+            
+            // Clear service instances
+            githubService.clearToken();
+            vercelService.clearToken();
+            
+            // Sign out from Supabase
+            await signOut();
+            
+            console.log('✅ User logged out and all data cleared');
+            toast.success('👋 Logged out successfully');
+          } catch (error) {
+            console.error('Logout failed:', error);
+            toast.error('❌ Logout failed');
+          }
+        }}
+      >
+        {/* Top Header with Search and Status */}
+        <div className="h-14 bg-[#161b22] border-b border-[#30363d] flex items-center justify-between px-6 flex-shrink-0">
+          <div className="flex items-center gap-4 flex-1">
             <Input
               placeholder="Search files, projects, or commands..."
-              className="w-96 bg-[#0d1117] border-[#30363d] text-white placeholder:text-[#7d8590]"
+              className="flex-1 max-w-md bg-[#0d1117] border-[#30363d] text-white placeholder:text-[#7d8590]"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
-            <kbd className="px-2 py-1 text-xs bg-[#21262d] border border-[#30363d] rounded">⌘K</kbd>
+            <kbd className="px-2 py-1 text-xs bg-[#21262d] border border-[#30363d] rounded hidden sm:inline">⌘K</kbd>
           </div>
           <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2 text-sm">
+            <div className="flex items-center gap-2 text-sm hidden sm:flex">
               <div className={`w-2 h-2 rounded-full ${
                 vercelStatus === "connected" ? "bg-green-400" : 
                 vercelStatus === "checking" ? "bg-yellow-400" : "bg-red-400"
@@ -1145,7 +1031,7 @@ export default function Dashboard() {
                 Vercel: {vercelStatus === "checking" ? "Checking..." : vercelStatus}
               </span>
             </div>
-            <div className="flex items-center gap-2 text-sm">
+            <div className="flex items-center gap-2 text-sm hidden sm:flex">
               <div className={`w-2 h-2 rounded-full ${
                 githubStatus === "connected" ? "bg-green-400" : 
                 githubStatus === "checking" ? "bg-yellow-400" : "bg-red-400"
@@ -1175,23 +1061,22 @@ export default function Dashboard() {
 
         {/* Dynamic Content */}
         {renderContent()}
-      </div>
 
-      {/* Connect Project Dialog */}
-      <ConnectProjectDialog
-        open={connectDialogOpen}
-        onOpenChange={setConnectDialogOpen}
-        onProjectConnected={handleProjectConnected}
-      />
-
-      {/* GitHub Repository Browser */}
-      {githubBrowserOpen && (
-        <GitHubRepositoryBrowser
-          onRepositorySelect={handleGitHubRepositorySelect}
-          onClose={() => setGithubBrowserOpen(false)}
+        {/* Connect Project Dialog */}
+        <ConnectProjectDialog
+          open={connectDialogOpen}
+          onOpenChange={setConnectDialogOpen}
+          onProjectConnected={handleProjectConnected}
         />
-      )}
-      </div>
+
+        {/* GitHub Repository Browser */}
+        {githubBrowserOpen && (
+          <GitHubRepositoryBrowser
+            onRepositorySelect={handleGitHubRepositorySelect}
+            onClose={() => setGithubBrowserOpen(false)}
+          />
+        )}
+      </MobileResponsiveDashboard>
     </>
   );
 }

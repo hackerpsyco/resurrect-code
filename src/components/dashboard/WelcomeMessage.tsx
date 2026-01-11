@@ -1,57 +1,50 @@
-import React from 'react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { Github, Globe, Settings, Zap, ArrowRight } from 'lucide-react';
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Zap, Github, Cloud, Workflow, ArrowRight } from "lucide-react";
 
 interface WelcomeMessageProps {
-  onOpenSettings: () => void;
+  onOpenSettings?: () => void;
+  onConnectGitHub?: () => void;
 }
 
-export function WelcomeMessage({ onOpenSettings }: WelcomeMessageProps) {
+export function WelcomeMessage({ onOpenSettings, onConnectGitHub }: WelcomeMessageProps) {
   return (
-    <Card className="bg-gradient-to-br from-[#238636]/10 to-[#2ea043]/5 border-[#238636]/30">
-      <CardContent className="p-6">
-        <div className="text-center space-y-4">
-          <div className="flex items-center justify-center gap-3 mb-4">
-            <div className="w-12 h-12 bg-[#238636]/20 rounded-full flex items-center justify-center">
-              <Zap className="w-6 h-6 text-[#238636]" />
-            </div>
-            <h2 className="text-xl font-semibold text-white">Welcome to ResurrectCI! 🎉</h2>
+    <Card className="bg-gradient-to-r from-primary/20 to-accent/20 border-primary/30 p-6 sm:p-8 mb-8 animate-slide-down">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
+        <div className="flex-1">
+          <div className="flex items-center gap-2 mb-2">
+            <Zap className="w-5 h-5 text-primary" />
+            <h2 className="text-lg sm:text-xl font-bold">Welcome to ResurrectCI!</h2>
           </div>
-          
-          <p className="text-[#7d8590] max-w-md mx-auto">
-            Your AI-powered development platform is ready. Connect your GitHub and Vercel accounts 
-            to start managing your projects with automated error fixing and intelligent deployments.
+          <p className="text-sm sm:text-base text-muted-foreground mb-4">
+            Let's get you set up with your first project. Connect your GitHub and Vercel accounts to get started.
           </p>
           
-          <div className="grid grid-cols-2 gap-4 max-w-sm mx-auto mt-6">
-            <div className="bg-[#161b22] border border-[#30363d] rounded-lg p-3 text-center">
-              <Github className="w-6 h-6 text-[#238636] mx-auto mb-2" />
-              <h4 className="text-sm font-medium text-white">GitHub</h4>
-              <p className="text-xs text-[#7d8590]">Access repositories</p>
+          {/* Quick setup steps */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+            <div className="flex items-center gap-2 text-sm">
+              <Github className="w-4 h-4 text-primary flex-shrink-0" />
+              <span>Connect GitHub</span>
             </div>
-            <div className="bg-[#161b22] border border-[#30363d] rounded-lg p-3 text-center">
-              <Globe className="w-6 h-6 text-white mx-auto mb-2" />
-              <h4 className="text-sm font-medium text-white">Vercel</h4>
-              <p className="text-xs text-[#7d8590]">Manage deployments</p>
+            <div className="flex items-center gap-2 text-sm">
+              <Cloud className="w-4 h-4 text-primary flex-shrink-0" />
+              <span>Link Vercel</span>
+            </div>
+            <div className="flex items-center gap-2 text-sm">
+              <Workflow className="w-4 h-4 text-primary flex-shrink-0" />
+              <span>Setup DevOps</span>
             </div>
           </div>
-          
-          <Button 
-            onClick={onOpenSettings}
-            className="bg-[#238636] hover:bg-[#2ea043] mt-6"
-            size="lg"
-          >
-            <Settings className="w-4 h-4 mr-2" />
-            Connect Your Accounts
-            <ArrowRight className="w-4 h-4 ml-2" />
-          </Button>
-          
-          <p className="text-xs text-[#7d8590] mt-3">
-            Don't worry - we'll guide you through each step! 🚀
-          </p>
         </div>
-      </CardContent>
+
+        <Button
+          onClick={onConnectGitHub || onOpenSettings}
+          className="bg-primary hover:bg-primary/90 text-primary-foreground transition-all duration-300 hover:shadow-lg hover:scale-105 active:scale-95 whitespace-nowrap"
+        >
+          Get Started
+          <ArrowRight className="w-4 h-4 ml-2" />
+        </Button>
+      </div>
     </Card>
   );
 }

@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Github, Key, CheckCircle, AlertCircle, ExternalLink } from "lucide-react";
+import { Github as GithubIcon, Key, CheckCircle, AlertCircle, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 
 interface GitHubAuthProps {
@@ -136,7 +136,7 @@ export function GitHubAuth({ onAuthSuccess, onClose }: GitHubAuthProps) {
     <div className="p-6 bg-[#1e1e1e] border border-[#464647] rounded-lg max-w-md mx-auto">
       <div className="text-center mb-6">
         <div className="w-16 h-16 bg-[#238636]/20 rounded-full flex items-center justify-center mx-auto mb-4">
-          <Github className="w-8 h-8 text-[#238636]" />
+          <GithubIcon className="w-8 h-8 text-[#238636]" />
         </div>
         <h2 className="text-xl font-bold text-white mb-2">Connect GitHub</h2>
         <p className="text-[#7d8590]">Connect your GitHub account to access your repositories</p>
@@ -153,7 +153,7 @@ export function GitHubAuth({ onAuthSuccess, onClose }: GitHubAuthProps) {
             value={token}
             onChange={(e) => setToken(e.target.value)}
             className="bg-[#3c3c3c] border-[#464647] text-[#cccccc]"
-            onKeyPress={(e) => e.key === 'Enter' && verifyToken()}
+            onKeyDown={(e) => e.key === 'Enter' && verifyToken()}
           />
         </div>
 

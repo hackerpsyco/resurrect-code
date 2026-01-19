@@ -163,9 +163,12 @@ export function useVercel() {
         })
         .filter(Boolean) as BuildEvent[];
 
-      setBuildLogs(logs);
-      console.log(`✅ Loaded ${logs.length} real build logs`);
-      return logs;
+      // Keep only the latest log
+      const latestLog = logs.length > 0 ? [logs[logs.length - 1]] : [];
+
+      setBuildLogs(latestLog);
+      console.log(`✅ Loaded latest build log`);
+      return latestLog;
     } catch (error) {
       const message = error instanceof Error ? error.message : "Failed to fetch build logs";
       console.error('❌ Error fetching build logs:', message);

@@ -16,6 +16,7 @@ import {
 import { toast } from 'sonner';
 import { geminiKeyService } from '@/services/geminiKeyService';
 import { useVercel } from '@/hooks/useVercel';
+import { analysisAutomationService } from '@/services/analysisAutomationService';
 
 // Define types locally since geminiService doesn't exist yet
 export interface AnalysisResponse {
@@ -529,6 +530,36 @@ ${file.suggestions.map(s => `- [${s.priority.toUpperCase()}] ${s.issue}`).join('
       setStatus('complete');
       
       console.log('✅ PR created:', prData.html_url);
+      
+      // Create analysis report
+      const report = {
+        id: `report_${Date.now()}`,
+        timestamp: new Date().toISOString(),
+        repository: selectedGithubRepo.full_name,
+        totalIssues: analysisResults.totalIssues,
+        byPriority: analysisResults.byPriority,
+        shortSummary: analysisAutomationService.generateShortReport(
+          analysisResults.totalIssues,
+          analysisResults.byPriority
+        ),
+        fullReport: analysisAutomationService.generateFullReport(
+          selectedGithubRepo.full_name,
+          analysisResults.totalIssues,
+          analysisResults.byPriority,
+          analysisResults.files
+        ),
+        prUrl: prData.html_url,
+        emailSent: false
+      };
+
+      // Save report
+      analysisAutomationService.saveReport(report);
+
+      // Send email if enabled
+      if (analysisAutomationService.shouldSendEmail()) {
+        await analysisAutomationService.sendEmailNotification(report);
+      }
+
       toast.success(`✅ Pull request created!\n${prData.html_url}`);
       
     } catch (err) {

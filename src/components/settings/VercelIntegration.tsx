@@ -3,7 +3,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Globe, ExternalLink, Key, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { Globe, ExternalLink, Key, CheckCircle, AlertCircle, Loader2, RefreshCw, Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { vercelService } from '@/services/vercelService';
 
@@ -15,8 +16,10 @@ export function VercelIntegration({ onClose }: VercelIntegrationProps) {
   const [token, setToken] = useState('');
   const [isConnected, setIsConnected] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingProjects, setIsLoadingProjects] = useState(false);
   const [user, setUser] = useState<any>(null);
   const [projects, setProjects] = useState<any[]>([]);
+  const [selectedProjects, setSelectedProjects] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     // Check if already connected
@@ -29,17 +32,27 @@ export function VercelIntegration({ onClose }: VercelIntegrationProps) {
         setUser(cachedUser);
       }
       
+      // Load saved project selections
+      const savedProjects = localStorage.getItem('vercel_selected_projects');
+      if (savedProjects) {
+        setSelectedProjects(new Set(JSON.parse(savedProjects)));
+      }
+      
       // Load projects
       loadProjects();
     }
   }, []);
 
   const loadProjects = async () => {
+    setIsLoadingProjects(true);
     try {
-      const projectList = await vercelService.getProjects({ limit: 10 });
+      const projectList = await vercelService.getProjects({ limit: 50 });
       setProjects(projectList);
     } catch (error) {
       console.error('Failed to load projects:', error);
+      toast.error('Failed to load projects');
+    } finally {
+      setIsLoadingProjects(false);
     }
   };
 
@@ -79,11 +92,59 @@ export function VercelIntegration({ onClose }: VercelIntegrationProps) {
     setIsConnected(false);
     setUser(null);
     setProjects([]);
+    setSelectedProjects(new Set());
     setToken('');
+    localStorage.removeItem('vercel_selected_projects');
     toast.success('Disconnected from Vercel');
     
     // Notify other components
     window.dispatchEvent(new CustomEvent('vercel-settings-updated'));
+  };
+
+  const toggleProject = (projectId: string) => {
+    const newSelected = new Set(selectedProjects);
+    if (newSelected.has(projectId)) {
+      newSelected.delete(projectId);
+    } else {
+      newSelected.add(projectId);
+    }
+    setSelectedProjects(newSelected);
+  };
+
+  const selectAllProjects = () => {
+    setSelectedProjects(new Set(projects.map(p => p.id)));
+  };
+
+  const clearAllProjects = () => {
+    setSelectedProjects(new Set());
+  };
+
+  const handleSaveSettings = async () => {
+    if (!isConnected) {
+      toast.error("Please connect to Vercel first");
+      return;
+    }
+
+    try {
+      const projectArray = Array.from(selectedProjects);
+      localStorage.setItem('vercel_selected_projects', JSON.stringify(projectArray));
+      
+      if (projectArray.length === 0) {
+        toast.success("✅ Vercel token saved. Select projects any time to show them in your dashboard.");
+      } else {
+        toast.success(`✅ Settings saved! ${projectArray.length} projects selected.`);
+      }
+      
+      // Trigger dashboard refresh
+      window.dispatchEvent(new CustomEvent('vercel-settings-updated'));
+      
+      if (onClose && projectArray.length > 0) {
+        onClose();
+      }
+    } catch (error) {
+      console.error('Failed to save Vercel settings:', error);
+      toast.error("Failed to save settings. Please try again.");
+    }
   };
 
   return (
@@ -202,43 +263,148 @@ export function VercelIntegration({ onClose }: VercelIntegrationProps) {
         </CardContent>
       </Card>
 
-      {/* Projects Overview */}
-      {isConnected && projects.length > 0 && (
+      {/* Project Selection */}
+      {isConnected && (
         <Card className="bg-[#161b22] border-[#30363d]">
           <CardHeader>
-            <CardTitle className="text-white">Your Projects</CardTitle>
+            <CardTitle className="flex items-center justify-between text-white">
+              <div className="flex items-center gap-2">
+                <Globe className="w-5 h-5" />
+                Project Selection
+                <Badge variant="outline" className="text-[#7d8590]">
+                  {selectedProjects.size} selected
+                </Badge>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={loadProjects}
+                  disabled={isLoadingProjects}
+                  className="text-[#7d8590] hover:text-white"
+                >
+                  {isLoadingProjects ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <RefreshCw className="w-4 h-4" />
+                  )}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={selectAllProjects}
+                  className="text-[#7d8590] hover:text-white"
+                >
+                  <Plus className="w-4 h-4 mr-1" />
+                  All
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={clearAllProjects}
+                  className="text-[#7d8590] hover:text-white"
+                >
+                  <Trash2 className="w-4 h-4 mr-1" />
+                  Clear
+                </Button>
+              </div>
+            </CardTitle>
             <CardDescription>
-              {projects.length} project{projects.length !== 1 ? 's' : ''} found in your Vercel account
+              Select projects to show in your dashboard. Only selected projects will be available for editing.
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid gap-3">
-              {projects.slice(0, 5).map((project) => (
-                <div 
-                  key={project.id}
-                  className="flex items-center justify-between p-3 bg-[#0d1117] rounded-lg"
-                >
-                  <div>
-                    <h4 className="font-medium text-white">{project.name}</h4>
-                    <p className="text-sm text-[#7d8590]">
-                      {project.framework || 'Web App'} • Updated {new Date(project.updatedAt).toLocaleDateString()}
-                    </p>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => window.open(`https://vercel.com/${user?.username}/${project.name}`, '_blank')}
-                    className="text-[#7d8590] hover:text-white"
+            {isLoadingProjects ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="w-6 h-6 animate-spin text-[#7d8590]" />
+                <span className="ml-2 text-[#7d8590]">Loading projects...</span>
+              </div>
+            ) : projects.length > 0 ? (
+              <div className="space-y-2 max-h-96 overflow-y-auto">
+                {projects.map((project) => (
+                  <div
+                    key={project.id}
+                    className="flex items-center justify-between p-3 bg-[#21262d] border border-[#30363d] rounded-lg hover:border-[#7d8590] transition-colors"
                   >
-                    <ExternalLink className="w-4 h-4" />
-                  </Button>
+                    <div className="flex items-center gap-3">
+                      <Switch
+                        checked={selectedProjects.has(project.id)}
+                        onCheckedChange={() => toggleProject(project.id)}
+                      />
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-white">{project.name}</span>
+                          {project.framework && (
+                            <Badge variant="outline" className="text-[#7d8590]">
+                              {project.framework}
+                            </Badge>
+                          )}
+                        </div>
+                        <div className="text-xs text-[#7d8590] mt-1">
+                          Updated {new Date(project.updatedAt).toLocaleDateString()}
+                        </div>
+                      </div>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => window.open(`https://vercel.com/${user?.username}/${project.name}`, '_blank')}
+                      className="text-[#7d8590] hover:text-white"
+                    >
+                      <ExternalLink className="w-4 h-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-[#7d8590]">
+                <Globe className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                <p>No projects found</p>
+                <Button
+                  variant="ghost"
+                  onClick={loadProjects}
+                  className="mt-2 text-blue-400 hover:text-white"
+                >
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                  Reload Projects
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Save Settings */}
+      {isConnected && (
+        <Card className="bg-[#161b22] border-[#30363d]">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <CheckCircle className="w-5 h-5 text-green-400" />
+                <div>
+                  <h4 className="font-medium text-white">Ready to Save</h4>
+                  <p className="text-sm text-[#7d8590]">
+                    {selectedProjects.size} projects selected • Settings will be applied to your dashboard
+                  </p>
                 </div>
-              ))}
-              {projects.length > 5 && (
-                <p className="text-sm text-[#7d8590] text-center py-2">
-                  And {projects.length - 5} more projects...
-                </p>
-              )}
+              </div>
+              <div className="flex gap-3">
+                <Button
+                  variant="outline"
+                  onClick={onClose}
+                  className="border-[#30363d] text-[#7d8590] hover:text-white"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleSaveSettings}
+                  disabled={!isConnected}
+                  className="bg-blue-600 hover:bg-blue-700"
+                >
+                  <CheckCircle className="w-4 h-4 mr-2" />
+                  Save & Apply Settings
+                </Button>
+              </div>
             </div>
           </CardContent>
         </Card>

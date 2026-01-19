@@ -5,7 +5,6 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Settings,
-  Zap,
   GitBranch,
   Rocket,
   Activity,
@@ -198,20 +197,6 @@ export function DevOpsPanel({ onClose }: DevOpsPanelProps) {
           <div className="flex-1 overflow-auto p-4 sm:p-6">
             {/* Overview Tab */}
             <TabsContent value="overview" className="space-y-4 sm:space-y-6 animate-slide-up">
-              {/* Debug Info Card */}
-              <Card className="border-blue-500/30 bg-blue-500/10">
-                <CardHeader className="pb-2 sm:pb-3">
-                  <CardTitle className="text-xs sm:text-sm text-blue-400">Debug Info</CardTitle>
-                </CardHeader>
-                <CardContent className="text-xs text-blue-300 space-y-1">
-                  <p>Token: {localStorage.getItem('vercel_token') ? '✅ Found' : '❌ Missing'}</p>
-                  <p>Projects: {projects.length}</p>
-                  <p>Deployments: {deployments.length}</p>
-                  <p>Initialized: {isInitialized ? '✅ Yes' : '⏳ No'}</p>
-                  <p>Loading: {isLoading ? '⏳ Yes' : '✅ No'}</p>
-                </CardContent>
-              </Card>
-
               {/* Vercel Not Connected Warning */}
               {!localStorage.getItem('vercel_token') && (
                 <Card className="border-yellow-500/30 bg-yellow-500/10">
@@ -384,33 +369,6 @@ export function DevOpsPanel({ onClose }: DevOpsPanelProps) {
                   </CardContent>
                 </Card>
               </div>
-
-              {/* Quick Actions */}
-              <Card className="border-[#238636]/20">
-                <CardHeader className="pb-3 sm:pb-4">
-                  <CardTitle className="text-sm sm:text-base flex items-center gap-2">
-                    <Zap className="w-4 h-4 sm:w-5 sm:h-5 text-[#238636]" />
-                    Quick Actions
-                  </CardTitle>
-                  <CardDescription className="text-xs sm:text-sm">Common DevOps tasks</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-2 sm:space-y-3">
-                  <Button className="w-full bg-[#238636] hover:bg-[#2ea043] text-white justify-between group text-xs sm:text-sm">
-                    <span className="flex items-center gap-2">
-                      <Rocket className="w-3 h-3 sm:w-4 sm:h-4" />
-                      Deploy to Production
-                    </span>
-                    <ChevronRight className="w-3 h-3 sm:w-4 sm:h-4 group-hover:translate-x-1 transition-transform" />
-                  </Button>
-                  <Button variant="outline" className="w-full border-[#238636]/20 hover:border-[#238636]/40 hover:bg-[#238636]/10 justify-between group text-xs sm:text-sm">
-                    <span className="flex items-center gap-2">
-                      <RefreshCw className="w-3 h-3 sm:w-4 sm:h-4" />
-                      View Recent Deployments
-                    </span>
-                    <ChevronRight className="w-3 h-3 sm:w-4 sm:h-4 group-hover:translate-x-1 transition-transform" />
-                  </Button>
-                </CardContent>
-              </Card>
             </TabsContent>
 
             {/* Deployments Tab */}

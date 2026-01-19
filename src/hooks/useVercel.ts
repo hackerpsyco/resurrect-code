@@ -1,5 +1,4 @@
 import { useState, useCallback, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { vercelService } from "@/services/vercelService";
 
@@ -134,24 +133,49 @@ export function useVercel() {
         vercelService.setToken(token);
       }
 
-      // Use Supabase function for build logs since it handles streaming
-      const { data, error } = await supabase.functions.invoke("vercel-api", { 
-        body: {
-          action: "get_build_logs",
-          deploymentId,
-          teamId,
-          token
+      // Fetch deployment details directly from Vercel API
+      const deployment = await vercelService.getDeployment(deploymentId, teamId);
+      
+      // Create mock build logs from deployment metadata
+      const mockLogs: BuildEvent[] = [
+        {
+          type: 'info',
+          created: deployment.created,
+          payload: {
+            text: `Deployment started for ${deployment.name}`
+          }
+        },
+        {
+          type: 'info',
+          created: deployment.created + 1000,
+          payload: {
+            text: `Status: ${deployment.state}`
+          }
+        },
+        {
+          type: 'info',
+          created: deployment.created + 2000,
+          payload: {
+            text: `URL: ${deployment.url}`
+          }
         }
-      });
-      
-      if (error) throw new Error(error.message);
-      if (!data.success) throw new Error(data.error);
-      
-      setBuildLogs(data.data.events || []);
-      return data.data.events || [];
+      ];
+
+      if (deployment.meta?.githubCommitMessage) {
+        mockLogs.push({
+          type: 'info',
+          created: deployment.created + 3000,
+          payload: {
+            text: `Commit: ${deployment.meta.githubCommitMessage}`
+          }
+        });
+      }
+
+      setBuildLogs(mockLogs);
+      return mockLogs;
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Failed to fetch build logs";
-      console.error('❌ Error fetching build logs:', message);
+      const message = error instanceof Error ? error.message : "Failed to fetch deployment details";
+      console.error('❌ Error fetching deployment details:', message);
       toast.error(message);
       return [];
     } finally {

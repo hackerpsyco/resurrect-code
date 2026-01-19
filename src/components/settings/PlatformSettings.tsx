@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Slider } from '@/components/ui/slider';
 import { GitHubIntegration } from './GitHubIntegration';
 import { VercelIntegration } from './VercelIntegration';
+import { GeminiIntegration } from './GeminiIntegration';
 import { 
   X, 
   Settings, 
@@ -36,14 +37,14 @@ interface PlatformSettingsProps {
   /**
    * Optional: which integration tab to show first
    */
-  initialIntegration?: 'github' | 'vercel';
+  initialIntegration?: 'github' | 'vercel' | 'gemini';
 }
 
 export function PlatformSettings({ onClose, initialSection, initialIntegration }: PlatformSettingsProps) {
   const [activeSection, setActiveSection] = useState<
     'general' | 'editor' | 'terminal' | 'appearance' | 'notifications' | 'keybindings' | 'integrations'
   >(initialSection ?? 'general');
-  const [activeIntegration, setActiveIntegration] = useState<'github' | 'vercel'>(initialIntegration ?? 'github');
+  const [activeIntegration, setActiveIntegration] = useState<'github' | 'vercel' | 'gemini'>(initialIntegration ?? 'github');
   const [settings, setSettings] = useState({
     // General
     theme: 'dark',
@@ -344,12 +345,25 @@ export function PlatformSettings({ onClose, initialSection, initialIntegration }
             <Globe className="w-4 h-4 mr-2" />
             Vercel
           </Button>
+          <Button
+            variant="ghost"
+            onClick={() => setActiveIntegration('gemini')}
+            className={`px-4 py-2 rounded-none border-b-2 ${
+              activeIntegration === 'gemini'
+                ? 'border-blue-500 text-blue-400 bg-blue-500/10'
+                : 'border-transparent text-[#7d8590] hover:text-white'
+            }`}
+          >
+            <Zap className="w-4 h-4 mr-2" />
+            Gemini
+          </Button>
         </div>
 
         {/* Integration Content */}
         <div className="mt-6">
           {activeIntegration === 'github' && <GitHubIntegration />}
           {activeIntegration === 'vercel' && <VercelIntegration />}
+          {activeIntegration === 'gemini' && <GeminiIntegration />}
         </div>
       </div>
     );

@@ -19,6 +19,7 @@ import {
   Loader2
 } from 'lucide-react';
 import { useVercel } from '@/hooks/useVercel';
+import { AutomationTab } from './AutomationTab';
 
 interface DevOpsPanelProps {
   onClose: () => void;
@@ -522,22 +523,7 @@ export function DevOpsPanel({ onClose }: DevOpsPanelProps) {
 
             {/* Automation Tab */}
             <TabsContent value="automation" className="space-y-4 sm:space-y-6 animate-slide-up">
-              <Card className="border-[#238636]/20">
-                <CardHeader className="pb-3 sm:pb-4">
-                  <CardTitle className="text-sm sm:text-base flex items-center gap-2">
-                    <Workflow className="w-4 h-4 sm:w-5 sm:h-5 text-[#238636]" />
-                    Automated Workflows
-                  </CardTitle>
-                  <CardDescription className="text-xs sm:text-sm">Manage your automation rules</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-center py-8 sm:py-12">
-                    <Workflow className="w-10 h-10 sm:w-12 sm:h-12 text-[#7d8590] mx-auto mb-3 sm:mb-4 opacity-50" />
-                    <p className="text-xs sm:text-sm text-[#7d8590]">No workflows configured</p>
-                    <p className="text-xs text-[#7d8590] mt-1">Set up automation to streamline your DevOps</p>
-                  </div>
-                </CardContent>
-              </Card>
+              <AutomationTab selectedProject={selectedProject || undefined} />
             </TabsContent>
 
             {/* Monitoring Tab */}

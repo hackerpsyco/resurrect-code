@@ -15,6 +15,7 @@ interface VercelRequest {
   teamId?: string;
   environment?: "production" | "preview";
   branch?: string;
+  token?: string;
 }
 
 const VERCEL_API = "https://api.vercel.com";
@@ -28,17 +29,20 @@ Deno.serve(async (req: Request) => {
 
   try {
     const VERCEL_TOKEN = Deno.env.get("VERCEL_TOKEN");
-    if (!VERCEL_TOKEN) {
-      throw new Error("VERCEL_TOKEN is not configured");
-    }
-
+    
     const request: VercelRequest = await req.json();
-    const { action, projectId, deploymentId, teamId, environment, branch } = request;
+    const { action, projectId, deploymentId, teamId, environment, branch, token } = request;
+
+    // Use token from request body (user-provided) or fall back to environment variable
+    const vercelToken = token || VERCEL_TOKEN;
+    if (!vercelToken) {
+      throw new Error("Vercel token not provided. Please connect your Vercel account in Settings.");
+    }
 
     console.log(`Vercel API action: ${action}`);
 
     const headers = {
-      Authorization: `Bearer ${VERCEL_TOKEN}`,
+      Authorization: `Bearer ${vercelToken}`,
       "Content-Type": "application/json",
     };
 

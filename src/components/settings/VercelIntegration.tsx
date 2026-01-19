@@ -129,17 +129,22 @@ export function VercelIntegration({ onClose }: VercelIntegrationProps) {
       const projectArray = Array.from(selectedProjects);
       localStorage.setItem('vercel_selected_projects', JSON.stringify(projectArray));
       
+      console.log('💾 Vercel projects saved to localStorage:', projectArray);
+      
       if (projectArray.length === 0) {
         toast.success("✅ Vercel token saved. Select projects any time to show them in your dashboard.");
       } else {
         toast.success(`✅ Settings saved! ${projectArray.length} projects selected.`);
       }
       
-      // Trigger dashboard refresh
-      window.dispatchEvent(new CustomEvent('vercel-settings-updated'));
+      // Trigger dashboard refresh with a small delay to ensure localStorage is updated
+      setTimeout(() => {
+        console.log('📢 Dispatching vercel-settings-updated event');
+        window.dispatchEvent(new CustomEvent('vercel-settings-updated'));
+      }, 100);
       
       if (onClose && projectArray.length > 0) {
-        onClose();
+        setTimeout(() => onClose?.(), 500);
       }
     } catch (error) {
       console.error('Failed to save Vercel settings:', error);

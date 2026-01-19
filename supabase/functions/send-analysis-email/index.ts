@@ -26,7 +26,7 @@ serve(async (req) => {
     const emailContent = shortFormat ? shortReport : fullReport;
     
     // Generate reply tokens for approve/reject actions
-    const replyId = `reply_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+    const replyId = `reply_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
     const approveToken = btoa(`${replyId}:approve:${Date.now()}`);
     const rejectToken = btoa(`${replyId}:reject:${Date.now()}`);
     
@@ -81,36 +81,102 @@ ${emailContent}
       </html>
     `;
 
-    // For now, log the email (in production, use SendGrid, Resend, or similar)
-    console.log(`📧 Email to: ${to}`);
-    console.log(`📧 Subject: ${subject}`);
-    console.log(`📧 Content length: ${emailContent.length}`);
+    // Try to send email using available service
+    let emailSent = false;
+    let emailError: string | null = null;
 
-    // TODO: Integrate with email service (SendGrid, Resend, etc.)
-    // Example with Resend:
-    // const response = await fetch('https://api.resend.com/emails', {
-    //   method: 'POST',
-    //   headers: {
-    //     'Authorization': `Bearer ${Deno.env.get('RESEND_API_KEY')}`,
-    //     'Content-Type': 'application/json',
-    //   },
-    //   body: JSON.stringify({
-    //     from: 'noreply@resurrectci.com',
-    //     to: to,
-    //     subject: subject,
-    //     html: htmlContent,
-    //   }),
-    // });
+    // Try Resend first
+    const resendKey = Deno.env.get('RESEND_API_KEY');
+    if (resendKey) {
+      try {
+        console.log(`📧 Attempting to send via Resend to: ${to}`);
+        const resendResponse = await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${resendKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            from: 'noreply@resurrectci.com',
+            to: to,
+            subject: subject,
+            html: htmlContent,
+          }),
+        });
+
+        if (resendResponse.ok) {
+          const resendData = await resendResponse.json();
+          console.log('✅ Email sent via Resend:', resendData.id);
+          emailSent = true;
+        } else {
+          const resendError = await resendResponse.json().catch(() => ({}));
+          emailError = `Resend error: ${resendError.message || resendResponse.statusText}`;
+          console.error('❌ Resend error:', emailError);
+        }
+      } catch (err) {
+        emailError = `Resend exception: ${err instanceof Error ? err.message : 'Unknown error'}`;
+        console.error('❌ Resend exception:', emailError);
+      }
+    }
+
+    // Try SendGrid if Resend failed
+    if (!emailSent) {
+      const sendgridKey = Deno.env.get('SENDGRID_API_KEY');
+      if (sendgridKey) {
+        try {
+          console.log(`📧 Attempting to send via SendGrid to: ${to}`);
+          const sendgridResponse = await fetch('https://api.sendgrid.com/v3/mail/send', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${sendgridKey}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              personalizations: [{ to: [{ email: to }] }],
+              from: { email: 'noreply@resurrectci.com' },
+              subject: subject,
+              content: [{ type: 'text/html', value: htmlContent }],
+            }),
+          });
+
+          if (sendgridResponse.ok || sendgridResponse.status === 202) {
+            console.log('✅ Email sent via SendGrid');
+            emailSent = true;
+          } else {
+            const sendgridError = await sendgridResponse.json().catch(() => ({}));
+            emailError = `SendGrid error: ${sendgridError.errors?.[0]?.message || sendgridResponse.statusText}`;
+            console.error('❌ SendGrid error:', emailError);
+          }
+        } catch (err) {
+          emailError = `SendGrid exception: ${err instanceof Error ? err.message : 'Unknown error'}`;
+          console.error('❌ SendGrid exception:', emailError);
+        }
+      }
+    }
+
+    // If no email service is configured, log and return success (for development)
+    if (!emailSent && !resendKey && !sendgridKey) {
+      console.log(`📧 No email service configured. Email would be sent to: ${to}`);
+      console.log(`📧 Subject: ${subject}`);
+      console.log(`📧 Content length: ${emailContent.length}`);
+      console.log('⚠️ Configure RESEND_API_KEY or SENDGRID_API_KEY to enable email sending');
+    }
 
     return new Response(
       JSON.stringify({
-        success: true,
-        message: "Email queued for sending",
+        success: emailSent || (!resendKey && !sendgridKey),
+        message: emailSent 
+          ? "Email sent successfully" 
+          : (!resendKey && !sendgridKey)
+            ? "Email service not configured (development mode)"
+            : `Failed to send email: ${emailError}`,
         to: to,
-        subject: subject
+        subject: subject,
+        sent: emailSent,
+        error: emailError
       }),
       {
-        status: 200,
+        status: emailSent || (!resendKey && !sendgridKey) ? 200 : 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       }
     );

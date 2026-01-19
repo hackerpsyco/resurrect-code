@@ -65,7 +65,7 @@ class EmailReplyService {
    */
   createReplyAction(reportId: string, userEmail: string): EmailReplyAction {
     const action: EmailReplyAction = {
-      id: `reply_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
+      id: `reply_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
       reportId,
       userEmail,
       action: 'pending',

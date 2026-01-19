@@ -295,36 +295,213 @@ export function AutomationTab({ selectedProject }: AutomationTabProps) {
       setProgress(35);
 
       // Create new branch
-      const branchResponse = await fetch(
-        `https://api.github.com/repos/${selectedGithubRepo.full_name}/git/refs`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `token ${token}`,
-            'Content-Type': 'application/json',
-            'Accept': 'application/vnd.github.v3+json'
-          },
-          body: JSON.stringify({
-            ref: `refs/heads/${branchName}`,
-            sha: baseSha
-          })
-        }
-      );
+      let branchCreated = false;
+      try {
+        const branchResponse = await fetch(
+          `https://api.github.com/repos/${selectedGithubRepo.full_name}/git/refs`,
+          {
+            method: 'POST',
+            headers: {
+              'Authorization': `token ${token}`,
+              'Content-Type': 'application/json',
+              'Accept': 'application/vnd.github.v3+json'
+            },
+            body: JSON.stringify({
+              ref: `refs/heads/${branchName}`,
+              sha: baseSha
+            })
+          }
+        );
 
-      if (!branchResponse.ok) {
-        const branchError = await branchResponse.text();
-        console.error('Branch creation error:', branchError);
-        // Continue anyway - branch might already exist
+        if (branchResponse.ok) {
+          branchCreated = true;
+          console.log('✅ Branch created successfully');
+        } else {
+          const branchError = await branchResponse.json().catch(() => ({}));
+          console.warn('⚠️ Branch creation warning:', branchError);
+          // If branch already exists, that's okay - we can still create a PR
+          if (branchError.message?.includes('Reference already exists')) {
+            branchCreated = true;
+            console.log('ℹ️ Branch already exists, continuing...');
+          }
+        }
+      } catch (err) {
+        console.error('❌ Branch creation error:', err);
+        throw new Error(`Failed to create branch: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      }
+
+      if (!branchCreated) {
+        throw new Error('Failed to create or verify branch existence');
       }
 
       setProgress(50);
+
+      // Create a commit on the branch with analysis results
+      try {
+        const analysisFile = {
+          path: 'AI_ANALYSIS_REPORT.md',
+          content: `# 🤖 AI Code Analysis Report
+
+Generated: ${new Date().toISOString()}
+
+## Summary
+- **Total Issues Found:** ${analysisResults.totalIssues}
+- **Critical:** ${analysisResults.byPriority.critical}
+- **High:** ${analysisResults.byPriority.high}
+- **Medium:** ${analysisResults.byPriority.medium}
+- **Low:** ${analysisResults.byPriority.low}
+
+## Issues by File
+
+${analysisResults.files.map(file => `### ${file.file}
+${file.suggestions.map(s => `- [${s.priority.toUpperCase()}] ${s.issue}`).join('\n')}
+`).join('\n')}
+
+---
+*This report was generated automatically by ResurrectCI AI Analysis*
+`
+        };
+
+        // Get the current tree SHA
+        const treeResponse = await fetch(
+          `https://api.github.com/repos/${selectedGithubRepo.full_name}/git/trees/${baseSha}`,
+          {
+            headers: {
+              'Authorization': `token ${token}`,
+              'Accept': 'application/vnd.github.v3+json'
+            }
+          }
+        );
+
+        if (!treeResponse.ok) {
+          throw new Error('Failed to get tree');
+        }
+
+        // Create a blob for the analysis file
+        const blobResponse = await fetch(
+          `https://api.github.com/repos/${selectedGithubRepo.full_name}/git/blobs`,
+          {
+            method: 'POST',
+            headers: {
+              'Authorization': `token ${token}`,
+              'Content-Type': 'application/json',
+              'Accept': 'application/vnd.github.v3+json'
+            },
+            body: JSON.stringify({
+              content: analysisFile.content,
+              encoding: 'utf-8'
+            })
+          }
+        );
+
+        if (!blobResponse.ok) {
+          throw new Error('Failed to create blob');
+        }
+
+        const blobData = await blobResponse.json();
+        const blobSha = blobData.sha;
+
+        // Create a tree with the new file
+        const newTreeResponse = await fetch(
+          `https://api.github.com/repos/${selectedGithubRepo.full_name}/git/trees`,
+          {
+            method: 'POST',
+            headers: {
+              'Authorization': `token ${token}`,
+              'Content-Type': 'application/json',
+              'Accept': 'application/vnd.github.v3+json'
+            },
+            body: JSON.stringify({
+              base_tree: baseSha,
+              tree: [
+                {
+                  path: analysisFile.path,
+                  mode: '100644',
+                  type: 'blob',
+                  sha: blobSha
+                }
+              ]
+            })
+          }
+        );
+
+        if (!newTreeResponse.ok) {
+          throw new Error('Failed to create tree');
+        }
+
+        const newTreeData = await newTreeResponse.json();
+        const newTreeSha = newTreeData.sha;
+
+        // Create a commit
+        const commitResponse = await fetch(
+          `https://api.github.com/repos/${selectedGithubRepo.full_name}/git/commits`,
+          {
+            method: 'POST',
+            headers: {
+              'Authorization': `token ${token}`,
+              'Content-Type': 'application/json',
+              'Accept': 'application/vnd.github.v3+json'
+            },
+            body: JSON.stringify({
+              message: `🤖 AI Code Analysis Report\n\nFound ${analysisResults.totalIssues} issues:\n- Critical: ${analysisResults.byPriority.critical}\n- High: ${analysisResults.byPriority.high}\n- Medium: ${analysisResults.byPriority.medium}\n- Low: ${analysisResults.byPriority.low}`,
+              tree: newTreeSha,
+              parents: [baseSha]
+            })
+          }
+        );
+
+        if (!commitResponse.ok) {
+          throw new Error('Failed to create commit');
+        }
+
+        const commitData = await commitResponse.json();
+        const commitSha = commitData.sha;
+
+        // Update the branch to point to the new commit
+        const updateRefResponse = await fetch(
+          `https://api.github.com/repos/${selectedGithubRepo.full_name}/git/refs/heads/${branchName}`,
+          {
+            method: 'PATCH',
+            headers: {
+              'Authorization': `token ${token}`,
+              'Content-Type': 'application/json',
+              'Accept': 'application/vnd.github.v3+json'
+            },
+            body: JSON.stringify({
+              sha: commitSha,
+              force: false
+            })
+          }
+        );
+
+        if (!updateRefResponse.ok) {
+          console.warn('⚠️ Failed to update branch reference, but continuing...');
+        }
+
+        console.log('✅ Commit created on branch');
+      } catch (commitErr) {
+        console.warn('⚠️ Failed to create commit:', commitErr);
+        // Continue anyway - PR might still work
+      }
+
+      setProgress(65);
 
       // Create a simple commit message
       const commitMessage = `🤖 AI Code Analysis Report\n\nFound ${analysisResults.totalIssues} issues:\n- Critical: ${analysisResults.byPriority.critical}\n- High: ${analysisResults.byPriority.high}\n- Medium: ${analysisResults.byPriority.medium}\n- Low: ${analysisResults.byPriority.low}`;
 
       setProgress(75);
 
-      // Create PR directly (GitHub will create the branch if needed)
+      // Create PR with proper validation
+      const prBody = JSON.stringify({
+        title: `🤖 AI Code Analysis: ${analysisResults.totalIssues} issues found`,
+        body: `## 📊 Analysis Results\n\n${commitMessage}\n\n### 📋 Issues by Priority\n- **Critical:** ${analysisResults.byPriority.critical}\n- **High:** ${analysisResults.byPriority.high}\n- **Medium:** ${analysisResults.byPriority.medium}\n- **Low:** ${analysisResults.byPriority.low}\n\n---\n*This PR was created automatically by ResurrectCI AI Analysis*`,
+        head: branchName,
+        base: selectedGithubRepo.default_branch,
+        draft: false
+      });
+
+      console.log('📤 PR Request Body:', prBody);
+
       const prResponse = await fetch(
         `https://api.github.com/repos/${selectedGithubRepo.full_name}/pulls`,
         {
@@ -334,20 +511,17 @@ export function AutomationTab({ selectedProject }: AutomationTabProps) {
             'Content-Type': 'application/json',
             'Accept': 'application/vnd.github.v3+json'
           },
-          body: JSON.stringify({
-            title: `🤖 AI Code Analysis: ${analysisResults.totalIssues} issues found`,
-            body: `## 📊 Analysis Results\n\n${commitMessage}\n\n### 📋 Issues by Priority\n- **Critical:** ${analysisResults.byPriority.critical}\n- **High:** ${analysisResults.byPriority.high}\n- **Medium:** ${analysisResults.byPriority.medium}\n- **Low:** ${analysisResults.byPriority.low}\n\n---\n*This PR was created automatically by ResurrectCI AI Analysis*`,
-            head: branchName,
-            base: selectedGithubRepo.default_branch,
-            draft: false
-          })
+          body: prBody
         }
       );
 
       if (!prResponse.ok) {
-        const prError = await prResponse.json();
-        console.error('PR creation error:', prError);
-        throw new Error(`Failed to create PR: ${prError.message || prResponse.statusText}`);
+        const prError = await prResponse.json().catch(() => ({ message: prResponse.statusText }));
+        console.error('❌ PR creation error response:', prError);
+        
+        // Provide more detailed error message
+        const errorDetails = prError.errors?.map((e: any) => e.message).join(', ') || prError.message;
+        throw new Error(`Failed to create PR: ${errorDetails}`);
       }
 
       const prData = await prResponse.json();

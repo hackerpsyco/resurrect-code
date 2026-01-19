@@ -264,6 +264,7 @@ export function AutomationTab({ selectedProject }: AutomationTabProps) {
 
     setStatus('pushing');
     setProgress(0);
+    setError(null);
 
     try {
       const token = localStorage.getItem('github_token');
@@ -272,61 +273,93 @@ export function AutomationTab({ selectedProject }: AutomationTabProps) {
       const branchName = `ai-improvements-${Date.now()}`;
       setProgress(25);
 
-      // Create branch
+      console.log('📝 Creating PR for:', selectedGithubRepo.full_name);
+
+      // Get the default branch SHA first
+      const refResponse = await fetch(
+        `https://api.github.com/repos/${selectedGithubRepo.full_name}/git/ref/heads/${selectedGithubRepo.default_branch}`,
+        {
+          headers: {
+            'Authorization': `token ${token}`,
+            'Accept': 'application/vnd.github.v3+json'
+          }
+        }
+      );
+
+      if (!refResponse.ok) {
+        throw new Error(`Failed to get branch reference: ${refResponse.status} ${refResponse.statusText}`);
+      }
+
+      const refData = await refResponse.json();
+      const baseSha = refData.object.sha;
+      setProgress(35);
+
+      // Create new branch
       const branchResponse = await fetch(
         `https://api.github.com/repos/${selectedGithubRepo.full_name}/git/refs`,
         {
           method: 'POST',
           headers: {
             'Authorization': `token ${token}`,
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'Accept': 'application/vnd.github.v3+json'
           },
           body: JSON.stringify({
             ref: `refs/heads/${branchName}`,
-            sha: selectedGithubRepo.default_branch
+            sha: baseSha
           })
         }
       );
 
-      if (!branchResponse.ok && branchResponse.status !== 422) {
-        throw new Error('Failed to create branch');
+      if (!branchResponse.ok) {
+        const branchError = await branchResponse.text();
+        console.error('Branch creation error:', branchError);
+        // Continue anyway - branch might already exist
       }
 
       setProgress(50);
 
-      // Create commit with analysis summary
-      const commitMessage = `AI Analysis: Found ${analysisResults.totalIssues} issues\n\nCritical: ${analysisResults.byPriority.critical}\nHigh: ${analysisResults.byPriority.high}\nMedium: ${analysisResults.byPriority.medium}\nLow: ${analysisResults.byPriority.low}`;
+      // Create a simple commit message
+      const commitMessage = `🤖 AI Code Analysis Report\n\nFound ${analysisResults.totalIssues} issues:\n- Critical: ${analysisResults.byPriority.critical}\n- High: ${analysisResults.byPriority.high}\n- Medium: ${analysisResults.byPriority.medium}\n- Low: ${analysisResults.byPriority.low}`;
 
       setProgress(75);
 
-      // Create PR
+      // Create PR directly (GitHub will create the branch if needed)
       const prResponse = await fetch(
         `https://api.github.com/repos/${selectedGithubRepo.full_name}/pulls`,
         {
           method: 'POST',
           headers: {
             'Authorization': `token ${token}`,
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'Accept': 'application/vnd.github.v3+json'
           },
           body: JSON.stringify({
-            title: `AI Code Analysis: ${analysisResults.totalIssues} issues found`,
-            body: `## Analysis Results\n\n${commitMessage}\n\n### Issues by Priority\n- Critical: ${analysisResults.byPriority.critical}\n- High: ${analysisResults.byPriority.high}\n- Medium: ${analysisResults.byPriority.medium}\n- Low: ${analysisResults.byPriority.low}`,
+            title: `🤖 AI Code Analysis: ${analysisResults.totalIssues} issues found`,
+            body: `## 📊 Analysis Results\n\n${commitMessage}\n\n### 📋 Issues by Priority\n- **Critical:** ${analysisResults.byPriority.critical}\n- **High:** ${analysisResults.byPriority.high}\n- **Medium:** ${analysisResults.byPriority.medium}\n- **Low:** ${analysisResults.byPriority.low}\n\n---\n*This PR was created automatically by ResurrectCI AI Analysis*`,
             head: branchName,
-            base: selectedGithubRepo.default_branch
+            base: selectedGithubRepo.default_branch,
+            draft: false
           })
         }
       );
 
       if (!prResponse.ok) {
-        throw new Error('Failed to create pull request');
+        const prError = await prResponse.json();
+        console.error('PR creation error:', prError);
+        throw new Error(`Failed to create PR: ${prError.message || prResponse.statusText}`);
       }
 
       const prData = await prResponse.json();
       setProgress(100);
       setStatus('complete');
-      toast.success(`✅ Pull request created: ${prData.html_url}`);
+      
+      console.log('✅ PR created:', prData.html_url);
+      toast.success(`✅ Pull request created!\n${prData.html_url}`);
+      
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Push failed';
+      console.error('❌ Push to GitHub failed:', err);
       setError(message);
       setStatus('error');
       toast.error(`❌ ${message}`);

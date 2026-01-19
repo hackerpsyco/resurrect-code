@@ -702,7 +702,7 @@ ${strategy.files.map(f => `- ${f.action.toUpperCase()}: \`${f.path}\``).join('\n
       const { deploymentMonitor } = await import('./deploymentMonitor');
       
       const newDeployment = await deploymentMonitor.triggerDeployment(deployment.name, {
-        environment: deployment.environment,
+        environment: (deployment.environment as 'production' | 'preview') || 'production',
         branch: deployment.branch,
         commit: 'automated fix applied'
       });

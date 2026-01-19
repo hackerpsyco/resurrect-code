@@ -1,4 +1,5 @@
-import { AIProvider } from "@/components/dashboard/ide/AIProviderSelector";
+export type AIProvider = "gemini" | "openai" | "claude" | "lovable";
+
 export interface AIMessage {
   role: "user" | "assistant" | "system";
   content: string;

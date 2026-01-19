@@ -7,6 +7,7 @@ import { Slider } from '@/components/ui/slider';
 import { GitHubIntegration } from './GitHubIntegration';
 import { VercelIntegration } from './VercelIntegration';
 import { GeminiIntegration } from './GeminiIntegration';
+import { AnalysisAutomationSettings } from './AnalysisAutomationSettings';
 import { 
   X, 
   Settings, 
@@ -23,7 +24,8 @@ import {
   Heart,
   Terminal,
   Globe,
-  Link
+  Link,
+  Sparkles
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -33,7 +35,7 @@ interface PlatformSettingsProps {
    * Optional: which section to show first when opened
    * e.g. "integrations" when coming from a "Connect GitHub" button
    */
-  initialSection?: 'general' | 'editor' | 'terminal' | 'appearance' | 'notifications' | 'keybindings' | 'integrations';
+  initialSection?: 'general' | 'editor' | 'terminal' | 'appearance' | 'notifications' | 'keybindings' | 'integrations' | 'analysis';
   /**
    * Optional: which integration tab to show first
    */
@@ -42,7 +44,7 @@ interface PlatformSettingsProps {
 
 export function PlatformSettings({ onClose, initialSection, initialIntegration }: PlatformSettingsProps) {
   const [activeSection, setActiveSection] = useState<
-    'general' | 'editor' | 'terminal' | 'appearance' | 'notifications' | 'keybindings' | 'integrations'
+    'general' | 'editor' | 'terminal' | 'appearance' | 'notifications' | 'keybindings' | 'integrations' | 'analysis'
   >(initialSection ?? 'general');
   const [activeIntegration, setActiveIntegration] = useState<'github' | 'vercel' | 'gemini'>(initialIntegration ?? 'github');
   const [settings, setSettings] = useState({
@@ -90,6 +92,7 @@ export function PlatformSettings({ onClose, initialSection, initialIntegration }
     { id: 'notifications', label: 'Notifications', icon: Bell },
     { id: 'keybindings', label: 'Keybindings', icon: Keyboard },
     { id: 'integrations', label: 'Integrations', icon: Zap },
+    { id: 'analysis', label: 'Analysis Automation', icon: Sparkles },
   ];
 
   const renderGeneralSettings = () => (
@@ -379,6 +382,8 @@ export function PlatformSettings({ onClose, initialSection, initialIntegration }
         return renderTerminalSettings();
       case 'integrations':
         return renderIntegrationsSettings();
+      case 'analysis':
+        return <AnalysisAutomationSettings onClose={onClose} />;
       default:
         return (
           <div className="flex items-center justify-center h-64">

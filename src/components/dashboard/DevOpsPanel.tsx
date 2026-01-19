@@ -456,40 +456,29 @@ export function DevOpsPanel({ onClose }: DevOpsPanelProps) {
                         <p className="text-xs sm:text-sm text-[#7d8590]">No deployments found</p>
                       </div>
                     ) : (
-                      <div className="space-y-3">
+                      <div className="space-y-2">
                         {deployments.map((deployment) => (
                           <div
                             key={deployment.uid}
-                            className="p-3 sm:p-4 bg-[#161b22] rounded-lg border border-[#238636]/20 hover:border-[#238636]/40 transition-all"
+                            className="flex items-center justify-between gap-3 p-2 sm:p-3 bg-[#161b22] rounded-lg border border-[#238636]/20 hover:border-[#238636]/40 transition-all"
                           >
-                            <div className="flex items-start justify-between gap-3">
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2 mb-2">
-                                  <p className="font-medium text-xs sm:text-sm text-white truncate">{deployment.name}</p>
-                                  <Badge className={`${getStatusColor(deployment.state)} border text-xs flex-shrink-0`}>
-                                    <span className="flex items-center gap-1">
-                                      {getStatusIcon(deployment.state)}
-                                      {deployment.state}
-                                    </span>
-                                  </Badge>
-                                </div>
-                                <p className="text-xs text-[#7d8590] truncate">{deployment.url}</p>
-                                {deployment.meta?.githubCommitMessage && (
-                                  <p className="text-xs text-[#7d8590] mt-1 truncate">{deployment.meta.githubCommitMessage}</p>
-                                )}
-                                <p className="text-xs text-[#7d8590] mt-2">
-                                  {new Date(deployment.created).toLocaleString()}
-                                </p>
-                              </div>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => fetchBuildLogs(deployment.uid)}
-                                className="border-[#238636]/20 hover:border-[#238636]/40 text-xs flex-shrink-0"
-                              >
-                                Logs
-                              </Button>
+                            <div className="flex items-center gap-2 min-w-0">
+                              <p className="font-medium text-xs sm:text-sm text-white truncate">{deployment.name}</p>
+                              <Badge className={`${getStatusColor(deployment.state)} border text-xs flex-shrink-0`}>
+                                <span className="flex items-center gap-1">
+                                  {getStatusIcon(deployment.state)}
+                                  {deployment.state}
+                                </span>
+                              </Badge>
                             </div>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => fetchBuildLogs(deployment.uid)}
+                              className="border-[#238636]/20 hover:border-[#238636]/40 text-xs flex-shrink-0"
+                            >
+                              Logs
+                            </Button>
                           </div>
                         ))}
                       </div>

@@ -123,6 +123,7 @@ export class AIService {
     
     try {
       // Make the API call directly here for simplicity
+      // Use query parameter format for free tier
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${this.model}:generateContent?key=${this.apiKey}`;
 
       // Convert messages to Gemini format

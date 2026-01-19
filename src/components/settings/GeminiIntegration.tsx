@@ -34,7 +34,8 @@ export function GeminiIntegration({ onClose }: GeminiIntegrationProps) {
     setIsValidating(true);
     try {
       // Validate key by making a test request using the correct endpoint format
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+      // Use gemini-pro which is available on free tier
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${apiKey}`;
       
       const response = await fetch(url, {
         method: 'POST',

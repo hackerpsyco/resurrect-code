@@ -5,12 +5,15 @@
 
 class GeminiKeyService {
   private key: string | null = null;
+  private model: string = 'gemini-pro'; // Default free tier model
   private readonly STORAGE_KEY = 'gemini_api_key';
+  private readonly MODEL_KEY = 'gemini_model';
   private readonly ENCRYPTION_PREFIX = 'enc_';
 
   constructor() {
-    // Load key from localStorage on initialization
+    // Load key and model from localStorage on initialization
     this.loadKey();
+    this.loadModel();
   }
 
   /**
@@ -27,6 +30,21 @@ class GeminiKeyService {
     } catch (error) {
       console.error('Failed to load Gemini key:', error);
       this.key = null;
+    }
+  }
+
+  /**
+   * Load model from localStorage
+   */
+  private loadModel() {
+    try {
+      const stored = localStorage.getItem(this.MODEL_KEY);
+      if (stored) {
+        this.model = stored;
+      }
+    } catch (error) {
+      console.error('Failed to load Gemini model:', error);
+      this.model = 'gemini-pro';
     }
   }
 
@@ -53,6 +71,34 @@ class GeminiKeyService {
    */
   getKey(): string | null {
     return this.key;
+  }
+
+  /**
+   * Get the Gemini API key (alias for compatibility)
+   */
+  getApiKey(): string | null {
+    return this.key;
+  }
+
+  /**
+   * Set the Gemini model
+   */
+  setModel(model: string) {
+    if (!model || !model.trim()) {
+      throw new Error('Model cannot be empty');
+    }
+    
+    localStorage.setItem(this.MODEL_KEY, model);
+    this.model = model;
+    
+    console.log('✅ Gemini model set to:', model);
+  }
+
+  /**
+   * Get the Gemini model
+   */
+  getModel(): string {
+    return this.model;
   }
 
   /**

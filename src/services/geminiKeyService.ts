@@ -5,7 +5,7 @@
 
 class GeminiKeyService {
   private key: string | null = null;
-  private model: string = 'gemini-pro'; // Default free tier model
+  private model: string = 'gemini-2.0-flash'; // Default free tier model (updated 2024)
   private readonly STORAGE_KEY = 'gemini_api_key';
   private readonly MODEL_KEY = 'gemini_model';
   private readonly ENCRYPTION_PREFIX = 'enc_';
@@ -44,7 +44,7 @@ class GeminiKeyService {
       }
     } catch (error) {
       console.error('Failed to load Gemini model:', error);
-      this.model = 'gemini-pro';
+      this.model = 'gemini-2.0-flash';
     }
   }
 

@@ -133,49 +133,42 @@ export function useVercel() {
         vercelService.setToken(token);
       }
 
-      // Fetch deployment details directly from Vercel API
-      const deployment = await vercelService.getDeployment(deploymentId, teamId);
-      
-      // Create mock build logs from deployment metadata
-      const mockLogs: BuildEvent[] = [
+      // Fetch real deployment logs from Vercel API
+      const response = await fetch(
+        `https://api.vercel.com/v2/deployments/${deploymentId}/events${teamId ? `?teamId=${teamId}` : ''}`,
         {
-          type: 'info',
-          created: deployment.created,
-          payload: {
-            text: `Deployment started for ${deployment.name}`
-          }
-        },
-        {
-          type: 'info',
-          created: deployment.created + 1000,
-          payload: {
-            text: `Status: ${deployment.state}`
-          }
-        },
-        {
-          type: 'info',
-          created: deployment.created + 2000,
-          payload: {
-            text: `URL: ${deployment.url}`
-          }
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
         }
-      ];
+      );
 
-      if (deployment.meta?.githubCommitMessage) {
-        mockLogs.push({
-          type: 'info',
-          created: deployment.created + 3000,
-          payload: {
-            text: `Commit: ${deployment.meta.githubCommitMessage}`
-          }
-        });
+      if (!response.ok) {
+        throw new Error(`Failed to fetch logs: ${response.statusText}`);
       }
 
-      setBuildLogs(mockLogs);
-      return mockLogs;
+      const text = await response.text();
+      
+      // Parse newline-delimited JSON from Vercel
+      const logs = text
+        .split('\n')
+        .filter((line) => line.trim())
+        .map((line) => {
+          try {
+            return JSON.parse(line);
+          } catch {
+            return null;
+          }
+        })
+        .filter(Boolean) as BuildEvent[];
+
+      setBuildLogs(logs);
+      console.log(`✅ Loaded ${logs.length} real build logs`);
+      return logs;
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Failed to fetch deployment details";
-      console.error('❌ Error fetching deployment details:', message);
+      const message = error instanceof Error ? error.message : "Failed to fetch build logs";
+      console.error('❌ Error fetching build logs:', message);
       toast.error(message);
       return [];
     } finally {

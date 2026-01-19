@@ -504,16 +504,27 @@ export function DevOpsPanel({ onClose }: DevOpsPanelProps) {
                   <CardHeader className="pb-3 sm:pb-4">
                     <CardTitle className="text-sm sm:text-base flex items-center gap-2">
                       <Activity className="w-4 h-4 sm:w-5 sm:h-5 text-[#238636]" />
-                      Build Logs
+                      Live Build Logs
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
                     <div className="bg-[#0d1117] rounded-lg p-3 sm:p-4 font-mono text-xs max-h-96 overflow-y-auto border border-[#238636]/20">
-                      {buildLogs.map((log, idx) => (
-                        <div key={idx} className="text-[#7d8590] mb-1">
-                          <span className="text-[#238636]">[{new Date(log.created).toLocaleTimeString()}]</span> {log.payload.text}
-                        </div>
-                      ))}
+                      {buildLogs.map((log, idx) => {
+                        const timestamp = log.created 
+                          ? new Date(log.created).toLocaleTimeString('en-US', { 
+                              hour: '2-digit', 
+                              minute: '2-digit', 
+                              second: '2-digit',
+                              hour12: false 
+                            })
+                          : 'N/A';
+                        
+                        return (
+                          <div key={idx} className="text-[#7d8590] mb-1">
+                            <span className="text-[#238636]">[{timestamp}]</span> {log.payload?.text || 'Event'}
+                          </div>
+                        );
+                      })}
                     </div>
                   </CardContent>
                 </Card>

@@ -31,7 +31,7 @@ serve(async (req) => {
     const rejectToken = btoa(`${replyId}:reject:${Date.now()}`);
     
     // Build action URLs
-    const baseUrl = Deno.env.get('RESURRECTCI_URL') || 'https://resurrectci.com';
+    const baseUrl = Deno.env.get('RESURRECTCI_URL') || 'https://www.innoalaxy.in/';
     const approveUrl = `${baseUrl}/api/email-reply?token=${approveToken}&action=approve`;
     const rejectUrl = `${baseUrl}/api/email-reply?token=${rejectToken}&action=reject`;
     
@@ -74,7 +74,7 @@ ${emailContent}
             
             <p style="color: #666; font-size: 12px;">
               This email was sent by ResurrectCI AI Analysis.<br>
-              <a href="https://resurrectci.com" style="color: #238636; text-decoration: none;">Visit ResurrectCI</a>
+              <a href="https://www.innoalaxy.in/" style="color: #238636; text-decoration: none;">Visit ResurrectCI</a>
             </p>
           </div>
         </body>
@@ -87,9 +87,14 @@ ${emailContent}
 
     // Try Resend first
     const resendKey = Deno.env.get('RESEND_API_KEY');
+    console.log(`🔍 Checking for RESEND_API_KEY: ${resendKey ? '✅ Found' : '❌ Not found'}`);
+    
     if (resendKey) {
       try {
         console.log(`📧 Attempting to send via Resend to: ${to}`);
+        console.log(`📧 Subject: ${subject}`);
+        console.log(`📧 API Key present: ${resendKey.substring(0, 10)}...`);
+        
         const resendResponse = await fetch('https://api.resend.com/emails', {
           method: 'POST',
           headers: {
@@ -97,12 +102,14 @@ ${emailContent}
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            from: 'noreply@resurrectci.com',
+            from: 'swapeatmail@gmail.com',
             to: to,
             subject: subject,
             html: htmlContent,
           }),
         });
+
+        console.log(`📧 Resend response status: ${resendResponse.status}`);
 
         if (resendResponse.ok) {
           const resendData = await resendResponse.json();
@@ -110,21 +117,30 @@ ${emailContent}
           emailSent = true;
         } else {
           const resendError = await resendResponse.json().catch(() => ({}));
-          emailError = `Resend error: ${resendError.message || resendResponse.statusText}`;
+          emailError = `Resend error (${resendResponse.status}): ${resendError.message || resendResponse.statusText}`;
           console.error('❌ Resend error:', emailError);
+          console.error('❌ Full error response:', resendError);
         }
       } catch (err) {
         emailError = `Resend exception: ${err instanceof Error ? err.message : 'Unknown error'}`;
         console.error('❌ Resend exception:', emailError);
+        console.error('❌ Full exception:', err);
       }
+    } else {
+      console.log('⚠️ RESEND_API_KEY not configured in Supabase Secrets');
     }
 
     // Try SendGrid if Resend failed
     if (!emailSent) {
       const sendgridKey = Deno.env.get('SENDGRID_API_KEY');
+      console.log(`🔍 Checking for SENDGRID_API_KEY: ${sendgridKey ? '✅ Found' : '❌ Not found'}`);
+      
       if (sendgridKey) {
         try {
           console.log(`📧 Attempting to send via SendGrid to: ${to}`);
+          console.log(`📧 Subject: ${subject}`);
+          console.log(`📧 API Key present: ${sendgridKey.substring(0, 10)}...`);
+          
           const sendgridResponse = await fetch('https://api.sendgrid.com/v3/mail/send', {
             method: 'POST',
             headers: {
@@ -139,27 +155,38 @@ ${emailContent}
             }),
           });
 
+          console.log(`📧 SendGrid response status: ${sendgridResponse.status}`);
+
           if (sendgridResponse.ok || sendgridResponse.status === 202) {
             console.log('✅ Email sent via SendGrid');
             emailSent = true;
           } else {
             const sendgridError = await sendgridResponse.json().catch(() => ({}));
-            emailError = `SendGrid error: ${sendgridError.errors?.[0]?.message || sendgridResponse.statusText}`;
+            emailError = `SendGrid error (${sendgridResponse.status}): ${sendgridError.errors?.[0]?.message || sendgridResponse.statusText}`;
             console.error('❌ SendGrid error:', emailError);
+            console.error('❌ Full error response:', sendgridError);
           }
         } catch (err) {
           emailError = `SendGrid exception: ${err instanceof Error ? err.message : 'Unknown error'}`;
           console.error('❌ SendGrid exception:', emailError);
+          console.error('❌ Full exception:', err);
         }
+      } else {
+        console.log('⚠️ SENDGRID_API_KEY not configured in Supabase Secrets');
       }
     }
 
     // If no email service is configured, log and return success (for development)
     if (!emailSent && !resendKey && !sendgridKey) {
-      console.log(`📧 No email service configured. Email would be sent to: ${to}`);
+      console.log(`📧 ⚠️ NO EMAIL SERVICE CONFIGURED`);
+      console.log(`📧 Email would be sent to: ${to}`);
       console.log(`📧 Subject: ${subject}`);
       console.log(`📧 Content length: ${emailContent.length}`);
-      console.log('⚠️ Configure RESEND_API_KEY or SENDGRID_API_KEY to enable email sending');
+      console.log('📧 ⚠️ To enable email sending:');
+      console.log('📧 1. Go to Supabase Dashboard');
+      console.log('📧 2. Click Edge Functions → Secrets');
+      console.log('📧 3. Add RESEND_API_KEY or SENDGRID_API_KEY');
+      console.log('📧 4. Wait 2-3 minutes for deployment');
     }
 
     return new Response(

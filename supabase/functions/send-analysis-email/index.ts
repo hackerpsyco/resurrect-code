@@ -189,9 +189,16 @@ ${emailContent}
       console.log('📧 4. Wait 2-3 minutes for deployment');
     }
 
+    // Always return 200 for successful requests, even if email service not configured
+    // This allows development mode to work without email service
+    const isSuccess = emailSent || (!resendKey && !sendgridKey);
+    const statusCode = isSuccess ? 200 : 500;
+    
+    console.log(`📧 Final response: status=${statusCode}, sent=${emailSent}, success=${isSuccess}`);
+
     return new Response(
       JSON.stringify({
-        success: emailSent || (!resendKey && !sendgridKey),
+        success: isSuccess,
         message: emailSent 
           ? "Email sent successfully" 
           : (!resendKey && !sendgridKey)
@@ -203,7 +210,7 @@ ${emailContent}
         error: emailError
       }),
       {
-        status: emailSent || (!resendKey && !sendgridKey) ? 200 : 500,
+        status: statusCode,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       }
     );

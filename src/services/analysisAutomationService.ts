@@ -199,20 +199,44 @@ ${file.suggestions.map((s: any) => `- [${s.priority.toUpperCase()}] ${s.issue}`)
         })
       });
 
+      // Parse response
+      let responseData: any = {};
+      try {
+        responseData = await response.json();
+      } catch (e) {
+        console.error('Failed to parse response:', e);
+      }
+
       if (response.ok) {
-        console.log('✅ Email sent successfully');
+        console.log('✅ Email sent successfully:', responseData);
         report.emailSent = true;
         this.saveReport(report);
-        toast.success(`📧 Analysis report sent to ${this.settings.userEmail}\n⏳ Waiting for your response...`);
+        
+        if (responseData.sent) {
+          toast.success(`📧 Analysis report sent to ${this.settings.userEmail}\n⏳ Waiting for your response...`);
+        } else if (responseData.message?.includes('development mode')) {
+          toast.info(`📧 Email service not configured (development mode)\n📧 Would send to: ${this.settings.userEmail}`);
+        } else {
+          toast.success(`📧 Analysis report processed\n⏳ Waiting for your response...`);
+        }
         return true;
       } else {
-        console.error('❌ Failed to send email:', response.statusText);
-        toast.error('Failed to send email notification');
+        const errorMsg = responseData.error || responseData.message || response.statusText;
+        console.error('❌ Failed to send email:', errorMsg);
+        console.error('❌ Full response:', responseData);
+        
+        // Check if it's a configuration issue
+        if (errorMsg?.includes('not configured')) {
+          toast.error(`⚠️ Email service not configured\n📖 See SUPABASE_SECRETS_SETUP.md for setup instructions`);
+        } else {
+          toast.error(`Failed to send email: ${errorMsg}`);
+        }
         return false;
       }
     } catch (error) {
       console.error('❌ Email sending error:', error);
-      toast.error('Error sending email notification');
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      toast.error(`Error sending email: ${errorMsg}`);
       return false;
     }
   }

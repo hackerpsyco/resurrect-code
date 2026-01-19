@@ -102,7 +102,7 @@ ${emailContent}
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            from: 'swapeatmail@gmail.com',
+            from: 'onboarding@resend.dev',
             to: to,
             subject: subject,
             html: htmlContent,

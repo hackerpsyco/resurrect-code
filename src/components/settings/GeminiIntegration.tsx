@@ -33,24 +33,31 @@ export function GeminiIntegration({ onClose }: GeminiIntegrationProps) {
 
     setIsValidating(true);
     try {
-      // Validate key by making a test request
-      const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent', {
+      // Validate key by making a test request using the correct endpoint format
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+      
+      const response = await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-goog-api-key': apiKey,
         },
         body: JSON.stringify({
           contents: [{
             parts: [{
               text: 'test'
             }]
-          }]
+          }],
+          generationConfig: {
+            temperature: 0.7,
+            maxOutputTokens: 100,
+          }
         })
       });
 
       if (!response.ok) {
-        throw new Error('Invalid Gemini API key');
+        const errorData = await response.json().catch(() => ({}));
+        const errorMsg = errorData.error?.message || `HTTP ${response.status}`;
+        throw new Error(`Invalid Gemini API key: ${errorMsg}`);
       }
 
       // Save the key

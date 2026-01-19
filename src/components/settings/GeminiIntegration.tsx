@@ -58,6 +58,22 @@ export function GeminiIntegration({ onClose }: GeminiIntegrationProps) {
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         const errorMsg = errorData.error?.message || `HTTP ${response.status}`;
+        
+        // Check if it's a quota error (which means the key is valid)
+        if (errorMsg.includes('quota') || errorMsg.includes('429')) {
+          // Save the key anyway - quota will reset
+          geminiKeyService.setKey(apiKey);
+          setIsConnected(true);
+          
+          toast.success('✅ API key saved! (Quota limit reached - will reset in 24h)', {
+            description: 'Your key is valid. Quota will reset tomorrow.',
+          });
+          
+          // Notify other components
+          window.dispatchEvent(new CustomEvent('gemini-settings-updated'));
+          return;
+        }
+        
         throw new Error(`Invalid Gemini API key: ${errorMsg}`);
       }
 

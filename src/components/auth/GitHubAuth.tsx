@@ -97,15 +97,25 @@ export function GitHubAuth({ onAuthSuccess, onClose }: GitHubAuthProps) {
                 "Authorization": `Bearer ${authToken}`,
               },
               body: JSON.stringify({
-                github_token: token,
-                github_login: userData.login,
+                enableEmailNotifications: false,
+                userEmail: "",
+                autoGenerateImprovements: false,
+                autoPushToGitHub: false,
+                analysisSchedule: "manual",
+                shortReportFormat: true,
+                scheduledTime: "02:00",
+                selectedRepositories: [],
+                selectedProjects: [],
+                githubToken: token,
+                githubLogin: userData.login,
               }),
             });
 
             if (settingsResponse.ok) {
               console.log("✅ GitHub token saved to settings table");
             } else {
-              console.warn("⚠️ Failed to save to settings table:", settingsResponse.statusText);
+              const errorText = await settingsResponse.text();
+              console.warn("⚠️ Failed to save to settings table:", settingsResponse.statusText, errorText);
             }
           }
         }

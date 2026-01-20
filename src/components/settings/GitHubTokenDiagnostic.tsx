@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, CheckCircle, AlertCircle, RefreshCw } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 
 export function GitHubTokenDiagnostic() {
   const [isChecking, setIsChecking] = useState(false);
@@ -22,33 +23,34 @@ export function GitHubTokenDiagnostic() {
         setTokenValue(localToken.substring(0, 10) + '...');
       }
 
-      // Check Supabase settings table
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const authToken = localStorage.getItem('sb_auth_token');
+      // Get current session using Supabase client
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
 
-      if (!supabaseUrl || !authToken) {
-        setError('Supabase not configured or not authenticated');
+      if (sessionError || !session) {
+        setError('Not authenticated - please log in');
         return;
       }
 
-      const response = await fetch(`${supabaseUrl}/functions/v1/analysis-settings`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${authToken}`,
-        },
-      });
+      // Check Supabase settings table using Supabase client
+      const { data, error: fetchError } = await supabase
+        .from('analysis_automation_settings')
+        .select('github_token')
+        .single();
 
-      if (response.ok) {
-        const data = await response.json();
-        if (data.data && data.data.githubToken) {
-          setTokenInSupabase(true);
-          console.log('✅ GitHub token found in Supabase settings table');
-        } else {
+      if (fetchError) {
+        if (fetchError.code === 'PGRST116') {
+          // No settings found yet
           setTokenInSupabase(false);
-          console.log('❌ GitHub token NOT in Supabase settings table');
+          console.log('❌ GitHub token NOT in Supabase settings table (no settings found)');
+        } else {
+          setError(`Failed to fetch settings: ${fetchError.message}`);
         }
+      } else if (data && data.github_token) {
+        setTokenInSupabase(true);
+        console.log('✅ GitHub token found in Supabase settings table');
       } else {
-        setError(`Failed to fetch settings: ${response.statusText}`);
+        setTokenInSupabase(false);
+        console.log('❌ GitHub token NOT in Supabase settings table');
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error');

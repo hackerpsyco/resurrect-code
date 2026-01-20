@@ -31,30 +31,32 @@ export function GitHubTokenDiagnostic() {
         return;
       }
 
-      // Check Supabase settings table using Supabase client
-      const { data, error: fetchError } = await supabase
-        .from('analysis_automation_settings')
-        .select('github_token')
-        .single();
+      // Check Supabase settings table using edge function
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      if (!supabaseUrl) {
+        setError('Supabase URL not configured');
+        return;
+      }
 
-      if (fetchError) {
-        if (fetchError.code === 'PGRST116') {
-          // No settings found yet
-          setTokenInSupabase(false);
-          console.log('❌ GitHub token NOT in Supabase settings table (no settings found)');
-        } else if (fetchError.message && fetchError.message.includes('does not exist')) {
-          // Column doesn't exist - migration not applied
-          setError('Database migration not applied. Please run: SETUP_DATABASE.sql in Supabase SQL Editor');
-          console.error('❌ Column github_token does not exist. Migration needs to be applied.');
+      const response = await fetch(`${supabaseUrl}/functions/v1/analysis-settings`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        if (result.data && result.data.githubToken) {
+          setTokenInSupabase(true);
+          console.log('✅ GitHub token found in Supabase settings table');
         } else {
-          setError(`Failed to fetch settings: ${fetchError.message}`);
+          setTokenInSupabase(false);
+          console.log('❌ GitHub token NOT in Supabase settings table');
         }
-      } else if (data && data.github_token) {
-        setTokenInSupabase(true);
-        console.log('✅ GitHub token found in Supabase settings table');
       } else {
-        setTokenInSupabase(false);
-        console.log('❌ GitHub token NOT in Supabase settings table');
+        const errorData = await response.json();
+        setError(`Failed to fetch settings: ${errorData.error || response.statusText}`);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error');

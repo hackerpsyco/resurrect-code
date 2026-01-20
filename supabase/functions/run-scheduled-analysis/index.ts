@@ -60,15 +60,17 @@ Deno.serve(async (req: Request) => {
     const analysisRequest: AnalysisRequest = await req.json();
     const { userId, repositories } = analysisRequest;
 
+    console.log(`🚀 Starting scheduled analysis for user ${userId}`);
+    console.log(`📦 Repositories: ${repositories.join(', ')}`);
+    console.log(`📋 Request body:`, JSON.stringify(analysisRequest, null, 2));
+
     if (!userId || !repositories || repositories.length === 0) {
+      console.error("❌ Validation failed - missing userId or repositories");
       return new Response(
         JSON.stringify({ error: "Missing userId or repositories" }),
         { status: 400, headers: corsHeaders }
       );
     }
-
-    console.log(`🚀 Starting scheduled analysis for user ${userId}`);
-    console.log(`📦 Repositories: ${repositories.join(', ')}`);
 
     // Create Supabase client
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
@@ -80,35 +82,43 @@ Deno.serve(async (req: Request) => {
 
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Get user settings
+    // Get user settings - use default if not found
     const { data: settings, error: settingsError } = await supabase
       .from("analysis_automation_settings")
       .select("*")
       .eq("user_id", userId)
       .single();
 
+    // Log the error but don't fail - use defaults
     if (settingsError) {
-      console.error("Error fetching settings:", settingsError);
-      throw new Error("Failed to fetch user settings");
+      console.warn("⚠️ Warning fetching settings:", settingsError);
+      console.log("ℹ️ Using default settings (table may not exist or no user settings)");
     }
 
-    if (!settings) {
-      throw new Error("User settings not found");
-    }
+    // Use settings if found, otherwise use defaults
+    const userSettings = settings || {
+      enable_email_notifications: false,
+      user_email: null,
+      auto_generate_improvements: false,
+      auto_push_to_github: false,
+    };
 
-    console.log("✅ Settings loaded");
+    console.log("✅ Settings loaded (or using defaults)");
 
     // Get GitHub token from user
     const { data: { user }, error: userError } = await supabase.auth.admin.getUserById(userId);
 
     if (userError || !user) {
+      console.error("Error fetching user:", userError);
       throw new Error("Failed to fetch user");
     }
 
     // Get GitHub token from user metadata
     const githubToken = user.user_metadata?.github_token;
     if (!githubToken) {
-      throw new Error("GitHub token not found in user metadata");
+      console.warn("⚠️ GitHub token not found in user metadata");
+      console.log("ℹ️ User must connect GitHub account first");
+      throw new Error("GitHub token not found - please connect your GitHub account in settings");
     }
 
     console.log("✅ GitHub token retrieved");
@@ -145,10 +155,10 @@ Deno.serve(async (req: Request) => {
     }
 
     // Send email notification if enabled
-    if (settings.enable_email_notifications && settings.user_email) {
+    if (userSettings.enable_email_notifications && userSettings.user_email) {
       try {
         await sendEmailNotification(
-          settings.user_email,
+          userSettings.user_email,
           results,
           prResults,
           supabase,
@@ -179,10 +189,20 @@ Deno.serve(async (req: Request) => {
     );
 
   } catch (error) {
-    console.error("❌ Error:", error);
+    console.error("❌ Error in run-scheduled-analysis:", error);
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    const errorStack = error instanceof Error ? error.stack : "";
+    
+    console.error("❌ Error message:", errorMessage);
+    console.error("❌ Error stack:", errorStack);
+    console.error("❌ Full error object:", JSON.stringify(error, null, 2));
+    
     return new Response(
-      JSON.stringify({ success: false, error: errorMessage }),
+      JSON.stringify({ 
+        success: false, 
+        error: errorMessage,
+        details: errorStack
+      }),
       { status: 500, headers: corsHeaders }
     );
   }

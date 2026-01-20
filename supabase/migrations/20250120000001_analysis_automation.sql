@@ -82,6 +82,10 @@ CREATE POLICY "Users can only insert their own automation settings" ON analysis_
 CREATE POLICY "Users can only update their own automation settings" ON analysis_automation_settings
   FOR UPDATE USING (auth.uid() = user_id);
 
+-- Allow service role to bypass RLS for edge functions
+CREATE POLICY "Service role can access all automation settings" ON analysis_automation_settings
+  FOR ALL USING (auth.role() = 'service_role');
+
 -- Create policies for analysis_reports
 CREATE POLICY "Users can only access their own analysis reports" ON analysis_reports
   FOR ALL USING (auth.uid() = user_id);
@@ -91,6 +95,10 @@ CREATE POLICY "Users can only insert their own analysis reports" ON analysis_rep
 
 CREATE POLICY "Users can only update their own analysis reports" ON analysis_reports
   FOR UPDATE USING (auth.uid() = user_id);
+
+-- Allow service role to bypass RLS for edge functions
+CREATE POLICY "Service role can access all analysis reports" ON analysis_reports
+  FOR ALL USING (auth.role() = 'service_role');
 
 -- Create indexes for better performance
 CREATE INDEX IF NOT EXISTS idx_analysis_automation_settings_user_id ON analysis_automation_settings(user_id);

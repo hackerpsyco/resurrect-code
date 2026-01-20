@@ -68,17 +68,45 @@ Deno.serve(async (req: Request) => {
 
     // Handle GET request - retrieve settings
     if (req.method === "GET") {
+      console.log(`📖 GET request for user: ${userId}`);
+      
       const { data, error } = await supabase
         .from("analysis_automation_settings")
         .select("*")
         .eq("user_id", userId)
         .single();
 
-      if (error && error.code !== "PGRST116") { // PGRST116 = no rows found
+      if (error) {
+        console.warn(`⚠️ Error fetching settings (${error.code}):`, error.message);
+        
+        // If table doesn't exist or no rows found, return defaults
+        if (error.code === "PGRST116" || error.code === "42P01") {
+          console.log("ℹ️ Returning default settings (table may not exist or no user settings)");
+          return new Response(
+            JSON.stringify({
+              success: true,
+              data: {
+                enableEmailNotifications: false,
+                userEmail: "",
+                autoGenerateImprovements: false,
+                autoPushToGitHub: false,
+                analysisSchedule: "manual",
+                shortReportFormat: true,
+                scheduledTime: "02:00",
+                selectedRepositories: [],
+                selectedProjects: [],
+              },
+            }),
+            { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        
+        // For other errors, throw
         throw error;
       }
 
       if (!data) {
+        console.log("ℹ️ No settings found for user, returning defaults");
         // Return default settings if none exist
         return new Response(
           JSON.stringify({
@@ -95,7 +123,7 @@ Deno.serve(async (req: Request) => {
               selectedProjects: [],
             },
           }),
-          { headers: corsHeaders }
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
 
@@ -115,7 +143,7 @@ Deno.serve(async (req: Request) => {
       console.log("✅ Settings retrieved successfully");
       return new Response(
         JSON.stringify({ success: true, data: settings }),
-        { headers: corsHeaders }
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
@@ -123,17 +151,23 @@ Deno.serve(async (req: Request) => {
     if (req.method === "POST" || req.method === "PUT") {
       const settings: AnalysisSettings = await req.json();
 
-      console.log("Saving settings:", JSON.stringify(settings, null, 2));
+      console.log("💾 Saving settings:", JSON.stringify(settings, null, 2));
 
       // Check if settings exist
-      const { data: existing } = await supabase
+      const { data: existing, error: checkError } = await supabase
         .from("analysis_automation_settings")
         .select("id")
         .eq("user_id", userId)
         .single();
 
+      if (checkError && checkError.code !== "PGRST116" && checkError.code !== "42P01") {
+        console.error("❌ Error checking existing settings:", checkError);
+        throw checkError;
+      }
+
       let result;
       if (existing) {
+        console.log("📝 Updating existing settings");
         // Update existing settings
         result = await supabase
           .from("analysis_automation_settings")
@@ -151,6 +185,7 @@ Deno.serve(async (req: Request) => {
           .eq("user_id", userId)
           .select();
       } else {
+        console.log("✨ Creating new settings");
         // Insert new settings
         result = await supabase
           .from("analysis_automation_settings")
@@ -170,13 +205,14 @@ Deno.serve(async (req: Request) => {
       }
 
       if (result.error) {
+        console.error("❌ Error saving settings:", result.error);
         throw result.error;
       }
 
       console.log("✅ Settings saved successfully");
       return new Response(
         JSON.stringify({ success: true, data: result.data?.[0] }),
-        { headers: corsHeaders }
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
@@ -186,11 +222,21 @@ Deno.serve(async (req: Request) => {
     );
 
   } catch (error) {
-    console.error("Error:", error);
+    console.error("❌ Error in analysis-settings:", error);
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    const errorStack = error instanceof Error ? error.stack : "";
+    
+    console.error("❌ Error message:", errorMessage);
+    console.error("❌ Error stack:", errorStack);
+    console.error("❌ Full error object:", JSON.stringify(error, null, 2));
+    
     return new Response(
-      JSON.stringify({ success: false, error: errorMessage }),
-      { status: 500, headers: corsHeaders }
+      JSON.stringify({ 
+        success: false, 
+        error: errorMessage,
+        details: errorStack
+      }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 });

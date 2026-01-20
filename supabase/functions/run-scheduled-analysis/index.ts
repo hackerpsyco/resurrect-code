@@ -244,6 +244,10 @@ Deno.serve(async (req: Request) => {
     // Send email notification if enabled
     if (userSettings.enable_email_notifications && userSettings.user_email) {
       try {
+        console.log("📧 Email notifications enabled, sending report...");
+        console.log(`📧 User email: ${userSettings.user_email}`);
+        console.log(`📧 Total issues: ${totalIssues}`);
+        
         await sendEmailNotification(
           userSettings.user_email,
           results,
@@ -251,11 +255,16 @@ Deno.serve(async (req: Request) => {
           supabase,
           userId
         );
-        console.log("✅ Email notification sent");
+        console.log("✅ Email notification sent successfully");
       } catch (error) {
         console.error("❌ Error sending email:", error);
+        console.error("❌ Email error details:", error instanceof Error ? error.message : error);
         // Don't fail the whole operation if email fails
       }
+    } else {
+      console.warn("⚠️ Email notifications disabled or no email address set");
+      console.warn(`📧 enable_email_notifications: ${userSettings.enable_email_notifications}`);
+      console.warn(`📧 user_email: ${userSettings.user_email}`);
     }
 
     console.log("✅ Scheduled analysis completed successfully");
@@ -785,6 +794,11 @@ async function sendEmailNotification(
   supabase: any,
   userId: string
 ): Promise<void> {
+  console.log("📧 sendEmailNotification called");
+  console.log(`📧 Email recipient: ${email}`);
+  console.log(`📧 Results count: ${results.length}`);
+  console.log(`📧 PR results count: ${prResults.length}`);
+  
   const totalIssues = results.reduce((sum, r) => sum + r.totalIssues, 0);
   const totalCritical = results.reduce((sum, r) => sum + r.byPriority.critical, 0);
 
@@ -807,14 +821,23 @@ async function sendEmailNotification(
 
   emailBody += `<p><a href="https://github.com">Review on GitHub</a></p>\n`;
 
+  console.log(`📧 Email body length: ${emailBody.length}`);
+  console.log(`📧 Calling send-analysis-email function...`);
+
   // Call send-analysis-email function
+  const supabaseUrl = Deno.env.get("SUPABASE_URL");
+  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  
+  console.log(`📧 Supabase URL: ${supabaseUrl}`);
+  console.log(`📧 Service role key present: ${serviceRoleKey ? '✅' : '❌'}`);
+  
   const response = await fetch(
-    `${Deno.env.get("SUPABASE_URL")}/functions/v1/send-analysis-email`,
+    `${supabaseUrl}/functions/v1/send-analysis-email`,
     {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+        "Authorization": `Bearer ${serviceRoleKey}`,
       },
       body: JSON.stringify({
         to: email,
@@ -825,7 +848,15 @@ async function sendEmailNotification(
     }
   );
 
+  console.log(`📧 Email function response status: ${response.status}`);
+  console.log(`📧 Email function response headers: ${JSON.stringify(Object.fromEntries(response.headers.entries()))}`);
+
   if (!response.ok) {
-    throw new Error(`Failed to send email: ${response.statusText}`);
+    const responseText = await response.text();
+    console.error(`❌ Email function error response: ${responseText}`);
+    throw new Error(`Failed to send email: ${response.status} ${response.statusText} - ${responseText}`);
   }
+
+  const responseData = await response.json();
+  console.log(`✅ Email function response: ${JSON.stringify(responseData)}`);
 }

@@ -105,6 +105,7 @@ class AnalysisAutomationService {
       // Always save to localStorage for offline support
       localStorage.setItem(this.SETTINGS_KEY, JSON.stringify(this.settings));
       console.log('✅ Analysis automation settings saved to localStorage');
+      console.log('📝 Settings:', JSON.stringify(this.settings, null, 2));
 
       // Try to save to database if available
       try {
@@ -114,6 +115,7 @@ class AnalysisAutomationService {
         if (supabaseUrl && supabaseKey) {
           const token = localStorage.getItem('sb_auth_token');
           if (token) {
+            console.log('📤 Attempting to save settings to database...');
             const response = await fetch(`${supabaseUrl}/functions/v1/analysis-settings`, {
               method: 'POST',
               headers: {
@@ -123,13 +125,21 @@ class AnalysisAutomationService {
               body: JSON.stringify(this.settings)
             });
 
+            console.log(`📤 Database save response status: ${response.status}`);
+
             if (response.ok) {
-              console.log('✅ Settings saved to database');
+              const data = await response.json();
+              console.log('✅ Settings saved to database:', data);
               this.useDatabase = true;
             } else {
-              console.warn('⚠️ Failed to save settings to database:', response.statusText);
+              const errorData = await response.json().catch(() => ({}));
+              console.warn('⚠️ Failed to save settings to database:', response.statusText, errorData);
             }
+          } else {
+            console.warn('⚠️ No auth token available for database save');
           }
+        } else {
+          console.warn('⚠️ Supabase not configured');
         }
       } catch (dbError) {
         console.warn('⚠️ Database save failed (offline mode):', dbError);
@@ -291,11 +301,14 @@ ${file.suggestions.map((s: any) => `- [${s.priority.toUpperCase()}] ${s.issue}`)
   async sendEmailNotification(report: AnalysisReport): Promise<boolean> {
     if (!this.settings.enableEmailNotifications || !this.settings.userEmail) {
       console.log('⚠️ Email notifications disabled or no email configured');
+      console.log(`  enableEmailNotifications: ${this.settings.enableEmailNotifications}`);
+      console.log(`  userEmail: ${this.settings.userEmail}`);
       return false;
     }
 
     try {
       console.log(`📧 Sending analysis report to ${this.settings.userEmail}...`);
+      console.log(`📧 Report: ${report.repository}, Issues: ${report.totalIssues}`);
 
       // Create email reply action (for tracking user response)
       const replyAction = emailReplyService.createReplyAction(report.id, this.settings.userEmail);
@@ -308,6 +321,9 @@ ${file.suggestions.map((s: any) => `- [${s.priority.toUpperCase()}] ${s.issue}`)
         console.warn('⚠️ Supabase not configured for email');
         return false;
       }
+
+      console.log(`📧 Calling edge function at: ${supabaseUrl}/functions/v1/send-analysis-email`);
+      console.log(`📧 Email recipient: ${this.settings.userEmail}`);
 
       const response = await fetch(`${supabaseUrl}/functions/v1/send-analysis-email`, {
         method: 'POST',

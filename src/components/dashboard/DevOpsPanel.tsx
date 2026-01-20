@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { useVercel } from '@/hooks/useVercel';
 import { AutomationTab } from './AutomationTab';
+import { AutomationStatusOverview } from './AutomationStatusOverview';
 
 interface DevOpsPanelProps {
   onClose: () => void;
@@ -523,6 +524,7 @@ export function DevOpsPanel({ onClose }: DevOpsPanelProps) {
 
             {/* Automation Tab */}
             <TabsContent value="automation" className="space-y-4 sm:space-y-6 animate-slide-up">
+              <AutomationStatusOverview />
               <AutomationTab selectedProject={selectedProject || undefined} />
             </TabsContent>
 

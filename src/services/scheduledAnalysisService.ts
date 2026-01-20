@@ -598,13 +598,45 @@ class ScheduledAnalysisService {
     toast.info('Starting analysis via edge function...');
 
     try {
-      // Get user ID and token
-      const userId = localStorage.getItem('userId') || 'unknown';
-      const token = localStorage.getItem('authToken') || '';
+      // Get Supabase session from localStorage - try multiple possible keys
+      let session = null;
+      let token = null;
+      let userId = null;
 
-      if (!token) {
-        throw new Error('Authentication token not found');
+      // Try the standard Supabase auth key format
+      const possibleKeys = [
+        'sb-eahpikunzsaacibikwtj-auth-token',
+        'sb_auth_token',
+        localStorage.getItem('sb_auth_token'),
+      ];
+
+      for (const key of possibleKeys) {
+        if (key) {
+          const stored = localStorage.getItem(key);
+          if (stored) {
+            try {
+              session = JSON.parse(stored);
+              token = session.access_token;
+              userId = session.user?.id;
+              if (token && userId) break;
+            } catch (e) {
+              // Continue to next key
+            }
+          }
+        }
       }
+
+      // Also check for direct token storage
+      if (!token) {
+        token = localStorage.getItem('sb_auth_token');
+      }
+
+      if (!token || !userId) {
+        console.error('❌ Session details:', { token: !!token, userId: !!userId, session: !!session });
+        throw new Error('Authentication token not found - please log in');
+      }
+
+      console.log(`✅ Auth token found, calling edge function...`);
 
       // Call Phase 5 edge function
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
@@ -625,8 +657,9 @@ class ScheduledAnalysisService {
       );
 
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || `Edge function error: ${response.statusText}`);
+        const errorText = await response.text();
+        console.error('Edge function error:', errorText);
+        throw new Error(`Edge function error: ${response.statusText}`);
       }
 
       const result = await response.json();

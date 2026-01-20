@@ -22,18 +22,11 @@ serve(async (req) => {
       );
     }
 
-    // Note: Resend free tier limitation
-    // Can only send to the email address associated with the Resend account
-    // To send to other addresses, verify a domain at resend.com/domains
-    const resendAccountEmail = Deno.env.get('RESEND_ACCOUNT_EMAIL') || 'piyushmodi812@gmail.com';
-    
-    // For free tier: send to account owner's email
-    // For production: verify domain and update this
+    // Send to the requested email address
     const recipientEmail = to;
     
-    console.log(`📧 Recipient requested: ${to}`);
-    console.log(`📧 Resend account email: ${resendAccountEmail}`);
-    console.log(`📧 Note: Free tier can only send to account owner's email`);
+    console.log(`📧 Recipient: ${to}`);
+    console.log(`📧 Sending analysis report email...`);
 
     // Prepare email content
     const emailContent = shortFormat ? shortReport : fullReport;
@@ -123,7 +116,7 @@ ${emailContent}
           },
           body: JSON.stringify({
             from: 'onboarding@resend.dev',
-            to: resendAccountEmail,  // Use account owner's email for free tier
+            to: recipientEmail,  // Send to user's email
             subject: subject,
             html: htmlContent,
           }),

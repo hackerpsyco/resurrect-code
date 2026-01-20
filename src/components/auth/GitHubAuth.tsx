@@ -57,7 +57,7 @@ export function GitHubAuth({ onAuthSuccess, onClose }: GitHubAuthProps) {
       localStorage.setItem("github_token", token);
       localStorage.setItem("github_user", JSON.stringify(userData));
       
-      // Also save to Supabase user metadata for edge functions
+      // Also save to Supabase - both user metadata AND settings table
       try {
         const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
         const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
@@ -65,8 +65,10 @@ export function GitHubAuth({ onAuthSuccess, onClose }: GitHubAuthProps) {
         if (supabaseUrl && supabaseKey) {
           const authToken = localStorage.getItem("sb_auth_token");
           if (authToken) {
-            console.log("📤 Saving GitHub token to Supabase user metadata...");
-            const updateResponse = await fetch(`${supabaseUrl}/auth/v1/user`, {
+            console.log("📤 Saving GitHub token to Supabase...");
+            
+            // Save to user metadata
+            const metadataResponse = await fetch(`${supabaseUrl}/auth/v1/user`, {
               method: "PUT",
               headers: {
                 "Content-Type": "application/json",
@@ -81,15 +83,34 @@ export function GitHubAuth({ onAuthSuccess, onClose }: GitHubAuthProps) {
               }),
             });
 
-            if (updateResponse.ok) {
-              console.log("✅ GitHub token saved to Supabase metadata");
+            if (metadataResponse.ok) {
+              console.log("✅ GitHub token saved to user metadata");
             } else {
-              console.warn("⚠️ Failed to save GitHub token to Supabase:", updateResponse.statusText);
+              console.warn("⚠️ Failed to save to user metadata:", metadataResponse.statusText);
+            }
+            
+            // Also save to settings table for edge function access
+            const settingsResponse = await fetch(`${supabaseUrl}/functions/v1/analysis-settings`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${authToken}`,
+              },
+              body: JSON.stringify({
+                github_token: token,
+                github_login: userData.login,
+              }),
+            });
+
+            if (settingsResponse.ok) {
+              console.log("✅ GitHub token saved to settings table");
+            } else {
+              console.warn("⚠️ Failed to save to settings table:", settingsResponse.statusText);
             }
           }
         }
       } catch (metadataError) {
-        console.warn("⚠️ Could not save to Supabase metadata:", metadataError);
+        console.warn("⚠️ Could not save to Supabase:", metadataError);
         // Don't fail the whole operation if metadata save fails
       }
       

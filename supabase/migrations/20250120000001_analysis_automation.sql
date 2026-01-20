@@ -7,6 +7,10 @@ CREATE TABLE IF NOT EXISTS analysis_automation_settings (
   enable_email_notifications BOOLEAN DEFAULT false,
   user_email VARCHAR(255),
   
+  -- GitHub settings
+  github_token VARCHAR(255),
+  github_login VARCHAR(255),
+  
   -- Automation settings
   auto_generate_improvements BOOLEAN DEFAULT false,
   auto_push_to_github BOOLEAN DEFAULT false,

@@ -105,36 +105,41 @@ Deno.serve(async (req: Request) => {
 
     console.log("✅ Settings loaded (or using defaults)");
 
-    // Get GitHub token from user metadata
-    console.log(`🔍 Fetching user metadata for user: ${userId}`);
+    // Get GitHub token from settings table
+    console.log(`🔍 Fetching GitHub token for user: ${userId}`);
     
     let githubToken = null;
     
-    try {
-      const { data: { user }, error: userError } = await supabase.auth.admin.getUserById(userId);
+    // First try to get from settings table
+    if (settings && settings.github_token) {
+      githubToken = settings.github_token;
+      console.log("✅ GitHub token found in settings table");
+    }
+    
+    // If not in settings, try user metadata
+    if (!githubToken) {
+      try {
+        const { data: { user }, error: userError } = await supabase.auth.admin.getUserById(userId);
 
-      if (userError) {
-        console.warn("⚠️ Error fetching user:", userError);
-      } else if (user) {
-        console.log("✅ User fetched successfully");
-        console.log(`📋 User metadata:`, JSON.stringify(user.user_metadata, null, 2));
-        githubToken = user.user_metadata?.github_token;
-        
-        // If token found, log it
-        if (githubToken) {
-          console.log("✅ GitHub token found in user metadata");
+        if (!userError && user) {
+          console.log("✅ User fetched successfully");
+          githubToken = user.user_metadata?.github_token;
+          
+          if (githubToken) {
+            console.log("✅ GitHub token found in user metadata");
+          }
         }
+      } catch (error) {
+        console.error("❌ Exception fetching user:", error);
       }
-    } catch (error) {
-      console.error("❌ Exception fetching user:", error);
     }
 
     if (!githubToken) {
-      console.warn("⚠️ GitHub token not found in user metadata");
-      console.log("ℹ️ This means the token wasn't saved to Supabase when you connected GitHub");
+      console.warn("⚠️ GitHub token not found");
+      console.log("ℹ️ The token needs to be saved to your automation settings");
       console.log("ℹ️ Solution: Go to Settings → GitHub Integration → Disconnect → Reconnect");
-      console.log("ℹ️ This will save your token to Supabase metadata");
-      throw new Error("GitHub token not found - please reconnect GitHub in settings");
+      console.log("ℹ️ Or use the GitHub Token Sync button in Settings");
+      throw new Error("GitHub token not found - please sync your GitHub token in settings");
     }
 
     console.log("✅ GitHub token retrieved successfully");

@@ -19,6 +19,8 @@ interface AnalysisSettings {
   scheduledTime?: string;
   selectedRepositories?: string[];
   selectedProjects?: string[];
+  githubToken?: string;
+  githubLogin?: string;
 }
 
 console.info('analysis-settings function started');
@@ -138,6 +140,8 @@ Deno.serve(async (req: Request) => {
         scheduledTime: data.scheduled_time,
         selectedRepositories: data.selected_repositories || [],
         selectedProjects: data.selected_projects || [],
+        githubToken: data.github_token,
+        githubLogin: data.github_login,
       };
 
       console.log("✅ Settings retrieved successfully");
@@ -181,6 +185,8 @@ Deno.serve(async (req: Request) => {
             scheduled_time: settings.scheduledTime,
             selected_repositories: settings.selectedRepositories || [],
             selected_projects: settings.selectedProjects || [],
+            github_token: settings.githubToken,
+            github_login: settings.githubLogin,
           })
           .eq("user_id", userId)
           .select();
@@ -200,6 +206,8 @@ Deno.serve(async (req: Request) => {
             scheduled_time: settings.scheduledTime,
             selected_repositories: settings.selectedRepositories || [],
             selected_projects: settings.selectedProjects || [],
+            github_token: settings.githubToken,
+            github_login: settings.githubLogin,
           })
           .select();
       }

@@ -100,12 +100,19 @@ class AnalysisAutomationService {
    * Save settings to localStorage and optionally to database
    */
   async saveSettings(newSettings: Partial<AnalysisSettings>) {
+    console.log('💾 saveSettings called with:', JSON.stringify(newSettings, null, 2));
     this.settings = { ...this.settings, ...newSettings };
+    console.log('💾 Updated in-memory settings to:', JSON.stringify(this.settings, null, 2));
+    
     try {
       // Always save to localStorage for offline support
       localStorage.setItem(this.SETTINGS_KEY, JSON.stringify(this.settings));
       console.log('✅ Analysis automation settings saved to localStorage');
-      console.log('📝 Settings:', JSON.stringify(this.settings, null, 2));
+      console.log('📝 Saved settings:', JSON.stringify(this.settings, null, 2));
+      
+      // Verify what was saved
+      const verify = localStorage.getItem(this.SETTINGS_KEY);
+      console.log('✅ Verification - localStorage now contains:', verify);
 
       // Try to save to database if available
       try {

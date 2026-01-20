@@ -651,18 +651,25 @@ class ScheduledAnalysisService {
 
       // Reload settings from localStorage to ensure we have the latest values
       const stored = localStorage.getItem('analysis_automation_settings');
+      console.log(`📤 Stored settings from localStorage:`, stored);
+      
       let settings = analysisAutomationService.getSettings();
+      console.log(`📤 Initial settings from service:`, JSON.stringify(settings, null, 2));
       
       if (stored) {
         try {
           const freshSettings = JSON.parse(stored);
+          console.log(`📤 Parsed fresh settings:`, JSON.stringify(freshSettings, null, 2));
           settings = { ...settings, ...freshSettings };
           console.log(`✅ Reloaded fresh settings from localStorage`);
         } catch (e) {
           console.warn('⚠️ Failed to parse stored settings, using in-memory settings');
         }
+      } else {
+        console.warn('⚠️ No stored settings found in localStorage');
       }
       
+      console.log(`📤 Final settings to send:`, JSON.stringify(settings, null, 2));
       console.log(`📤 Email notifications enabled: ${settings.enableEmailNotifications}`);
       console.log(`📤 User email: ${settings.userEmail}`);
 

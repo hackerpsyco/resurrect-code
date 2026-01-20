@@ -175,7 +175,7 @@ export function AnalysisAutomationSettings({ onClose }: AnalysisAutomationSettin
                 className="bg-[#0d1117] border-[#30363d] text-white"
               />
               <p className="text-xs text-[#7d8590]">
-                This is used for tracking purposes. Reports are sent to piyushtamoli9@gmail.com
+                Enter the email address where you want to receive analysis reports
               </p>
             </div>
           )}

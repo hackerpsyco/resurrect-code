@@ -640,6 +640,15 @@ class ScheduledAnalysisService {
 
       // Call Phase 5 edge function
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      
+      if (!supabaseUrl) {
+        throw new Error('Supabase URL not configured in environment');
+      }
+
+      console.log(`📤 Calling edge function at: ${supabaseUrl}/functions/v1/run-scheduled-analysis`);
+      console.log(`📤 Repositories: ${repositories.join(', ')}`);
+      console.log(`📤 User ID: ${userId}`);
+
       const response = await fetch(
         `${supabaseUrl}/functions/v1/run-scheduled-analysis`,
         {
@@ -658,13 +667,16 @@ class ScheduledAnalysisService {
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('Edge function error:', errorText);
-        throw new Error(`Edge function error: ${response.statusText}`);
+        console.error('❌ Edge function error:', errorText);
+        console.error('❌ Response status:', response.status);
+        console.error('❌ Response headers:', Object.fromEntries(response.headers.entries()));
+        throw new Error(`Edge function error: ${response.status} ${response.statusText}`);
       }
 
       const result = await response.json();
 
       if (!result.success) {
+        console.error('❌ Analysis failed:', result.error);
         throw new Error(result.error || 'Analysis failed');
       }
 
@@ -716,6 +728,9 @@ class ScheduledAnalysisService {
       toast.success(`✅ Analysis complete: ${result.analyzed} repositories analyzed, ${result.prsCreated} PRs created`);
     } catch (error) {
       console.error('❌ Manual analysis failed:', error);
+      console.error('❌ Error type:', error instanceof Error ? error.constructor.name : typeof error);
+      console.error('❌ Full error:', JSON.stringify(error, null, 2));
+      
       const message = error instanceof Error ? error.message : 'Analysis failed';
       toast.error(`Failed to analyze: ${message}`);
     }

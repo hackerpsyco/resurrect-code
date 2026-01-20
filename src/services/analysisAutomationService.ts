@@ -1,6 +1,7 @@
 /**
  * Analysis Automation Service
  * Handles automated code analysis, email notifications, and GitHub push
+ * Supports both localStorage (client-side) and database (server-side) persistence
  */
 
 import { toast } from 'sonner';
@@ -13,6 +14,9 @@ export interface AnalysisSettings {
   autoPushToGitHub: boolean;
   analysisSchedule: 'manual' | 'daily' | 'weekly' | 'on-push';
   shortReportFormat: boolean;
+  scheduledTime?: string;
+  selectedRepositories?: string[];
+  selectedProjects?: string[];
 }
 
 export interface AnalysisReport {
@@ -40,11 +44,15 @@ class AnalysisAutomationService {
     autoGenerateImprovements: false,
     autoPushToGitHub: false,
     analysisSchedule: 'manual',
-    shortReportFormat: true
+    shortReportFormat: true,
+    scheduledTime: '02:00',
+    selectedRepositories: [],
+    selectedProjects: []
   };
   private reports: AnalysisReport[] = [];
   private readonly SETTINGS_KEY = 'analysis_automation_settings';
   private readonly REPORTS_KEY = 'analysis_reports';
+  private useDatabase = false;
 
   static getInstance(): AnalysisAutomationService {
     if (!AnalysisAutomationService.instance) {
@@ -59,14 +67,14 @@ class AnalysisAutomationService {
   }
 
   /**
-   * Load settings from localStorage
+   * Load settings from localStorage (and optionally from database)
    */
   private loadSettings() {
     try {
       const stored = localStorage.getItem(this.SETTINGS_KEY);
       if (stored) {
         this.settings = { ...this.settings, ...JSON.parse(stored) };
-        console.log('✅ Analysis automation settings loaded');
+        console.log('✅ Analysis automation settings loaded from localStorage');
       }
     } catch (error) {
       console.error('Failed to load settings:', error);
@@ -74,14 +82,14 @@ class AnalysisAutomationService {
   }
 
   /**
-   * Load reports from localStorage
+   * Load reports from localStorage (and optionally from database)
    */
   private loadReports() {
     try {
       const stored = localStorage.getItem(this.REPORTS_KEY);
       if (stored) {
         this.reports = JSON.parse(stored);
-        console.log(`✅ Loaded ${this.reports.length} analysis reports`);
+        console.log(`✅ Loaded ${this.reports.length} analysis reports from localStorage`);
       }
     } catch (error) {
       console.error('Failed to load reports:', error);
@@ -89,17 +97,137 @@ class AnalysisAutomationService {
   }
 
   /**
-   * Save settings to localStorage
+   * Save settings to localStorage and optionally to database
    */
-  saveSettings(newSettings: Partial<AnalysisSettings>) {
+  async saveSettings(newSettings: Partial<AnalysisSettings>) {
     this.settings = { ...this.settings, ...newSettings };
     try {
+      // Always save to localStorage for offline support
       localStorage.setItem(this.SETTINGS_KEY, JSON.stringify(this.settings));
-      console.log('✅ Analysis automation settings saved');
+      console.log('✅ Analysis automation settings saved to localStorage');
+
+      // Try to save to database if available
+      try {
+        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+        const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
+        if (supabaseUrl && supabaseKey) {
+          const token = localStorage.getItem('sb_auth_token');
+          if (token) {
+            const response = await fetch(`${supabaseUrl}/functions/v1/analysis-settings`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+              },
+              body: JSON.stringify(this.settings)
+            });
+
+            if (response.ok) {
+              console.log('✅ Settings saved to database');
+              this.useDatabase = true;
+            } else {
+              console.warn('⚠️ Failed to save settings to database:', response.statusText);
+            }
+          }
+        }
+      } catch (dbError) {
+        console.warn('⚠️ Database save failed (offline mode):', dbError);
+      }
+
       toast.success('Settings saved successfully');
     } catch (error) {
       console.error('Failed to save settings:', error);
       toast.error('Failed to save settings');
+    }
+  }
+
+  /**
+   * Load settings from database
+   */
+  async loadSettingsFromDatabase() {
+    try {
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
+      if (!supabaseUrl || !supabaseKey) {
+        console.warn('⚠️ Supabase not configured');
+        return;
+      }
+
+      const token = localStorage.getItem('sb_auth_token');
+      if (!token) {
+        console.warn('⚠️ No auth token available');
+        return;
+      }
+
+      const response = await fetch(`${supabaseUrl}/functions/v1/analysis-settings`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.data) {
+          this.settings = data.data;
+          localStorage.setItem(this.SETTINGS_KEY, JSON.stringify(this.settings));
+          console.log('✅ Settings loaded from database');
+          this.useDatabase = true;
+        }
+      } else {
+        console.warn('⚠️ Failed to load settings from database:', response.statusText);
+      }
+    } catch (error) {
+      console.warn('⚠️ Failed to load settings from database:', error);
+    }
+  }
+
+  /**
+   * Load reports from database
+   */
+  async loadReportsFromDatabase(repository?: string) {
+    try {
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
+      if (!supabaseUrl || !supabaseKey) {
+        console.warn('⚠️ Supabase not configured');
+        return;
+      }
+
+      const token = localStorage.getItem('sb_auth_token');
+      if (!token) {
+        console.warn('⚠️ No auth token available');
+        return;
+      }
+
+      let url = `${supabaseUrl}/functions/v1/analysis-reports`;
+      if (repository) {
+        url += `?repository=${encodeURIComponent(repository)}`;
+      }
+
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.data) {
+          this.reports = data.data;
+          localStorage.setItem(this.REPORTS_KEY, JSON.stringify(this.reports));
+          console.log(`✅ Loaded ${this.reports.length} reports from database`);
+          this.useDatabase = true;
+        }
+      } else {
+        console.warn('⚠️ Failed to load reports from database:', response.statusText);
+      }
+    } catch (error) {
+      console.warn('⚠️ Failed to load reports from database:', error);
     }
   }
 
@@ -242,17 +370,56 @@ ${file.suggestions.map((s: any) => `- [${s.priority.toUpperCase()}] ${s.issue}`)
   }
 
   /**
-   * Save analysis report
+   * Save analysis report to localStorage and optionally to database
    */
-  saveReport(report: AnalysisReport) {
+  async saveReport(report: AnalysisReport) {
     this.reports.unshift(report); // Add to beginning
     // Keep only last 50 reports
     if (this.reports.length > 50) {
       this.reports = this.reports.slice(0, 50);
     }
     try {
+      // Always save to localStorage for offline support
       localStorage.setItem(this.REPORTS_KEY, JSON.stringify(this.reports));
-      console.log('✅ Report saved');
+      console.log('✅ Report saved to localStorage');
+
+      // Try to save to database if available
+      try {
+        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+        const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
+        if (supabaseUrl && supabaseKey) {
+          const token = localStorage.getItem('sb_auth_token');
+          if (token) {
+            const response = await fetch(`${supabaseUrl}/functions/v1/analysis-reports`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+              },
+              body: JSON.stringify({
+                reportId: report.id,
+                timestamp: report.timestamp,
+                repository: report.repository,
+                totalIssues: report.totalIssues,
+                byPriority: report.byPriority,
+                shortSummary: report.shortSummary,
+                fullReport: report.fullReport,
+                prUrl: report.prUrl,
+                emailSent: report.emailSent
+              })
+            });
+
+            if (response.ok) {
+              console.log('✅ Report saved to database');
+            } else {
+              console.warn('⚠️ Failed to save report to database:', response.statusText);
+            }
+          }
+        }
+      } catch (dbError) {
+        console.warn('⚠️ Database save failed (offline mode):', dbError);
+      }
     } catch (error) {
       console.error('Failed to save report:', error);
     }
@@ -312,6 +479,54 @@ ${file.suggestions.map((s: any) => `- [${s.priority.toUpperCase()}] ${s.issue}`)
     } catch (error) {
       console.error('Failed to clear reports:', error);
     }
+  }
+
+  /**
+   * Set selected repositories
+   */
+  setSelectedRepositories(repos: string[]) {
+    this.settings.selectedRepositories = repos;
+    this.saveSettings(this.settings);
+    console.log(`✅ Selected ${repos.length} repositories`);
+  }
+
+  /**
+   * Get selected repositories
+   */
+  getSelectedRepositories(): string[] {
+    return this.settings.selectedRepositories || [];
+  }
+
+  /**
+   * Set selected projects
+   */
+  setSelectedProjects(projects: string[]) {
+    this.settings.selectedProjects = projects;
+    this.saveSettings(this.settings);
+    console.log(`✅ Selected ${projects.length} projects`);
+  }
+
+  /**
+   * Get selected projects
+   */
+  getSelectedProjects(): string[] {
+    return this.settings.selectedProjects || [];
+  }
+
+  /**
+   * Set scheduled time
+   */
+  setScheduledTime(time: string) {
+    this.settings.scheduledTime = time;
+    this.saveSettings(this.settings);
+    console.log(`✅ Scheduled time set to ${time} UTC`);
+  }
+
+  /**
+   * Get scheduled time
+   */
+  getScheduledTime(): string {
+    return this.settings.scheduledTime || '02:00';
   }
 }
 

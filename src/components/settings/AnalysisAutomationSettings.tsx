@@ -5,9 +5,10 @@ import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Sparkles, Mail, GitBranch, Zap, Clock, Trash2, Eye } from 'lucide-react';
+import { Sparkles, Mail, GitBranch, Clock, Trash2, Eye, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { analysisAutomationService, AnalysisSettings } from '@/services/analysisAutomationService';
+import { useVercel } from '@/hooks/useVercel';
 
 interface AnalysisAutomationSettingsProps {
   onClose?: () => void;
@@ -15,8 +16,52 @@ interface AnalysisAutomationSettingsProps {
 
 export function AnalysisAutomationSettings({ onClose }: AnalysisAutomationSettingsProps) {
   const [settings, setSettings] = useState<AnalysisSettings>(analysisAutomationService.getSettings());
+  const [scheduledTime, setScheduledTime] = useState(analysisAutomationService.getScheduledTime());
+  const [selectedRepos, setSelectedRepos] = useState<string[]>(analysisAutomationService.getSelectedRepositories());
+  const [selectedProjects, setSelectedProjects] = useState<string[]>(analysisAutomationService.getSelectedProjects());
   const [isSaving, setIsSaving] = useState(false);
+  const [isLoadingRepos, setIsLoadingRepos] = useState(false);
+  const [githubRepos, setGithubRepos] = useState<any[]>([]);
   const [reports, setReports] = useState(analysisAutomationService.getReports());
+  const { projects: vercelProjects, fetchProjects } = useVercel();
+
+  // Load GitHub repos, Vercel projects, and database settings on mount
+  useEffect(() => {
+    loadGitHubRepos();
+    fetchProjects();
+    // Load settings from database
+    analysisAutomationService.loadSettingsFromDatabase();
+    analysisAutomationService.loadReportsFromDatabase();
+  }, [fetchProjects]);
+
+  const loadGitHubRepos = async () => {
+    setIsLoadingRepos(true);
+    try {
+      const token = localStorage.getItem('github_token');
+      if (!token) {
+        console.warn('GitHub token not found');
+        return;
+      }
+
+      const response = await fetch('https://api.github.com/user/repos?sort=updated&per_page=100', {
+        headers: {
+          'Authorization': `token ${token}`,
+          'Accept': 'application/vnd.github.v3+json'
+        }
+      });
+
+      if (response.ok) {
+        const repos = await response.json();
+        setGithubRepos(repos);
+        console.log(`✅ Loaded ${repos.length} GitHub repositories`);
+      }
+    } catch (err) {
+      console.error('Failed to load GitHub repos:', err);
+      toast.error('Failed to load GitHub repositories');
+    } finally {
+      setIsLoadingRepos(false);
+    }
+  };
 
   const handleSettingChange = (key: keyof AnalysisSettings, value: any) => {
     setSettings(prev => ({ ...prev, [key]: value }));
@@ -25,7 +70,10 @@ export function AnalysisAutomationSettings({ onClose }: AnalysisAutomationSettin
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      analysisAutomationService.saveSettings(settings);
+      await analysisAutomationService.saveSettings(settings);
+      analysisAutomationService.setScheduledTime(scheduledTime);
+      analysisAutomationService.setSelectedRepositories(selectedRepos);
+      analysisAutomationService.setSelectedProjects(selectedProjects);
       toast.success('✅ Analysis automation settings saved');
     } catch (error) {
       toast.error('Failed to save settings');
@@ -69,13 +117,6 @@ export function AnalysisAutomationSettings({ onClose }: AnalysisAutomationSettin
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg">
-            <p className="text-xs text-blue-400">
-              📧 <strong>Note:</strong> Emails are sent to your Resend account email (piyushtamoli9@gmail.com). 
-              To send to other addresses, verify a domain at <a href="https://resend.com/domains" target="_blank" className="underline">resend.com/domains</a>
-            </p>
-          </div>
-
           <div className="flex items-center justify-between p-3 bg-[#0d1117] rounded-lg border border-[#30363d]">
             <div>
               <p className="text-sm font-medium text-white">Enable Email Notifications</p>
@@ -160,6 +201,88 @@ export function AnalysisAutomationSettings({ onClose }: AnalysisAutomationSettin
         </CardContent>
       </Card>
 
+      {/* Repository & Project Selection */}
+      <Card className="bg-[#161b22] border-[#30363d]">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-white">
+            <GitBranch className="w-5 h-5" />
+            Select Repositories & Projects
+          </CardTitle>
+          <CardDescription>
+            Choose which repositories and projects to analyze
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* GitHub Repositories */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-gray-300">GitHub Repositories</label>
+            <div className="space-y-2 max-h-48 overflow-y-auto p-2 bg-[#0d1117] rounded-lg border border-[#30363d]">
+              {isLoadingRepos ? (
+                <div className="flex items-center justify-center py-4">
+                  <Loader2 className="w-4 h-4 animate-spin text-[#7d8590]" />
+                  <span className="text-xs text-[#7d8590] ml-2">Loading repositories...</span>
+                </div>
+              ) : githubRepos.length > 0 ? (
+                githubRepos.map((repo) => (
+                  <label key={repo.id} className="flex items-center gap-2 p-2 hover:bg-[#161b22] rounded cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={selectedRepos.includes(repo.full_name)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedRepos([...selectedRepos, repo.full_name]);
+                        } else {
+                          setSelectedRepos(selectedRepos.filter(r => r !== repo.full_name));
+                        }
+                      }}
+                      className="w-4 h-4"
+                    />
+                    <span className="text-xs text-gray-300">{repo.name}</span>
+                    {repo.private && <Badge className="text-xs bg-red-500/20 text-red-400">Private</Badge>}
+                  </label>
+                ))
+              ) : (
+                <p className="text-xs text-[#7d8590] py-4">No repositories found. Connect your GitHub account first.</p>
+              )}
+            </div>
+            <p className="text-xs text-[#7d8590]">
+              {selectedRepos.length} repository/repositories selected
+            </p>
+          </div>
+
+          {/* Vercel Projects */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-gray-300">Vercel Projects</label>
+            <div className="space-y-2 max-h-48 overflow-y-auto p-2 bg-[#0d1117] rounded-lg border border-[#30363d]">
+              {vercelProjects && vercelProjects.length > 0 ? (
+                vercelProjects.map((project: any) => (
+                  <label key={project.id} className="flex items-center gap-2 p-2 hover:bg-[#161b22] rounded cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={selectedProjects.includes(project.id)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedProjects([...selectedProjects, project.id]);
+                        } else {
+                          setSelectedProjects(selectedProjects.filter(p => p !== project.id));
+                        }
+                      }}
+                      className="w-4 h-4"
+                    />
+                    <span className="text-xs text-gray-300">{project.name}</span>
+                  </label>
+                ))
+              ) : (
+                <p className="text-xs text-[#7d8590] py-4">No projects found. Connect your Vercel account first.</p>
+              )}
+            </div>
+            <p className="text-xs text-[#7d8590]">
+              {selectedProjects.length} project/projects selected
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Analysis Schedule */}
       <Card className="bg-[#161b22] border-[#30363d]">
         <CardHeader>
@@ -192,12 +315,13 @@ export function AnalysisAutomationSettings({ onClose }: AnalysisAutomationSettin
               <label className="text-sm font-medium text-gray-300">Scheduled Time (UTC)</label>
               <Input
                 type="time"
-                defaultValue="02:00"
+                value={scheduledTime}
+                onChange={(e) => setScheduledTime(e.target.value)}
                 className="bg-[#0d1117] border-[#30363d] text-white"
               />
               <p className="text-xs text-[#7d8590]">
-                {settings.analysisSchedule === 'daily' && '⏰ Analysis will run daily at this time'}
-                {settings.analysisSchedule === 'weekly' && '⏰ Analysis will run every Monday at this time'}
+                {settings.analysisSchedule === 'daily' && `⏰ Analysis will run daily at ${scheduledTime} UTC`}
+                {settings.analysisSchedule === 'weekly' && `⏰ Analysis will run every Monday at ${scheduledTime} UTC`}
               </p>
             </div>
           )}
@@ -206,8 +330,8 @@ export function AnalysisAutomationSettings({ onClose }: AnalysisAutomationSettin
             <p className="text-xs text-[#7d8590]">
               {settings.analysisSchedule === 'manual' && '🔘 Analysis runs only when you click "Analyze Code" in DevOps'}
               {settings.analysisSchedule === 'on-push' && '📤 Analysis runs automatically when you push to GitHub'}
-              {settings.analysisSchedule === 'daily' && '📅 Analysis runs daily at 2:00 AM UTC'}
-              {settings.analysisSchedule === 'weekly' && '📅 Analysis runs every Monday at 2:00 AM UTC'}
+              {settings.analysisSchedule === 'daily' && `📅 Analysis runs daily at ${scheduledTime} UTC`}
+              {settings.analysisSchedule === 'weekly' && `📅 Analysis runs every Monday at ${scheduledTime} UTC`}
             </p>
           </div>
 

@@ -47,15 +47,19 @@ export function GitHubTokenDiagnostic() {
 
       if (response.ok) {
         const result = await response.json();
+        console.log('📋 Settings response:', JSON.stringify(result, null, 2));
+        
         if (result.data && result.data.githubToken) {
           setTokenInSupabase(true);
           console.log('✅ GitHub token found in Supabase settings table');
         } else {
           setTokenInSupabase(false);
           console.log('❌ GitHub token NOT in Supabase settings table');
+          console.log('📋 Data received:', result.data);
         }
       } else {
         const errorData = await response.json();
+        console.error('❌ Edge function error:', errorData);
         setError(`Failed to fetch settings: ${errorData.error || response.statusText}`);
       }
     } catch (err) {

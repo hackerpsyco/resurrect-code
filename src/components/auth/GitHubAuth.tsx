@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Github as GithubIcon, Key, CheckCircle, AlertCircle, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 interface GitHubAuthProps {
   onAuthSuccess: (token: string, user: any) => void;
@@ -57,97 +58,73 @@ export function GitHubAuth({ onAuthSuccess, onClose }: GitHubAuthProps) {
       localStorage.setItem("github_token", token);
       localStorage.setItem("github_user", JSON.stringify(userData));
       
-      // Also save to Supabase - both user metadata AND settings table
+      // Also save to Supabase database directly
       try {
-        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+        console.log("📤 Saving GitHub token to Supabase database...");
         
-        if (supabaseUrl) {
-          // Try to get auth token from localStorage (multiple possible keys)
-          let authToken = localStorage.getItem("sb_auth_token");
-          
-          // If not found, try to get from session storage or other sources
-          if (!authToken) {
-            // Try to find any auth token in localStorage
-            for (const key in localStorage) {
-              if (key.includes('auth') && key.includes('token')) {
-                const value = localStorage.getItem(key);
-                if (value && value.length > 50) { // Auth tokens are usually long
-                  try {
-                    const parsed = JSON.parse(value);
-                    if (parsed.access_token) {
-                      authToken = parsed.access_token;
-                      break;
-                    }
-                  } catch (e) {
-                    // Not JSON, try as is
-                    if (value.startsWith('eyJ')) { // JWT token starts with eyJ
-                      authToken = value;
-                      break;
-                    }
-                  }
-                }
-              }
-            }
-          }
-          
-          if (authToken) {
-            console.log("📤 Saving GitHub token to Supabase...");
-            
-            // Save to user metadata
-            const metadataResponse = await fetch(`${supabaseUrl}/auth/v1/user`, {
-              method: "PUT",
-              headers: {
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${authToken}`,
-              },
-              body: JSON.stringify({
-                user_metadata: {
-                  github_token: token,
-                  github_login: userData.login,
-                  github_id: userData.id,
-                },
-              }),
-            });
-
-            if (metadataResponse.ok) {
-              console.log("✅ GitHub token saved to user metadata");
-            } else {
-              console.warn("⚠️ Failed to save to user metadata:", metadataResponse.statusText);
-            }
-            
-            // Also save to settings table for edge function access
-            const settingsResponse = await fetch(`${supabaseUrl}/functions/v1/analysis-settings`, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${authToken}`,
-              },
-              body: JSON.stringify({
-                enableEmailNotifications: false,
-                userEmail: "",
-                autoGenerateImprovements: false,
-                autoPushToGitHub: false,
-                analysisSchedule: "manual",
-                shortReportFormat: true,
-                scheduledTime: "02:00",
-                selectedRepositories: [],
-                selectedProjects: [],
-                githubToken: token,
-                githubLogin: userData.login,
-              }),
-            });
-
-            if (settingsResponse.ok) {
-              console.log("✅ GitHub token saved to settings table");
-            } else {
-              const errorText = await settingsResponse.text();
-              console.warn("⚠️ Failed to save to settings table:", settingsResponse.statusText, errorText);
-            }
-          }
+        // Get current user
+        const { data: { user: currentUser }, error: userError } = await supabase.auth.getUser();
+        
+        if (userError) {
+          console.warn("⚠️ Error getting current user:", userError);
         }
-      } catch (metadataError) {
-        console.warn("⚠️ Could not save to Supabase:", metadataError);
-        // Don't fail the whole operation if metadata save fails
+        
+        if (currentUser) {
+          console.log(`👤 Current user ID: ${currentUser.id}`);
+          
+          // Save to database using raw SQL or direct insert
+          const settingsData = {
+            user_id: currentUser.id,
+            github_token: token,
+            github_login: userData.login,
+            enable_email_notifications: false,
+            user_email: "",
+            auto_generate_improvements: false,
+            auto_push_to_github: false,
+            analysis_schedule: "manual",
+            short_report_format: true,
+            scheduled_time: "02:00",
+            selected_repositories: [],
+            selected_projects: [],
+          };
+
+          console.log("📝 Settings data to save:", JSON.stringify(settingsData, null, 2));
+
+          // Try insert first, if it fails due to unique constraint, update instead
+          let result = await (supabase as any)
+            .from('analysis_automation_settings')
+            .insert([settingsData]);
+
+          console.log("📋 Insert result:", JSON.stringify(result, null, 2));
+
+          if (result.error && result.error.code === '23505') {
+            console.log("⚠️ Unique constraint violation - updating instead...");
+            // Unique constraint violation - update instead
+            result = await (supabase as any)
+              .from('analysis_automation_settings')
+              .update(settingsData)
+              .eq('user_id', currentUser.id);
+            
+            console.log("📋 Update result:", JSON.stringify(result, null, 2));
+          }
+
+          if (result.error) {
+            console.error("❌ Failed to save to database:", result.error);
+            console.error("Error code:", result.error.code);
+            console.error("Error message:", result.error.message);
+          } else {
+            console.log("✅ GitHub token saved to Supabase database successfully!");
+            console.log("📋 Saved data:", JSON.stringify(result.data, null, 2));
+          }
+        } else {
+          console.warn("⚠️ No authenticated user found");
+        }
+      } catch (dbError) {
+        console.error("❌ Error saving to database:", dbError);
+        if (dbError instanceof Error) {
+          console.error("Error message:", dbError.message);
+          console.error("Error stack:", dbError.stack);
+        }
       }
       
       setUser(userData);

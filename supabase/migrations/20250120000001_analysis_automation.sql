@@ -77,28 +77,42 @@ ALTER TABLE analysis_automation_settings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE analysis_reports ENABLE ROW LEVEL SECURITY;
 
 -- Create policies for analysis_automation_settings
-CREATE POLICY "Users can only access their own automation settings" ON analysis_automation_settings
-  FOR ALL USING (auth.uid() = user_id);
+-- Users can SELECT their own settings
+CREATE POLICY "Users can select their own automation settings" ON analysis_automation_settings
+  FOR SELECT USING (auth.uid() = user_id);
 
-CREATE POLICY "Users can only insert their own automation settings" ON analysis_automation_settings
+-- Users can INSERT their own settings
+CREATE POLICY "Users can insert their own automation settings" ON analysis_automation_settings
   FOR INSERT WITH CHECK (auth.uid() = user_id);
 
-CREATE POLICY "Users can only update their own automation settings" ON analysis_automation_settings
+-- Users can UPDATE their own settings
+CREATE POLICY "Users can update their own automation settings" ON analysis_automation_settings
   FOR UPDATE USING (auth.uid() = user_id);
+
+-- Users can DELETE their own settings
+CREATE POLICY "Users can delete their own automation settings" ON analysis_automation_settings
+  FOR DELETE USING (auth.uid() = user_id);
 
 -- Allow service role to bypass RLS for edge functions
 CREATE POLICY "Service role can access all automation settings" ON analysis_automation_settings
   FOR ALL USING (auth.role() = 'service_role');
 
 -- Create policies for analysis_reports
-CREATE POLICY "Users can only access their own analysis reports" ON analysis_reports
-  FOR ALL USING (auth.uid() = user_id);
+-- Users can SELECT their own reports
+CREATE POLICY "Users can select their own analysis reports" ON analysis_reports
+  FOR SELECT USING (auth.uid() = user_id);
 
-CREATE POLICY "Users can only insert their own analysis reports" ON analysis_reports
+-- Users can INSERT their own reports
+CREATE POLICY "Users can insert their own analysis reports" ON analysis_reports
   FOR INSERT WITH CHECK (auth.uid() = user_id);
 
-CREATE POLICY "Users can only update their own analysis reports" ON analysis_reports
+-- Users can UPDATE their own reports
+CREATE POLICY "Users can update their own analysis reports" ON analysis_reports
   FOR UPDATE USING (auth.uid() = user_id);
+
+-- Users can DELETE their own reports
+CREATE POLICY "Users can delete their own analysis reports" ON analysis_reports
+  FOR DELETE USING (auth.uid() = user_id);
 
 -- Allow service role to bypass RLS for edge functions
 CREATE POLICY "Service role can access all analysis reports" ON analysis_reports

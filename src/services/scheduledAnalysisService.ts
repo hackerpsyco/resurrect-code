@@ -691,6 +691,14 @@ class ScheduledAnalysisService {
         }
       );
 
+      console.log(`📤 Request body being sent:`, JSON.stringify({
+        userId,
+        repositories,
+        projects: [],
+        enableEmailNotifications: settings.enableEmailNotifications,
+        userEmail: settings.userEmail,
+      }, null, 2));
+
       if (!response.ok) {
         const errorText = await response.text();
         console.error('❌ Edge function error:', errorText);

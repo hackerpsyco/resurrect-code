@@ -64,9 +64,12 @@ Deno.serve(async (req: Request) => {
 
     console.log(`🚀 Starting scheduled analysis for user ${userId}`);
     console.log(`📦 Repositories: ${repositories.join(', ')}`);
-    console.log(`📋 Request body:`, JSON.stringify(analysisRequest, null, 2));
-    console.log(`📧 Email notifications enabled: ${enableEmailNotifications}`);
-    console.log(`📧 User email: ${userEmail}`);
+    console.log(`📋 Full request body:`, JSON.stringify(analysisRequest, null, 2));
+    console.log(`📋 Request keys:`, Object.keys(analysisRequest));
+    console.log(`📧 enableEmailNotifications from request:`, analysisRequest.enableEmailNotifications);
+    console.log(`📧 userEmail from request:`, analysisRequest.userEmail);
+    console.log(`📧 Email notifications enabled (destructured): ${enableEmailNotifications}`);
+    console.log(`📧 User email (destructured): ${userEmail}`);
 
     if (!userId || !repositories || repositories.length === 0) {
       console.error("❌ Validation failed - missing userId or repositories");

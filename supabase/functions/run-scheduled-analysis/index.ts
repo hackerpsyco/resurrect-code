@@ -6,7 +6,7 @@ const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Content-Type": "application/json",
+  "Access-Control-Max-Age": "86400",
 };
 
 interface AnalysisRequest {
@@ -41,8 +41,12 @@ interface PRCreationResult {
 console.info('run-scheduled-analysis function started');
 
 Deno.serve(async (req: Request) => {
+  // Handle CORS preflight
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+    return new Response(null, {
+      status: 200,
+      headers: corsHeaders,
+    });
   }
 
   try {
@@ -168,7 +172,10 @@ Deno.serve(async (req: Request) => {
         results: results,
         prs: prResults,
       }),
-      { headers: corsHeaders }
+      { 
+        status: 200,
+        headers: corsHeaders 
+      }
     );
 
   } catch (error) {

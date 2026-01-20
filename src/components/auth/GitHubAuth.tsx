@@ -53,9 +53,45 @@ export function GitHubAuth({ onAuthSuccess, onClose }: GitHubAuthProps) {
 
       const userData = await response.json();
       
-      // Store token and user data
+      // Store token and user data in localStorage
       localStorage.setItem("github_token", token);
       localStorage.setItem("github_user", JSON.stringify(userData));
+      
+      // Also save to Supabase user metadata for edge functions
+      try {
+        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+        const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+        
+        if (supabaseUrl && supabaseKey) {
+          const authToken = localStorage.getItem("sb_auth_token");
+          if (authToken) {
+            console.log("📤 Saving GitHub token to Supabase user metadata...");
+            const updateResponse = await fetch(`${supabaseUrl}/auth/v1/user`, {
+              method: "PUT",
+              headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${authToken}`,
+              },
+              body: JSON.stringify({
+                user_metadata: {
+                  github_token: token,
+                  github_login: userData.login,
+                  github_id: userData.id,
+                },
+              }),
+            });
+
+            if (updateResponse.ok) {
+              console.log("✅ GitHub token saved to Supabase metadata");
+            } else {
+              console.warn("⚠️ Failed to save GitHub token to Supabase:", updateResponse.statusText);
+            }
+          }
+        }
+      } catch (metadataError) {
+        console.warn("⚠️ Could not save to Supabase metadata:", metadataError);
+        // Don't fail the whole operation if metadata save fails
+      }
       
       setUser(userData);
       setStep("success");
@@ -72,8 +108,43 @@ export function GitHubAuth({ onAuthSuccess, onClose }: GitHubAuthProps) {
   };
 
   const disconnect = () => {
+    // Remove from localStorage
     localStorage.removeItem("github_token");
     localStorage.removeItem("github_user");
+    
+    // Also remove from Supabase metadata
+    try {
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      
+      if (supabaseUrl && supabaseKey) {
+        const authToken = localStorage.getItem("sb_auth_token");
+        if (authToken) {
+          console.log("📤 Removing GitHub token from Supabase user metadata...");
+          fetch(`${supabaseUrl}/auth/v1/user`, {
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${authToken}`,
+            },
+            body: JSON.stringify({
+              user_metadata: {
+                github_token: null,
+                github_login: null,
+                github_id: null,
+              },
+            }),
+          }).then(response => {
+            if (response.ok) {
+              console.log("✅ GitHub token removed from Supabase metadata");
+            }
+          }).catch(err => console.warn("⚠️ Could not remove from Supabase metadata:", err));
+        }
+      }
+    } catch (error) {
+      console.warn("⚠️ Error removing from Supabase metadata:", error);
+    }
+    
     setToken("");
     setUser(null);
     setStep("input");

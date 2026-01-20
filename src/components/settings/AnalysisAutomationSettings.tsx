@@ -32,6 +32,15 @@ export function AnalysisAutomationSettings({ onClose }: AnalysisAutomationSettin
     // Load settings from database
     analysisAutomationService.loadSettingsFromDatabase();
     analysisAutomationService.loadReportsFromDatabase();
+    
+    // Reload state after loading from database
+    setTimeout(() => {
+      setSettings(analysisAutomationService.getSettings());
+      setScheduledTime(analysisAutomationService.getScheduledTime());
+      setSelectedRepos(analysisAutomationService.getSelectedRepositories());
+      setSelectedProjects(analysisAutomationService.getSelectedProjects());
+      setReports(analysisAutomationService.getReports());
+    }, 500);
   }, [fetchProjects]);
 
   const loadGitHubRepos = async () => {
@@ -74,7 +83,20 @@ export function AnalysisAutomationSettings({ onClose }: AnalysisAutomationSettin
       analysisAutomationService.setScheduledTime(scheduledTime);
       analysisAutomationService.setSelectedRepositories(selectedRepos);
       analysisAutomationService.setSelectedProjects(selectedProjects);
+      
+      // Restart scheduler with new settings
+      const { schedulerService } = await import('@/services/schedulerService');
+      schedulerService.restart();
+      
       toast.success('✅ Analysis automation settings saved');
+      
+      // Reload state to show updated values
+      setTimeout(() => {
+        setSettings(analysisAutomationService.getSettings());
+        setScheduledTime(analysisAutomationService.getScheduledTime());
+        setSelectedRepos(analysisAutomationService.getSelectedRepositories());
+        setSelectedProjects(analysisAutomationService.getSelectedProjects());
+      }, 500);
     } catch (error) {
       toast.error('Failed to save settings');
     } finally {
@@ -87,6 +109,16 @@ export function AnalysisAutomationSettings({ onClose }: AnalysisAutomationSettin
       analysisAutomationService.clearReports();
       setReports([]);
     }
+  };
+
+  // Convert 24-hour time to 12-hour format with AM/PM
+  const formatTimeWithAMPM = (time: string): string => {
+    if (!time) return '';
+    const [hours, minutes] = time.split(':');
+    const hour = parseInt(hours);
+    const ampm = hour >= 12 ? 'PM' : 'AM';
+    const displayHour = hour % 12 || 12;
+    return `${displayHour}:${minutes} ${ampm}`;
   };
 
   return (
@@ -313,15 +345,20 @@ export function AnalysisAutomationSettings({ onClose }: AnalysisAutomationSettin
           {(settings.analysisSchedule === 'daily' || settings.analysisSchedule === 'weekly') && (
             <div className="space-y-2">
               <label className="text-sm font-medium text-gray-300">Scheduled Time (UTC)</label>
-              <Input
-                type="time"
-                value={scheduledTime}
-                onChange={(e) => setScheduledTime(e.target.value)}
-                className="bg-[#0d1117] border-[#30363d] text-white"
-              />
+              <div className="flex gap-2 items-center">
+                <Input
+                  type="time"
+                  value={scheduledTime}
+                  onChange={(e) => setScheduledTime(e.target.value)}
+                  className="bg-[#0d1117] border-[#30363d] text-white flex-1"
+                />
+                <div className="px-3 py-2 bg-[#0d1117] border border-[#30363d] rounded-lg text-white text-sm font-medium">
+                  {formatTimeWithAMPM(scheduledTime)}
+                </div>
+              </div>
               <p className="text-xs text-[#7d8590]">
-                {settings.analysisSchedule === 'daily' && `⏰ Analysis will run daily at ${scheduledTime} UTC`}
-                {settings.analysisSchedule === 'weekly' && `⏰ Analysis will run every Monday at ${scheduledTime} UTC`}
+                {settings.analysisSchedule === 'daily' && `⏰ Analysis will run daily at ${formatTimeWithAMPM(scheduledTime)} UTC`}
+                {settings.analysisSchedule === 'weekly' && `⏰ Analysis will run every Monday at ${formatTimeWithAMPM(scheduledTime)} UTC`}
               </p>
             </div>
           )}
@@ -330,8 +367,8 @@ export function AnalysisAutomationSettings({ onClose }: AnalysisAutomationSettin
             <p className="text-xs text-[#7d8590]">
               {settings.analysisSchedule === 'manual' && '🔘 Analysis runs only when you click "Analyze Code" in DevOps'}
               {settings.analysisSchedule === 'on-push' && '📤 Analysis runs automatically when you push to GitHub'}
-              {settings.analysisSchedule === 'daily' && `📅 Analysis runs daily at ${scheduledTime} UTC`}
-              {settings.analysisSchedule === 'weekly' && `📅 Analysis runs every Monday at ${scheduledTime} UTC`}
+              {settings.analysisSchedule === 'daily' && `📅 Analysis runs daily at ${formatTimeWithAMPM(scheduledTime)} UTC`}
+              {settings.analysisSchedule === 'weekly' && `📅 Analysis runs every Monday at ${formatTimeWithAMPM(scheduledTime)} UTC`}
             </p>
           </div>
 

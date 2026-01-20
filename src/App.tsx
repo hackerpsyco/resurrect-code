@@ -12,33 +12,48 @@ import AuthCallback from "./pages/AuthCallback";
 import NotFound from "./pages/NotFound";
 import { GitHubDebugPanel } from "./components/debug/GitHubDebugPanel";
 import { SimpleGitHubIDE } from "./components/dashboard/SimpleGitHubIDE";
+import { useEffect } from "react";
+import { schedulerService } from "@/services/schedulerService";
 
 
 const queryClient = new QueryClient();
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <AuthProvider>
-      <WebContainerProvider>
-        <TooltipProvider>
-          <Toaster />
-          <Sonner />
-          <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/auth" element={<Auth />} />
-            <Route path="/auth/callback" element={<AuthCallback />} />
-            <Route path="/debug/github" element={<GitHubDebugPanel />} />
-            <Route path="/github-ide" element={<SimpleGitHubIDE />} />
+const App = () => {
+  // Initialize scheduler on app load
+  useEffect(() => {
+    console.log('🚀 Initializing scheduler service...');
+    schedulerService.start();
+    
+    return () => {
+      // Cleanup on unmount
+      schedulerService.stop();
+    };
+  }, []);
 
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
-      </TooltipProvider>
-      </WebContainerProvider>
-    </AuthProvider>
-  </QueryClientProvider>
-);
+  return (
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        <WebContainerProvider>
+          <TooltipProvider>
+            <Toaster />
+            <Sonner />
+            <BrowserRouter>
+            <Routes>
+              <Route path="/" element={<Index />} />
+              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/auth" element={<Auth />} />
+              <Route path="/auth/callback" element={<AuthCallback />} />
+              <Route path="/debug/github" element={<GitHubDebugPanel />} />
+              <Route path="/github-ide" element={<SimpleGitHubIDE />} />
+
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </BrowserRouter>
+        </TooltipProvider>
+        </WebContainerProvider>
+      </AuthProvider>
+    </QueryClientProvider>
+  );
+};
 
 export default App;

@@ -591,40 +591,100 @@ class ScheduledAnalysisService {
   }
 
   /**
-   * Trigger manual analysis
+   * Trigger manual analysis via Phase 5 edge function
    */
   async triggerManualAnalysis(repositories: string[]): Promise<void> {
     console.log(`🚀 Triggering manual analysis for: ${repositories.join(', ')}`);
+    toast.info('Starting analysis via edge function...');
 
-    for (const repository of repositories) {
-      try {
-        const execution: AnalysisExecution = {
-          id: `exec_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
-          jobId: 'manual',
-          repository,
-          status: 'running',
-          startTime: new Date().toISOString()
-        };
+    try {
+      // Get user ID and token
+      const userId = localStorage.getItem('userId') || 'unknown';
+      const token = localStorage.getItem('authToken') || '';
 
-        this.executions.set(execution.id, execution);
-        this.notifyListeners(execution);
-
-        // Run analysis
-        const codeFiles = await this.fetchRepositoryCode(repository);
-        const result = await this.runAnalysis(repository, codeFiles);
-        const prUrl = await this.createAnalysisPR(repository, result);
-
-        execution.status = 'completed';
-        execution.result = result;
-        execution.prUrl = prUrl;
-        execution.endTime = new Date().toISOString();
-
-        this.notifyListeners(execution);
-        toast.success(`✅ Analysis complete for ${repository}`);
-      } catch (error) {
-        console.error(`❌ Manual analysis failed for ${repository}:`, error);
-        toast.error(`Failed to analyze ${repository}`);
+      if (!token) {
+        throw new Error('Authentication token not found');
       }
+
+      // Call Phase 5 edge function
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const response = await fetch(
+        `${supabaseUrl}/functions/v1/run-scheduled-analysis`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            userId,
+            repositories,
+            projects: [],
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || `Edge function error: ${response.statusText}`);
+      }
+
+      const result = await response.json();
+
+      if (!result.success) {
+        throw new Error(result.error || 'Analysis failed');
+      }
+
+      console.log(`✅ Analysis completed: ${result.analyzed} repositories analyzed`);
+
+      // Process results and save reports
+      if (result.results && Array.isArray(result.results)) {
+        for (let i = 0; i < result.results.length; i++) {
+          const analysisResult = result.results[i];
+          const prResult = result.prs[i];
+
+          const report: AnalysisReport = {
+            id: `report_${Date.now()}_${i}`,
+            timestamp: new Date().toISOString(),
+            repository: analysisResult.repository,
+            totalIssues: analysisResult.totalIssues,
+            byPriority: analysisResult.byPriority,
+            shortSummary: `${analysisResult.totalIssues} issues found`,
+            fullReport: JSON.stringify(analysisResult),
+            prUrl: prResult?.prUrl,
+            prNumber: prResult?.prNumber,
+            branchName: prResult?.branchName,
+            emailSent: false,
+          };
+
+          // Save report
+          await analysisAutomationService.saveReport(report);
+
+          // Notify listeners
+          const execution: AnalysisExecution = {
+            id: report.id,
+            jobId: 'manual',
+            repository: analysisResult.repository,
+            status: 'completed',
+            startTime: new Date().toISOString(),
+            endTime: new Date().toISOString(),
+            result: {
+              totalIssues: analysisResult.totalIssues,
+              byPriority: analysisResult.byPriority,
+            },
+            prUrl: report.prUrl,
+          };
+
+          this.executions.set(execution.id, execution);
+          this.notifyListeners(execution);
+        }
+      }
+
+      toast.success(`✅ Analysis complete: ${result.analyzed} repositories analyzed, ${result.prsCreated} PRs created`);
+    } catch (error) {
+      console.error('❌ Manual analysis failed:', error);
+      const message = error instanceof Error ? error.message : 'Analysis failed';
+      toast.error(`Failed to analyze: ${message}`);
     }
   }
 }

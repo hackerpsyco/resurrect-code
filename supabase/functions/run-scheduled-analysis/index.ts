@@ -13,6 +13,8 @@ interface AnalysisRequest {
   userId: string;
   repositories: string[];
   projects?: string[];
+  enableEmailNotifications?: boolean;
+  userEmail?: string;
 }
 
 interface AnalysisResult {
@@ -58,11 +60,13 @@ Deno.serve(async (req: Request) => {
     }
 
     const analysisRequest: AnalysisRequest = await req.json();
-    const { userId, repositories } = analysisRequest;
+    const { userId, repositories, enableEmailNotifications, userEmail } = analysisRequest;
 
     console.log(`🚀 Starting scheduled analysis for user ${userId}`);
     console.log(`📦 Repositories: ${repositories.join(', ')}`);
     console.log(`📋 Request body:`, JSON.stringify(analysisRequest, null, 2));
+    console.log(`📧 Email notifications enabled: ${enableEmailNotifications}`);
+    console.log(`📧 User email: ${userEmail}`);
 
     if (!userId || !repositories || repositories.length === 0) {
       console.error("❌ Validation failed - missing userId or repositories");
@@ -242,14 +246,15 @@ Deno.serve(async (req: Request) => {
     }
 
     // Send email notification if enabled
-    if (userSettings.enable_email_notifications && userSettings.user_email) {
+    if (enableEmailNotifications && userEmail) {
       try {
+        const totalIssues = results.reduce((sum, r) => sum + r.totalIssues, 0);
         console.log("📧 Email notifications enabled, sending report...");
-        console.log(`📧 User email: ${userSettings.user_email}`);
+        console.log(`📧 User email: ${userEmail}`);
         console.log(`📧 Total issues: ${totalIssues}`);
         
         await sendEmailNotification(
-          userSettings.user_email,
+          userEmail,
           results,
           prResults,
           supabase,
@@ -263,8 +268,8 @@ Deno.serve(async (req: Request) => {
       }
     } else {
       console.warn("⚠️ Email notifications disabled or no email address set");
-      console.warn(`📧 enable_email_notifications: ${userSettings.enable_email_notifications}`);
-      console.warn(`📧 user_email: ${userSettings.user_email}`);
+      console.warn(`📧 enableEmailNotifications: ${enableEmailNotifications}`);
+      console.warn(`📧 userEmail: ${userEmail}`);
     }
 
     console.log("✅ Scheduled analysis completed successfully");
@@ -802,26 +807,33 @@ async function sendEmailNotification(
   const totalIssues = results.reduce((sum, r) => sum + r.totalIssues, 0);
   const totalCritical = results.reduce((sum, r) => sum + r.byPriority.critical, 0);
 
-  let emailBody = `<h2>📊 Scheduled Analysis Complete</h2>\n`;
-  emailBody += `<p>Your scheduled code analysis has completed. Here are the results:</p>\n`;
-  emailBody += `<h3>Summary</h3>\n`;
-  emailBody += `<ul>\n`;
-  emailBody += `<li><strong>Total Issues:</strong> ${totalIssues}</li>\n`;
-  emailBody += `<li><strong>Critical:</strong> ${totalCritical}</li>\n`;
-  emailBody += `<li><strong>Repositories Analyzed:</strong> ${results.length}</li>\n`;
-  emailBody += `<li><strong>PRs Created:</strong> ${prResults.length}</li>\n`;
-  emailBody += `</ul>\n`;
+  // Generate short report
+  let shortReport = `📊 Scheduled Analysis Complete\n\n`;
+  shortReport += `Summary:\n`;
+  shortReport += `- Total Issues: ${totalIssues}\n`;
+  shortReport += `- Critical: ${totalCritical}\n`;
+  shortReport += `- Repositories Analyzed: ${results.length}\n`;
+  shortReport += `- PRs Created: ${prResults.length}\n\n`;
+  
+  if (prResults.length > 0) {
+    shortReport += `Pull Requests:\n`;
+    prResults.forEach((pr, index) => {
+      shortReport += `- PR #${pr.prNumber}: ${results[index]?.repository}\n  ${pr.prUrl}\n`;
+    });
+  }
 
-  emailBody += `<h3>Pull Requests</h3>\n`;
-  emailBody += `<ul>\n`;
-  prResults.forEach((pr, index) => {
-    emailBody += `<li><a href="${pr.prUrl}">View PR #${pr.prNumber}</a> - ${results[index]?.repository}</li>\n`;
+  // Generate full report with detailed issues
+  let fullReport = shortReport + `\n\nDetailed Issues:\n`;
+  results.forEach((result) => {
+    fullReport += `\n${result.repository}:\n`;
+    fullReport += `- Critical: ${result.byPriority.critical}\n`;
+    fullReport += `- High: ${result.byPriority.high}\n`;
+    fullReport += `- Medium: ${result.byPriority.medium}\n`;
+    fullReport += `- Low: ${result.byPriority.low}\n`;
   });
-  emailBody += `</ul>\n`;
 
-  emailBody += `<p><a href="https://github.com">Review on GitHub</a></p>\n`;
-
-  console.log(`📧 Email body length: ${emailBody.length}`);
+  console.log(`📧 Short report length: ${shortReport.length}`);
+  console.log(`📧 Full report length: ${fullReport.length}`);
   console.log(`📧 Calling send-analysis-email function...`);
 
   // Call send-analysis-email function
@@ -842,8 +854,10 @@ async function sendEmailNotification(
       body: JSON.stringify({
         to: email,
         subject: `📊 Code Analysis Complete - ${totalIssues} issues found`,
-        html: emailBody,
-        userId: userId,
+        shortReport: shortReport,
+        fullReport: fullReport,
+        shortFormat: false,
+        prUrl: prResults.length > 0 ? prResults[0].prUrl : null,
       }),
     }
   );

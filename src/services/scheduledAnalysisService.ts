@@ -649,6 +649,11 @@ class ScheduledAnalysisService {
       console.log(`📤 Repositories: ${repositories.join(', ')}`);
       console.log(`📤 User ID: ${userId}`);
 
+      // Get current settings to pass to edge function
+      const settings = analysisAutomationService.getSettings();
+      console.log(`📤 Email notifications enabled: ${settings.enableEmailNotifications}`);
+      console.log(`📤 User email: ${settings.userEmail}`);
+
       const response = await fetch(
         `${supabaseUrl}/functions/v1/run-scheduled-analysis`,
         {
@@ -661,6 +666,8 @@ class ScheduledAnalysisService {
             userId,
             repositories,
             projects: [],
+            enableEmailNotifications: settings.enableEmailNotifications,
+            userEmail: settings.userEmail,
           }),
         }
       );

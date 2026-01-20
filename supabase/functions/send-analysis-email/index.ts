@@ -118,7 +118,7 @@ ${emailContent}
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            from: 'onboarding@resend.dev',
+            from: 'piyushmodi812@gmail.com',
             to: recipientEmail,  // Send to user's email
             subject: subject,
             html: htmlContent,

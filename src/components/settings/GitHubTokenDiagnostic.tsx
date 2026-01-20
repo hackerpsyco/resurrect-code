@@ -42,6 +42,10 @@ export function GitHubTokenDiagnostic() {
           // No settings found yet
           setTokenInSupabase(false);
           console.log('❌ GitHub token NOT in Supabase settings table (no settings found)');
+        } else if (fetchError.message && fetchError.message.includes('does not exist')) {
+          // Column doesn't exist - migration not applied
+          setError('Database migration not applied. Please run: SETUP_DATABASE.sql in Supabase SQL Editor');
+          console.error('❌ Column github_token does not exist. Migration needs to be applied.');
         } else {
           setError(`Failed to fetch settings: ${fetchError.message}`);
         }

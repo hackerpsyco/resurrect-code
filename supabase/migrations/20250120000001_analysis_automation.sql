@@ -120,7 +120,10 @@ BEGIN
 END;
 $$ language 'plpgsql';
 
--- Create triggers to automatically update updated_at
+-- Create triggers to automatically update updated_at (if not exists)
+DROP TRIGGER IF EXISTS update_analysis_automation_settings_updated_at ON analysis_automation_settings;
+DROP TRIGGER IF EXISTS update_analysis_reports_updated_at ON analysis_reports;
+
 CREATE TRIGGER update_analysis_automation_settings_updated_at 
   BEFORE UPDATE ON analysis_automation_settings 
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();

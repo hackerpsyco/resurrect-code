@@ -177,6 +177,9 @@ export function AnalysisAutomationSettings({ onClose }: AnalysisAutomationSettin
               <p className="text-xs text-[#7d8590]">
                 Enter the email address where you want to receive analysis reports
               </p>
+              <p className="text-xs text-yellow-400 mt-2">
+                ⚠️ <strong>Note:</strong> Resend is in test mode. Use your verified email: <strong>piyushmodi812@gmail.com</strong>
+              </p>
             </div>
           )}
 

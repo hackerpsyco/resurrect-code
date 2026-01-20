@@ -119,28 +119,76 @@ Deno.serve(async (req: Request) => {
     // If not in settings, try user_credentials table
     if (!githubToken) {
       try {
+        console.log("📋 Querying user_credentials table for user:", userId);
         const { data: credentials, error: credError } = await supabase
           .from('user_credentials')
           .select('credentials')
           .eq('user_id', userId)
           .single();
 
-        if (!credError && credentials && credentials.credentials?.githubToken) {
-          githubToken = credentials.credentials.githubToken;
-          console.log("✅ GitHub token found in user_credentials table");
+        console.log("📋 Query result - Error:", credError, "Data:", credentials);
+
+        if (credError) {
+          console.warn("⚠️ Error from query:", credError.message, credError.code);
+        }
+
+        if (credentials) {
+          console.log("📋 Credentials object:", JSON.stringify(credentials, null, 2));
+          if (credentials.credentials && credentials.credentials.githubToken) {
+            githubToken = credentials.credentials.githubToken;
+            console.log("✅ GitHub token found in user_credentials table");
+          } else {
+            console.warn("⚠️ Credentials found but no githubToken inside");
+          }
+        } else {
+          console.warn("⚠️ No credentials record found for user");
         }
       } catch (error) {
-        console.warn("⚠️ Error fetching from user_credentials:", error);
+        console.error("❌ Exception fetching from user_credentials:", error);
+      }
+    }
+
+    // If still not found, try direct SQL query as fallback
+    if (!githubToken) {
+      try {
+        console.log("📋 Trying direct SQL query as fallback...");
+        const { data: sqlResult, error: sqlError } = await supabase.rpc('get_github_token', { p_user_id: userId });
+        
+        if (sqlError) {
+          console.warn("⚠️ SQL RPC error:", sqlError.message);
+          // Try raw SQL instead
+          const { data: rawData, error: rawError } = await supabase
+            .from('user_credentials')
+            .select('credentials->>\'githubToken\'')
+            .eq('user_id', userId)
+            .single();
+          
+          if (!rawError && rawData) {
+            githubToken = rawData['credentials->>\'githubToken\''];
+            console.log("✅ GitHub token found via raw SQL query");
+          }
+        } else if (sqlResult) {
+          githubToken = sqlResult;
+          console.log("✅ GitHub token found via RPC");
+        }
+      } catch (error) {
+        console.error("❌ SQL fallback error:", error);
       }
     }
     
     // If not in settings, try user metadata
     if (!githubToken) {
       try {
+        console.log("📋 Trying user metadata as fallback");
         const { data: { user }, error: userError } = await supabase.auth.admin.getUserById(userId);
 
-        if (!userError && user) {
+        if (userError) {
+          console.error("❌ Error fetching user:", userError);
+        }
+
+        if (user) {
           console.log("✅ User fetched successfully");
+          console.log("📋 User metadata:", JSON.stringify(user.user_metadata, null, 2));
           githubToken = user.user_metadata?.github_token;
           
           if (githubToken) {

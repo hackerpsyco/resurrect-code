@@ -60,10 +60,36 @@ export function GitHubAuth({ onAuthSuccess, onClose }: GitHubAuthProps) {
       // Also save to Supabase - both user metadata AND settings table
       try {
         const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-        const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
         
-        if (supabaseUrl && supabaseKey) {
-          const authToken = localStorage.getItem("sb_auth_token");
+        if (supabaseUrl) {
+          // Try to get auth token from localStorage (multiple possible keys)
+          let authToken = localStorage.getItem("sb_auth_token");
+          
+          // If not found, try to get from session storage or other sources
+          if (!authToken) {
+            // Try to find any auth token in localStorage
+            for (const key in localStorage) {
+              if (key.includes('auth') && key.includes('token')) {
+                const value = localStorage.getItem(key);
+                if (value && value.length > 50) { // Auth tokens are usually long
+                  try {
+                    const parsed = JSON.parse(value);
+                    if (parsed.access_token) {
+                      authToken = parsed.access_token;
+                      break;
+                    }
+                  } catch (e) {
+                    // Not JSON, try as is
+                    if (value.startsWith('eyJ')) { // JWT token starts with eyJ
+                      authToken = value;
+                      break;
+                    }
+                  }
+                }
+              }
+            }
+          }
+          
           if (authToken) {
             console.log("📤 Saving GitHub token to Supabase...");
             

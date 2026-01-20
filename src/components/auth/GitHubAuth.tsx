@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Github as GithubIcon, Key, CheckCircle, AlertCircle, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { userStorageService } from "@/services/userStorageService";
 
 interface GitHubAuthProps {
   onAuthSuccess: (token: string, user: any) => void;
@@ -58,67 +59,14 @@ export function GitHubAuth({ onAuthSuccess, onClose }: GitHubAuthProps) {
       localStorage.setItem("github_token", token);
       localStorage.setItem("github_user", JSON.stringify(userData));
       
-      // Also save to Supabase database directly
+      // Also save to Supabase database via userStorageService
       try {
-        console.log("📤 Saving GitHub token to Supabase database...");
+        console.log("📤 Saving GitHub token to Supabase database via userStorageService...");
         
-        // Get current user
-        const { data: { user: currentUser }, error: userError } = await supabase.auth.getUser();
+        // Use userStorageService which handles all the database logic
+        await userStorageService.storeGitHubToken(token, []);
         
-        if (userError) {
-          console.warn("⚠️ Error getting current user:", userError);
-        }
-        
-        if (currentUser) {
-          console.log(`👤 Current user ID: ${currentUser.id}`);
-          
-          // Save to database using raw SQL or direct insert
-          const settingsData = {
-            user_id: currentUser.id,
-            github_token: token,
-            github_login: userData.login,
-            enable_email_notifications: false,
-            user_email: "",
-            auto_generate_improvements: false,
-            auto_push_to_github: false,
-            analysis_schedule: "manual",
-            short_report_format: true,
-            scheduled_time: "02:00",
-            selected_repositories: [],
-            selected_projects: [],
-          };
-
-          console.log("📝 Settings data to save:", JSON.stringify(settingsData, null, 2));
-
-          // Try insert first, if it fails due to unique constraint, update instead
-          let result = await (supabase as any)
-            .from('analysis_automation_settings')
-            .insert([settingsData]);
-
-          console.log("📋 Insert result:", JSON.stringify(result, null, 2));
-
-          if (result.error && result.error.code === '23505') {
-            console.log("⚠️ Unique constraint violation - updating instead...");
-            // Unique constraint violation - update instead
-            result = await (supabase as any)
-              .from('analysis_automation_settings')
-              .update(settingsData)
-              .eq('user_id', currentUser.id);
-            
-            console.log("📋 Update result:", JSON.stringify(result, null, 2));
-          }
-
-          if (result.error) {
-            console.error("❌ Failed to save to database:", result.error);
-            console.error("Error code:", result.error.code);
-            console.error("Error message:", result.error.message);
-          } else {
-            console.log("✅ GitHub token saved to Supabase database successfully!");
-            console.log("📋 Saved data:", JSON.stringify(result.data, null, 2));
-          }
-        } else {
-          console.warn("⚠️ No authenticated user found");
-        }
+        console.log("✅ GitHub token saved to Supabase database successfully!");
       } catch (dbError) {
         console.error("❌ Error saving to database:", dbError);
         if (dbError instanceof Error) {

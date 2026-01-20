@@ -169,7 +169,7 @@ export function AnalysisAutomationSettings({ onClose }: AnalysisAutomationSettin
               <label className="text-sm font-medium text-gray-300">Your Email Address</label>
               <Input
                 type="email"
-                placeholder="your.email@example.com"
+                placeholder="piyushmodi812@gmail.com"
                 value={settings.userEmail}
                 onChange={(e) => handleSettingChange('userEmail', e.target.value)}
                 className="bg-[#0d1117] border-[#30363d] text-white"
@@ -177,8 +177,8 @@ export function AnalysisAutomationSettings({ onClose }: AnalysisAutomationSettin
               <p className="text-xs text-[#7d8590]">
                 Enter the email address where you want to receive analysis reports
               </p>
-              <p className="text-xs text-yellow-400 mt-2">
-                ⚠️ <strong>Note:</strong> Resend is in test mode. Use your verified email: <strong>piyushmodi812@gmail.com</strong>
+              <p className="text-xs text-green-400 mt-2">
+                ✅ <strong>Verified:</strong> Use <strong>piyushmodi812@gmail.com</strong> (your verified Resend email)
               </p>
             </div>
           )}

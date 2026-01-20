@@ -31,36 +31,23 @@ export function GitHubTokenDiagnostic() {
         return;
       }
 
-      // Check Supabase settings table using edge function
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      if (!supabaseUrl) {
-        setError('Supabase URL not configured');
-        return;
-      }
+      // Check Supabase user_credentials table directly
+      const { data, error: dbError } = await supabase
+        .from('user_credentials')
+        .select('credentials')
+        .single();
 
-      const response = await fetch(`${supabaseUrl}/functions/v1/analysis-settings`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-        },
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        console.log('📋 Settings response:', JSON.stringify(result, null, 2));
-        
-        if (result.data && result.data.githubToken) {
-          setTokenInSupabase(true);
-          console.log('✅ GitHub token found in Supabase settings table');
-        } else {
-          setTokenInSupabase(false);
-          console.log('❌ GitHub token NOT in Supabase settings table');
-          console.log('📋 Data received:', result.data);
-        }
+      if (dbError) {
+        console.warn('⚠️ Error fetching credentials:', dbError);
+        setTokenInSupabase(false);
+        setError(`Failed to fetch credentials: ${dbError.message}`);
+      } else if (data && data.credentials && data.credentials.githubToken) {
+        setTokenInSupabase(true);
+        console.log('✅ GitHub token found in user_credentials table');
       } else {
-        const errorData = await response.json();
-        console.error('❌ Edge function error:', errorData);
-        setError(`Failed to fetch settings: ${errorData.error || response.statusText}`);
+        setTokenInSupabase(false);
+        console.log('❌ GitHub token NOT in user_credentials table');
+        console.log('📋 Data received:', data);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error');
@@ -114,8 +101,8 @@ export function GitHubTokenDiagnostic() {
                 <AlertCircle className="w-5 h-5 text-red-400" />
               )}
               <div>
-                <p className="text-sm font-medium text-white">Supabase Settings Table</p>
-                <p className="text-xs text-[#7d8590]">GitHub token in analysis_automation_settings</p>
+                <p className="text-sm font-medium text-white">Supabase Database</p>
+                <p className="text-xs text-[#7d8590]">GitHub token in user_credentials table</p>
               </div>
             </div>
             <Badge className={tokenInSupabase ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}>
@@ -181,7 +168,7 @@ export function GitHubTokenDiagnostic() {
           <p><strong>What this checks:</strong></p>
           <ul className="list-disc list-inside space-y-1">
             <li>Browser Storage: Token in localStorage (for client-side use)</li>
-            <li>Supabase Settings: Token in database (for edge functions)</li>
+            <li>Supabase Database: Token in user_credentials table (for all features)</li>
           </ul>
           <p className="mt-2"><strong>If token is missing from Supabase:</strong></p>
           <ol className="list-decimal list-inside space-y-1">

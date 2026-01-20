@@ -113,7 +113,25 @@ Deno.serve(async (req: Request) => {
     // First try to get from settings table
     if (settings && settings.github_token) {
       githubToken = settings.github_token;
-      console.log("✅ GitHub token found in settings table");
+      console.log("✅ GitHub token found in analysis_automation_settings table");
+    }
+    
+    // If not in settings, try user_credentials table
+    if (!githubToken) {
+      try {
+        const { data: credentials, error: credError } = await supabase
+          .from('user_credentials')
+          .select('credentials')
+          .eq('user_id', userId)
+          .single();
+
+        if (!credError && credentials && credentials.credentials?.githubToken) {
+          githubToken = credentials.credentials.githubToken;
+          console.log("✅ GitHub token found in user_credentials table");
+        }
+      } catch (error) {
+        console.warn("⚠️ Error fetching from user_credentials:", error);
+      }
     }
     
     // If not in settings, try user metadata

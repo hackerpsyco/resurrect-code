@@ -69,6 +69,13 @@ export function AnalysisAutomationSettings({ onClose }: AnalysisAutomationSettin
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          <div className="p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+            <p className="text-xs text-blue-400">
+              📧 <strong>Note:</strong> Emails are sent to your Resend account email (piyushtamoli9@gmail.com). 
+              To send to other addresses, verify a domain at <a href="https://resend.com/domains" target="_blank" className="underline">resend.com/domains</a>
+            </p>
+          </div>
+
           <div className="flex items-center justify-between p-3 bg-[#0d1117] rounded-lg border border-[#30363d]">
             <div>
               <p className="text-sm font-medium text-white">Enable Email Notifications</p>
@@ -82,7 +89,7 @@ export function AnalysisAutomationSettings({ onClose }: AnalysisAutomationSettin
 
           {settings.enableEmailNotifications && (
             <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-300">Email Address</label>
+              <label className="text-sm font-medium text-gray-300">Your Email Address</label>
               <Input
                 type="email"
                 placeholder="your.email@example.com"
@@ -91,7 +98,7 @@ export function AnalysisAutomationSettings({ onClose }: AnalysisAutomationSettin
                 className="bg-[#0d1117] border-[#30363d] text-white"
               />
               <p className="text-xs text-[#7d8590]">
-                Reports will be sent to this email address
+                This is used for tracking purposes. Reports are sent to piyushtamoli9@gmail.com
               </p>
             </div>
           )}
@@ -172,20 +179,42 @@ export function AnalysisAutomationSettings({ onClose }: AnalysisAutomationSettin
                 <SelectValue />
               </SelectTrigger>
               <SelectContent className="bg-[#161b22] border-[#30363d]">
-                <SelectItem value="manual">Manual (On Demand)</SelectItem>
-                <SelectItem value="on-push">On Git Push</SelectItem>
-                <SelectItem value="daily">Daily</SelectItem>
-                <SelectItem value="weekly">Weekly</SelectItem>
+                <SelectItem value="manual">🔘 Manual (On Demand)</SelectItem>
+                <SelectItem value="on-push">📤 On Git Push</SelectItem>
+                <SelectItem value="daily">📅 Daily</SelectItem>
+                <SelectItem value="weekly">📅 Weekly</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
+          {(settings.analysisSchedule === 'daily' || settings.analysisSchedule === 'weekly') && (
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-300">Scheduled Time (UTC)</label>
+              <Input
+                type="time"
+                defaultValue="02:00"
+                className="bg-[#0d1117] border-[#30363d] text-white"
+              />
+              <p className="text-xs text-[#7d8590]">
+                {settings.analysisSchedule === 'daily' && '⏰ Analysis will run daily at this time'}
+                {settings.analysisSchedule === 'weekly' && '⏰ Analysis will run every Monday at this time'}
+              </p>
+            </div>
+          )}
+
           <div className="p-3 bg-[#0d1117] rounded-lg border border-[#30363d]">
             <p className="text-xs text-[#7d8590]">
-              {settings.analysisSchedule === 'manual' && '🔘 Analysis runs only when you click "Analyze Code"'}
+              {settings.analysisSchedule === 'manual' && '🔘 Analysis runs only when you click "Analyze Code" in DevOps'}
               {settings.analysisSchedule === 'on-push' && '📤 Analysis runs automatically when you push to GitHub'}
               {settings.analysisSchedule === 'daily' && '📅 Analysis runs daily at 2:00 AM UTC'}
               {settings.analysisSchedule === 'weekly' && '📅 Analysis runs every Monday at 2:00 AM UTC'}
+            </p>
+          </div>
+
+          <div className="p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
+            <p className="text-xs text-yellow-400">
+              ⚠️ <strong>Note:</strong> Automated scheduling requires Kestra workflow setup. 
+              Currently, manual analysis in DevOps panel is available.
             </p>
           </div>
         </CardContent>

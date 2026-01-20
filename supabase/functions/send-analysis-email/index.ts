@@ -70,7 +70,8 @@ ${emailContent}
               <p style="margin: 0 0 15px 0; font-weight: bold; color: #333;">
                 ✅ Do you want to push these improvements to GitHub?
               </p>
-              <div style="display: flex; gap: 10px;">
+              
+              <div style="display: flex; gap: 10px; margin-bottom: 15px;">
                 <a href="${approveUrl}" style="display: inline-block; background-color: #238636; color: white; padding: 10px 20px; text-decoration: none; border-radius: 6px; font-weight: bold;">
                   ✅ Yes, Push to GitHub
                 </a>
@@ -78,8 +79,14 @@ ${emailContent}
                   ❌ No, Skip
                 </a>
               </div>
-              <p style="margin: 15px 0 0 0; font-size: 12px; color: #666;">
-                Click one of the buttons above to confirm your choice
+              
+              <p style="margin: 0; font-size: 12px; color: #666;">
+                <strong>⚠️ Security Note:</strong> These links are safe and direct to ResurrectCI. 
+                They do not use tracking domains.
+              </p>
+              
+              <p style="margin: 10px 0 0 0; font-size: 11px; color: #999;">
+                If you don't recognize this email or didn't request analysis, please ignore it.
               </p>
             </div>
 

@@ -9,6 +9,7 @@ import { Sparkles, Mail, GitBranch, Clock, Trash2, Eye, Loader2 } from 'lucide-r
 import { toast } from 'sonner';
 import { analysisAutomationService, AnalysisSettings } from '@/services/analysisAutomationService';
 import { useVercel } from '@/hooks/useVercel';
+import { GitHubTokenDiagnostic } from './GitHubTokenDiagnostic';
 
 interface AnalysisAutomationSettingsProps {
   onClose?: () => void;
@@ -136,6 +137,9 @@ export function AnalysisAutomationSettings({ onClose }: AnalysisAutomationSettin
           </Button>
         )}
       </div>
+
+      {/* GitHub Token Diagnostic */}
+      <GitHubTokenDiagnostic />
 
       {/* Email Notifications */}
       <Card className="bg-[#161b22] border-[#30363d]">

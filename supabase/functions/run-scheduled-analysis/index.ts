@@ -119,6 +119,11 @@ Deno.serve(async (req: Request) => {
         console.log("✅ User fetched successfully");
         console.log(`📋 User metadata:`, JSON.stringify(user.user_metadata, null, 2));
         githubToken = user.user_metadata?.github_token;
+        
+        // If token found, log it
+        if (githubToken) {
+          console.log("✅ GitHub token found in user metadata");
+        }
       }
     } catch (error) {
       console.error("❌ Exception fetching user:", error);
@@ -126,12 +131,13 @@ Deno.serve(async (req: Request) => {
 
     if (!githubToken) {
       console.warn("⚠️ GitHub token not found in user metadata");
-      console.log("ℹ️ User must connect GitHub account first");
-      console.log("ℹ️ Go to Settings → GitHub Integration and connect your GitHub account");
-      throw new Error("GitHub token not found - please connect your GitHub account in settings");
+      console.log("ℹ️ This means the token wasn't saved to Supabase when you connected GitHub");
+      console.log("ℹ️ Solution: Go to Settings → GitHub Integration → Disconnect → Reconnect");
+      console.log("ℹ️ This will save your token to Supabase metadata");
+      throw new Error("GitHub token not found - please reconnect GitHub in settings");
     }
 
-    console.log("✅ GitHub token retrieved");
+    console.log("✅ GitHub token retrieved successfully");
 
     // Process each repository
     const results: AnalysisResult[] = [];

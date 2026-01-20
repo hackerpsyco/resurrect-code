@@ -649,8 +649,20 @@ class ScheduledAnalysisService {
       console.log(`📤 Repositories: ${repositories.join(', ')}`);
       console.log(`📤 User ID: ${userId}`);
 
-      // Get current settings to pass to edge function
-      const settings = analysisAutomationService.getSettings();
+      // Reload settings from localStorage to ensure we have the latest values
+      const stored = localStorage.getItem('analysis_automation_settings');
+      let settings = analysisAutomationService.getSettings();
+      
+      if (stored) {
+        try {
+          const freshSettings = JSON.parse(stored);
+          settings = { ...settings, ...freshSettings };
+          console.log(`✅ Reloaded fresh settings from localStorage`);
+        } catch (e) {
+          console.warn('⚠️ Failed to parse stored settings, using in-memory settings');
+        }
+      }
+      
       console.log(`📤 Email notifications enabled: ${settings.enableEmailNotifications}`);
       console.log(`📤 User email: ${settings.userEmail}`);
 

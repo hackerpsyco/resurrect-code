@@ -105,19 +105,29 @@ Deno.serve(async (req: Request) => {
 
     console.log("✅ Settings loaded (or using defaults)");
 
-    // Get GitHub token from user
-    const { data: { user }, error: userError } = await supabase.auth.admin.getUserById(userId);
+    // Get GitHub token from user metadata
+    console.log(`🔍 Fetching user metadata for user: ${userId}`);
+    
+    let githubToken = null;
+    
+    try {
+      const { data: { user }, error: userError } = await supabase.auth.admin.getUserById(userId);
 
-    if (userError || !user) {
-      console.error("Error fetching user:", userError);
-      throw new Error("Failed to fetch user");
+      if (userError) {
+        console.warn("⚠️ Error fetching user:", userError);
+      } else if (user) {
+        console.log("✅ User fetched successfully");
+        console.log(`📋 User metadata:`, JSON.stringify(user.user_metadata, null, 2));
+        githubToken = user.user_metadata?.github_token;
+      }
+    } catch (error) {
+      console.error("❌ Exception fetching user:", error);
     }
 
-    // Get GitHub token from user metadata
-    const githubToken = user.user_metadata?.github_token;
     if (!githubToken) {
       console.warn("⚠️ GitHub token not found in user metadata");
       console.log("ℹ️ User must connect GitHub account first");
+      console.log("ℹ️ Go to Settings → GitHub Integration and connect your GitHub account");
       throw new Error("GitHub token not found - please connect your GitHub account in settings");
     }
 

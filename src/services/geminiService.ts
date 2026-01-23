@@ -37,7 +37,7 @@ export interface AnalysisResponse {
 }
 
 class GeminiService {
-  private baseUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent';
+  private baseUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro-latest:generateContent';
 
   /**
    * Analyze code files using Gemini API

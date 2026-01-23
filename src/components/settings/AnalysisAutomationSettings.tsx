@@ -25,6 +25,20 @@ export function AnalysisAutomationSettings({ onClose }: AnalysisAutomationSettin
   const [githubRepos, setGithubRepos] = useState<any[]>([]);
   const [reports, setReports] = useState(analysisAutomationService.getReports());
   const { projects: vercelProjects, fetchProjects } = useVercel();
+  
+  // Gemini AI configuration state
+  const [geminiApiKey, setGeminiApiKey] = useState(() => {
+    const config = localStorage.getItem('ai_config');
+    if (config) {
+      const parsed = JSON.parse(config);
+      return parsed.provider === 'gemini' ? parsed.apiKey : '';
+    }
+    return '';
+  });
+  const [geminiEnabled, setGeminiEnabled] = useState(() => {
+    const config = localStorage.getItem('ai_config');
+    return config ? JSON.parse(config).provider === 'gemini' : false;
+  });
 
   // Load GitHub repos, Vercel projects, and database settings on mount
   useEffect(() => {
@@ -84,6 +98,15 @@ export function AnalysisAutomationSettings({ onClose }: AnalysisAutomationSettin
       analysisAutomationService.setScheduledTime(scheduledTime);
       analysisAutomationService.setSelectedRepositories(selectedRepos);
       analysisAutomationService.setSelectedProjects(selectedProjects);
+      
+      // Save Gemini AI configuration if enabled
+      if (geminiEnabled && geminiApiKey) {
+        localStorage.setItem('ai_config', JSON.stringify({
+          provider: 'gemini',
+          apiKey: geminiApiKey,
+          model: 'gemini-1.5-flash'
+        }));
+      }
       
       // Restart scheduler with new settings
       const { schedulerService } = await import('@/services/schedulerService');
@@ -158,6 +181,8 @@ export function AnalysisAutomationSettings({ onClose }: AnalysisAutomationSettin
             <Input
               type="password"
               placeholder="Enter your Gemini API key"
+              value={geminiApiKey}
+              onChange={(e) => setGeminiApiKey(e.target.value)}
               className="bg-[#0d1117] border-[#30363d] text-white"
             />
             <p className="text-xs text-[#7d8590]">
@@ -171,7 +196,8 @@ export function AnalysisAutomationSettings({ onClose }: AnalysisAutomationSettin
               <p className="text-xs text-[#7d8590] mt-1">Use Gemini for full project code analysis</p>
             </div>
             <Switch
-              defaultChecked={false}
+              checked={geminiEnabled}
+              onCheckedChange={setGeminiEnabled}
             />
           </div>
 

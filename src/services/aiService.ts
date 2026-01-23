@@ -1,4 +1,4 @@
-export type AIProvider = "deepseek" | "openai" | "claude" | "lovable";
+export type AIProvider = "deepseek" | "openai" | "claude" | "lovable" | "gemini";
 
 export interface AIMessage {
   role: "user" | "assistant" | "system";
@@ -99,6 +99,9 @@ export class AIService {
 
       case "deepseek":
         yield* this.streamDeepSeek(messages);
+        break;
+      case "gemini":
+        yield* this.fallbackGeminiNonStreaming(messages);
         break;
       case "openai":
         yield* this.streamOpenAI(messages);

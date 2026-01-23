@@ -123,9 +123,9 @@ export class AIService {
     await this.enforceRateLimit();
     
     try {
-      // Make the API call directly here for simplicity
-      // Use query parameter format for free tier
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${this.model}:generateContent?key=${this.apiKey}`;
+      // Use the correct endpoint for free tier - models/gemini-1.5-pro-latest
+      const modelName = this.model.includes('gemini') ? this.model : 'gemini-1.5-pro-latest';
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${this.apiKey}`;
 
       // Convert messages to Gemini format
       const contents = [];
@@ -324,11 +324,11 @@ Please try again in a few moments.`;
     } catch (error) {
       console.error('❌ Gemini non-streaming fallback failed:', error);
       
-      // Try with gemini-pro as final fallback
-      if (this.model !== 'gemini-pro') {
-        console.log('🔄 Trying with gemini-pro as final fallback...');
+      // Try with gemini-1.5-pro-latest as final fallback
+      if (this.model !== 'gemini-1.5-pro-latest') {
+        console.log('🔄 Trying with gemini-1.5-pro-latest as final fallback...');
         const originalModel = this.model;
-        this.model = 'gemini-pro';
+        this.model = 'gemini-1.5-pro-latest';
         
         try {
           const result = await this.retryWithBackoff(async () => {

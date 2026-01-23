@@ -103,11 +103,11 @@ export function AnalysisAutomationSettings({ onClose }: AnalysisAutomationSettin
       if (geminiEnabled && geminiApiKey) {
         // Clear old cache first
         localStorage.removeItem('ai_config');
-        // Save with correct model
+        // Save with correct model for free tier
         localStorage.setItem('ai_config', JSON.stringify({
           provider: 'gemini',
           apiKey: geminiApiKey,
-          model: 'gemini-pro'
+          model: 'gemini-1.5-pro-latest'
         }));
         // Force page reload to clear any cached models
         setTimeout(() => {

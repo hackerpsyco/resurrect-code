@@ -1,4 +1,4 @@
-export type AIProvider = "gemini" | "openai" | "claude" | "lovable";
+export type AIProvider = "deepseek" | "openai" | "claude" | "lovable";
 
 export interface AIMessage {
   role: "user" | "assistant" | "system";
@@ -97,8 +97,8 @@ export class AIService {
   async *streamChat(messages: AIMessage[]): AsyncGenerator<AIStreamResponse> {
     switch (this.provider) {
 
-      case "gemini":
-        yield* this.streamGemini(messages);
+      case "deepseek":
+        yield* this.streamDeepSeek(messages);
         break;
       case "openai":
         yield* this.streamOpenAI(messages);
@@ -116,105 +116,72 @@ export class AIService {
 
 
 
-  private async *streamGemini(messages: AIMessage[]): AsyncGenerator<AIStreamResponse> {
-    console.log('🔍 Starting Gemini API call with model:', this.model);
+  private async *streamDeepSeek(messages: AIMessage[]): AsyncGenerator<AIStreamResponse> {
+    console.log('🔍 Starting DeepSeek API call');
     
-    // Enforce rate limiting before making request
     await this.enforceRateLimit();
     
     try {
-      // Use the correct endpoint for free tier - models/gemini-1.5-pro-latest
-      const modelName = this.model.includes('gemini') ? this.model : 'gemini-1.5-pro-latest';
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${this.apiKey}`;
-
-      // Convert messages to Gemini format
-      const contents = [];
-      let systemInstruction = '';
-
-      for (const message of messages) {
-        if (message.role === 'system') {
-          systemInstruction = message.content;
-        } else {
-          contents.push({
-            role: message.role === 'assistant' ? 'model' : 'user',
-            parts: [{ text: message.content }]
-          });
-        }
-      }
-
-      const requestBody: any = {
-        contents,
-        generationConfig: {
-          temperature: 0.7,
-          maxOutputTokens: 2048,
-          topK: 40,
-          topP: 0.95,
-        },
-      };
-
-      if (systemInstruction) {
-        requestBody.systemInstruction = {
-          parts: [{ text: systemInstruction }]
-        };
-      }
-
-      console.log('📤 Gemini request:', { url: url.replace(this.apiKey, 'API_KEY_HIDDEN'), body: requestBody });
-
-      const response = await fetch(url, {
+      const response = await fetch("https://api.deepseek.com/chat/completions", {
         method: "POST",
-        headers: { 
+        headers: {
           "Content-Type": "application/json",
+          "Authorization": `Bearer ${this.apiKey}`,
         },
-        body: JSON.stringify(requestBody),
+        body: JSON.stringify({
+          model: this.model || "deepseek-chat",
+          messages: messages.filter(m => m.role !== "system").map(m => ({
+            role: m.role,
+            content: m.content
+          })),
+          stream: true,
+          temperature: 0.7,
+          max_tokens: 2048,
+        }),
       });
 
-      console.log('📥 Gemini response status:', response.status, response.statusText);
+      console.log('📥 DeepSeek response status:', response.status);
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error("❌ Gemini API error response:", errorText);
-        throw new Error(`Gemini API error: ${response.status} ${response.statusText} - ${errorText}`);
+        console.error("❌ DeepSeek API error:", errorText);
+        throw new Error(`DeepSeek API error: ${response.status} - ${errorText}`);
       }
 
-      const data = await response.json();
-      console.log('📦 Gemini response received');
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
 
-      const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (!text) {
-        console.error('❌ No text content in Gemini response:', data);
-        throw new Error("No content in Gemini response");
+      if (!reader) throw new Error("No response body");
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value);
+        const lines = chunk.split("\n").filter((line) => line.trim() && line.startsWith("data: "));
+
+        for (const line of lines) {
+          const data = line.replace("data: ", "");
+          if (data === "[DONE]") continue;
+
+          try {
+            const json = JSON.parse(data);
+            const content = json.choices?.[0]?.delta?.content;
+            if (content) {
+              yield { content, done: false };
+            }
+          } catch (e) {
+            // Skip invalid JSON
+          }
+        }
       }
 
-      console.log('✅ Gemini response success, length:', text.length);
-      console.log('📝 Response preview:', text.substring(0, 100) + '...');
-
-      // Yield the response
-      yield { content: text, done: false };
       yield { content: "", done: true };
 
     } catch (error) {
-      console.error('❌ Gemini API call failed:', error);
-      
-      // Provide a fallback response
-      const fallbackMessage = `I apologize, but I'm currently unable to process your request due to an API issue. 
-
-Error: ${error instanceof Error ? error.message : 'Unknown error'}
-
-For the request "${messages[messages.length - 1]?.content}", here's a basic example:
-
-\`\`\`javascript
-function add(a, b) {
-    return a + b;
-}
-
-// Usage
-const result = add(5, 3);
-console.log(result); // 8
-\`\`\`
-
-Please try again in a few moments.`;
-
-      yield { content: fallbackMessage, done: false };
+      console.error('❌ DeepSeek API call failed:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      yield { content: `❌ Error: ${errorMessage}`, done: false };
       yield { content: "", done: true };
     }
   }

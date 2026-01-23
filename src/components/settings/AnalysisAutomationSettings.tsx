@@ -99,15 +99,15 @@ export function AnalysisAutomationSettings({ onClose }: AnalysisAutomationSettin
       analysisAutomationService.setSelectedRepositories(selectedRepos);
       analysisAutomationService.setSelectedProjects(selectedProjects);
       
-      // Save Gemini AI configuration if enabled
+      // Save DeepSeek AI configuration if enabled
       if (geminiEnabled && geminiApiKey) {
         // Clear old cache first
         localStorage.removeItem('ai_config');
-        // Save with correct model for free tier
+        // Save with DeepSeek
         localStorage.setItem('ai_config', JSON.stringify({
-          provider: 'gemini',
+          provider: 'deepseek',
           apiKey: geminiApiKey,
-          model: 'gemini-1.5-pro-latest'
+          model: 'deepseek-chat'
         }));
         // Force page reload to clear any cached models
         setTimeout(() => {
@@ -171,36 +171,36 @@ export function AnalysisAutomationSettings({ onClose }: AnalysisAutomationSettin
       {/* GitHub Token Diagnostic */}
       <GitHubTokenDiagnostic />
 
-      {/* Gemini AI Configuration */}
+      {/* DeepSeek AI Configuration */}
       <Card className="bg-[#161b22] border-[#30363d]">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-white">
             <Sparkles className="w-5 h-5" />
-            Gemini AI Configuration
+            DeepSeek AI Configuration
           </CardTitle>
           <CardDescription>
-            Configure Google Gemini API for code analysis
+            Configure DeepSeek API for code analysis and AI chat
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-300">Gemini API Key</label>
+            <label className="text-sm font-medium text-gray-300">DeepSeek API Key</label>
             <Input
               type="password"
-              placeholder="Enter your Gemini API key"
+              placeholder="Enter your DeepSeek API key"
               value={geminiApiKey}
               onChange={(e) => setGeminiApiKey(e.target.value)}
               className="bg-[#0d1117] border-[#30363d] text-white"
             />
             <p className="text-xs text-[#7d8590]">
-              Get your API key from <a href="https://makersuite.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300">Google AI Studio</a>
+              Get your API key from <a href="https://platform.deepseek.com/api_keys" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300">DeepSeek Platform</a>
             </p>
           </div>
 
           <div className="flex items-center justify-between p-3 bg-[#0d1117] rounded-lg border border-[#30363d]">
             <div>
-              <p className="text-sm font-medium text-white">Enable Gemini Analysis</p>
-              <p className="text-xs text-[#7d8590] mt-1">Use Gemini for full project code analysis</p>
+              <p className="text-sm font-medium text-white">Enable DeepSeek AI</p>
+              <p className="text-xs text-[#7d8590] mt-1">Use DeepSeek for code analysis and AI chat</p>
             </div>
             <Switch
               checked={geminiEnabled}
@@ -210,7 +210,7 @@ export function AnalysisAutomationSettings({ onClose }: AnalysisAutomationSettin
 
           <div className="p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg">
             <p className="text-xs text-blue-400">
-              ℹ️ <strong>Gemini Integration:</strong> Analyzes your entire project codebase for improvements, security issues, and best practices.
+              ℹ️ <strong>DeepSeek Integration:</strong> Fast, reliable AI for code analysis, debugging, and project-wide improvements. Free tier available.
             </p>
           </div>
           
@@ -222,11 +222,11 @@ export function AnalysisAutomationSettings({ onClose }: AnalysisAutomationSettin
                 localStorage.removeItem('ai_config');
                 setGeminiApiKey('');
                 setGeminiEnabled(false);
-                toast.success('Gemini configuration cleared');
+                toast.success('DeepSeek configuration cleared');
               }}
               className="border-red-500/30 text-red-400 hover:bg-red-500/10 w-full"
             >
-              Clear Gemini Configuration
+              Clear DeepSeek Configuration
             </Button>
           )}
         </CardContent>

@@ -141,6 +141,48 @@ export function AnalysisAutomationSettings({ onClose }: AnalysisAutomationSettin
       {/* GitHub Token Diagnostic */}
       <GitHubTokenDiagnostic />
 
+      {/* Gemini AI Configuration */}
+      <Card className="bg-[#161b22] border-[#30363d]">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-white">
+            <Sparkles className="w-5 h-5" />
+            Gemini AI Configuration
+          </CardTitle>
+          <CardDescription>
+            Configure Google Gemini API for code analysis
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-gray-300">Gemini API Key</label>
+            <Input
+              type="password"
+              placeholder="Enter your Gemini API key"
+              className="bg-[#0d1117] border-[#30363d] text-white"
+            />
+            <p className="text-xs text-[#7d8590]">
+              Get your API key from <a href="https://makersuite.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300">Google AI Studio</a>
+            </p>
+          </div>
+
+          <div className="flex items-center justify-between p-3 bg-[#0d1117] rounded-lg border border-[#30363d]">
+            <div>
+              <p className="text-sm font-medium text-white">Enable Gemini Analysis</p>
+              <p className="text-xs text-[#7d8590] mt-1">Use Gemini for full project code analysis</p>
+            </div>
+            <Switch
+              defaultChecked={false}
+            />
+          </div>
+
+          <div className="p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+            <p className="text-xs text-blue-400">
+              ℹ️ <strong>Gemini Integration:</strong> Analyzes your entire project codebase for improvements, security issues, and best practices.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Email Notifications */}
       <Card className="bg-[#161b22] border-[#30363d]">
         <CardHeader>

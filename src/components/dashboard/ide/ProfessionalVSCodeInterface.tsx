@@ -18,8 +18,6 @@ import {
   Maximize2,
   Minimize2,
   Square,
-  ZoomIn,
-  ZoomOut,
   RotateCcw,
   Move
 } from "lucide-react";
@@ -608,24 +606,6 @@ export function ProfessionalVSCodeInterface({ project, onClose }: ProfessionalVS
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => setFontSize(prev => Math.min(prev + 1, 20))}
-                className="h-5 w-5 p-0 text-[#cccccc] hover:bg-[#464647]"
-                title="Increase Font Size"
-              >
-                <ZoomIn className="w-3 h-3" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setFontSize(prev => Math.max(prev - 1, 10))}
-                className="h-5 w-5 p-0 text-[#cccccc] hover:bg-[#464647]"
-                title="Decrease Font Size"
-              >
-                <ZoomOut className="w-3 h-3" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
                 onClick={() => {
                   setSidebarWidth(320);
                   setFontSize(14);
@@ -766,24 +746,6 @@ export function ProfessionalVSCodeInterface({ project, onClose }: ProfessionalVS
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => setTerminalFontSize(prev => Math.min(prev + 1, 20))}
-              className="h-5 w-5 p-0 text-[#cccccc] hover:bg-[#464647]"
-              title="Increase Terminal Font Size"
-            >
-              <ZoomIn className="w-3 h-3" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setTerminalFontSize(prev => Math.max(prev - 1, 10))}
-              className="h-5 w-5 p-0 text-[#cccccc] hover:bg-[#464647]"
-              title="Decrease Terminal Font Size"
-            >
-              <ZoomOut className="w-3 h-3" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
               onClick={() => {
                 setTerminalHeight(320);
                 setTerminalFontSize(14);
@@ -848,24 +810,6 @@ export function ProfessionalVSCodeInterface({ project, onClose }: ProfessionalVS
                 title={previewMaximized ? "Restore Preview" : "Maximize Preview"}
               >
                 {previewMaximized ? <Minimize2 className="w-3 h-3" /> : <Maximize2 className="w-3 h-3" />}
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setPreviewWidth(prev => Math.min(prev + 10, 90))}
-                className="h-5 w-5 p-0 text-[#cccccc] hover:bg-[#464647]"
-                title="Increase Preview Width"
-              >
-                <ZoomIn className="w-3 h-3" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setPreviewWidth(prev => Math.max(prev - 10, 30))}
-                className="h-5 w-5 p-0 text-[#cccccc] hover:bg-[#464647]"
-                title="Decrease Preview Width"
-              >
-                <ZoomOut className="w-3 h-3" />
               </Button>
               <Button
                 variant="ghost"

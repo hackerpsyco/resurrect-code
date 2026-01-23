@@ -642,5 +642,14 @@ An error occurred while communicating with the Gemini API.
 export function getAIConfig(): { provider: AIProvider; apiKey: string; model: string } | null {
   const stored = localStorage.getItem("ai_config");
   if (!stored) return null;
-  return JSON.parse(stored);
+  
+  const config = JSON.parse(stored);
+  
+  // Force update old model names to new ones
+  if (config.model === 'gemini-pro' || config.model === 'gemini-1.5-flash') {
+    config.model = 'gemini-1.5-pro-latest';
+    localStorage.setItem("ai_config", JSON.stringify(config));
+  }
+  
+  return config;
 }

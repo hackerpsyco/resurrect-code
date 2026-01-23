@@ -5,7 +5,7 @@
 
 class GeminiKeyService {
   private key: string | null = null;
-  private model: string = 'gemini-2.0-flash'; // Default free tier model (updated 2024)
+  private model: string = 'gemini-1.5-pro-latest'; // Correct free tier model
   private readonly STORAGE_KEY = 'gemini_api_key';
   private readonly MODEL_KEY = 'gemini_model';
   private readonly ENCRYPTION_PREFIX = 'enc_';
@@ -40,11 +40,16 @@ class GeminiKeyService {
     try {
       const stored = localStorage.getItem(this.MODEL_KEY);
       if (stored) {
-        this.model = stored;
+        // Normalize old model names to new one
+        if (stored === 'gemini-pro' || stored === 'gemini-1.5-flash' || stored === 'gemini-2.0-flash') {
+          this.model = 'gemini-1.5-pro-latest';
+        } else {
+          this.model = stored;
+        }
       }
     } catch (error) {
       console.error('Failed to load Gemini model:', error);
-      this.model = 'gemini-2.0-flash';
+      this.model = 'gemini-1.5-pro-latest';
     }
   }
 

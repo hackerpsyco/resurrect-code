@@ -101,11 +101,18 @@ export function AnalysisAutomationSettings({ onClose }: AnalysisAutomationSettin
       
       // Save Gemini AI configuration if enabled
       if (geminiEnabled && geminiApiKey) {
+        // Clear old cache first
+        localStorage.removeItem('ai_config');
+        // Save with correct model
         localStorage.setItem('ai_config', JSON.stringify({
           provider: 'gemini',
           apiKey: geminiApiKey,
           model: 'gemini-pro'
         }));
+        // Force page reload to clear any cached models
+        setTimeout(() => {
+          window.location.reload();
+        }, 500);
       }
       
       // Restart scheduler with new settings
@@ -206,6 +213,22 @@ export function AnalysisAutomationSettings({ onClose }: AnalysisAutomationSettin
               ℹ️ <strong>Gemini Integration:</strong> Analyzes your entire project codebase for improvements, security issues, and best practices.
             </p>
           </div>
+          
+          {geminiEnabled && geminiApiKey && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                localStorage.removeItem('ai_config');
+                setGeminiApiKey('');
+                setGeminiEnabled(false);
+                toast.success('Gemini configuration cleared');
+              }}
+              className="border-red-500/30 text-red-400 hover:bg-red-500/10 w-full"
+            >
+              Clear Gemini Configuration
+            </Button>
+          )}
         </CardContent>
       </Card>
 

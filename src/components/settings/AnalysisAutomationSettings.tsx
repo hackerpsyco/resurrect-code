@@ -104,7 +104,7 @@ export function AnalysisAutomationSettings({ onClose }: AnalysisAutomationSettin
         localStorage.setItem('ai_config', JSON.stringify({
           provider: 'gemini',
           apiKey: geminiApiKey,
-          model: 'gemini-1.5-flash'
+          model: 'gemini-pro'
         }));
       }
       

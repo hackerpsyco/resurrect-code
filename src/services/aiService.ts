@@ -324,11 +324,11 @@ Please try again in a few moments.`;
     } catch (error) {
       console.error('❌ Gemini non-streaming fallback failed:', error);
       
-      // Try with gemini-1.5-flash as final fallback
-      if (this.model !== 'gemini-1.5-flash') {
-        console.log('🔄 Trying with gemini-1.5-flash as final fallback...');
+      // Try with gemini-pro as final fallback
+      if (this.model !== 'gemini-pro') {
+        console.log('🔄 Trying with gemini-pro as final fallback...');
         const originalModel = this.model;
-        this.model = 'gemini-1.5-flash';
+        this.model = 'gemini-pro';
         
         try {
           const result = await this.retryWithBackoff(async () => {

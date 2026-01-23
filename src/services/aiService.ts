@@ -192,7 +192,9 @@ export class AIService {
   private async *executeGeminiStreamRequest(messages: AIMessage[]): AsyncGenerator<AIStreamResponse> {
     // Gemini doesn't have true streaming like OpenAI, so let's use the regular endpoint and simulate streaming
     console.log('🔄 Using Gemini non-streaming API (simulating streaming)...');
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${this.model}:generateContent?key=${this.apiKey}`;
+    // Ensure model name is correct format
+    const modelName = this.model.includes('gemini') ? this.model : 'gemini-1.5-flash';
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${this.apiKey}`;
 
     // Convert messages to Gemini format
     const contents = [];
@@ -322,7 +324,9 @@ export class AIService {
   }
 
   private async executeGeminiNonStreamRequest(messages: AIMessage[]): Promise<string> {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${this.model}:generateContent?key=${this.apiKey}`;
+    // Ensure model name is correct format
+    const modelName = this.model.includes('gemini') ? this.model : 'gemini-1.5-flash';
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${this.apiKey}`;
 
     // Convert messages to Gemini format
     const contents = [];

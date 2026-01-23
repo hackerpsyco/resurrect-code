@@ -291,11 +291,11 @@ export class AIService {
     } catch (error) {
       console.error('❌ Gemini non-streaming fallback failed:', error);
       
-      // Try with gemini-1.5-pro-latest as final fallback
-      if (this.model !== 'gemini-1.5-pro-latest') {
-        console.log('🔄 Trying with gemini-1.5-pro-latest as final fallback...');
+      // Try with gemini-1.5-flash as final fallback (free tier)
+      if (this.model !== 'gemini-1.5-flash') {
+        console.log('🔄 Trying with gemini-1.5-flash as final fallback...');
         const originalModel = this.model;
-        this.model = 'gemini-1.5-pro-latest';
+        this.model = 'gemini-1.5-flash';
         
         try {
           const result = await this.retryWithBackoff(async () => {
@@ -612,9 +612,10 @@ export function getAIConfig(): { provider: AIProvider; apiKey: string; model: st
   
   const config = JSON.parse(stored);
   
-  // Force update old model names to new ones
-  if (config.model === 'gemini-pro' || config.model === 'gemini-1.5-flash') {
-    config.model = 'gemini-1.5-pro-latest';
+  // Keep gemini-1.5-flash as is (free tier)
+  // Only update old model names if they're not flash
+  if (config.model === 'gemini-pro') {
+    config.model = 'gemini-1.5-flash';
     localStorage.setItem("ai_config", JSON.stringify(config));
   }
   

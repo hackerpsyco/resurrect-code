@@ -39,6 +39,7 @@ export function AnalysisAutomationSettings({ onClose }: AnalysisAutomationSettin
     const config = localStorage.getItem('ai_config');
     return config ? JSON.parse(config).provider === 'gemini' : false;
   });
+  const [geminiModel, setGeminiModel] = useState('gemini-1.5-flash');
 
   // Load GitHub repos, Vercel projects, and database settings on mount
   useEffect(() => {
@@ -99,15 +100,15 @@ export function AnalysisAutomationSettings({ onClose }: AnalysisAutomationSettin
       analysisAutomationService.setSelectedRepositories(selectedRepos);
       analysisAutomationService.setSelectedProjects(selectedProjects);
       
-      // Save DeepSeek AI configuration if enabled
+      // Save Gemini AI configuration if enabled
       if (geminiEnabled && geminiApiKey) {
         // Clear old cache first
         localStorage.removeItem('ai_config');
-        // Save with DeepSeek
+        // Save with Gemini 1.5 Flash (free tier)
         localStorage.setItem('ai_config', JSON.stringify({
-          provider: 'deepseek',
+          provider: 'gemini',
           apiKey: geminiApiKey,
-          model: 'deepseek-chat'
+          model: 'gemini-1.5-flash'
         }));
         // Force page reload to clear any cached models
         setTimeout(() => {
@@ -171,36 +172,36 @@ export function AnalysisAutomationSettings({ onClose }: AnalysisAutomationSettin
       {/* GitHub Token Diagnostic */}
       <GitHubTokenDiagnostic />
 
-      {/* DeepSeek AI Configuration */}
+      {/* Gemini AI Configuration */}
       <Card className="bg-[#161b22] border-[#30363d]">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-white">
             <Sparkles className="w-5 h-5" />
-            DeepSeek AI Configuration
+            Gemini AI Configuration
           </CardTitle>
           <CardDescription>
-            Configure DeepSeek API for code analysis and AI chat
+            Configure Gemini 1.5 Flash (free tier) for code analysis and AI chat
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-300">DeepSeek API Key</label>
+            <label className="text-sm font-medium text-gray-300">Gemini API Key</label>
             <Input
               type="password"
-              placeholder="Enter your DeepSeek API key"
+              placeholder="Enter your Gemini API key"
               value={geminiApiKey}
               onChange={(e) => setGeminiApiKey(e.target.value)}
               className="bg-[#0d1117] border-[#30363d] text-white"
             />
             <p className="text-xs text-[#7d8590]">
-              Get your API key from <a href="https://platform.deepseek.com/api_keys" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300">DeepSeek Platform</a>
+              Get your free API key from <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300">Google AI Studio</a>
             </p>
           </div>
 
           <div className="flex items-center justify-between p-3 bg-[#0d1117] rounded-lg border border-[#30363d]">
             <div>
-              <p className="text-sm font-medium text-white">Enable DeepSeek AI</p>
-              <p className="text-xs text-[#7d8590] mt-1">Use DeepSeek for code analysis and AI chat</p>
+              <p className="text-sm font-medium text-white">Enable Gemini AI</p>
+              <p className="text-xs text-[#7d8590] mt-1">Use Gemini 1.5 Flash for code analysis and AI chat</p>
             </div>
             <Switch
               checked={geminiEnabled}
@@ -210,7 +211,7 @@ export function AnalysisAutomationSettings({ onClose }: AnalysisAutomationSettin
 
           <div className="p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg">
             <p className="text-xs text-blue-400">
-              ℹ️ <strong>DeepSeek Integration:</strong> Fast, reliable AI for code analysis, debugging, and project-wide improvements. Free tier available.
+              ℹ️ <strong>Gemini 1.5 Flash:</strong> Fast, free AI model perfect for code analysis, debugging, and project-wide improvements. No billing required.
             </p>
           </div>
           
@@ -222,11 +223,11 @@ export function AnalysisAutomationSettings({ onClose }: AnalysisAutomationSettin
                 localStorage.removeItem('ai_config');
                 setGeminiApiKey('');
                 setGeminiEnabled(false);
-                toast.success('DeepSeek configuration cleared');
+                toast.success('Gemini configuration cleared');
               }}
               className="border-red-500/30 text-red-400 hover:bg-red-500/10 w-full"
             >
-              Clear DeepSeek Configuration
+              Clear Gemini Configuration
             </Button>
           )}
         </CardContent>

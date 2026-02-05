@@ -203,18 +203,18 @@ export default function Auth() {
             <Cpu className="w-6 h-6 text-primary" />
           </div>
           <span className="text-2xl font-bold">
-            Resurrect<span className="text-primary">CI</span>
+            Innoalaxy
           </span>
         </div>
 
         {/* Title */}
         <h1 className="text-2xl sm:text-3xl font-bold mb-2 animate-slide-down animation-delay-100">
-          {isLogin ? "Welcome back" : "Create an account"}
+          {isLogin ? "Welcome to Innoalaxy" : "Join Innoalaxy"}
         </h1>
         <p className="text-muted-foreground mb-8 text-sm sm:text-base animate-slide-down animation-delay-200">
           {isLogin
-            ? "Sign in to access your dashboard"
-            : "Get started with ResurrectCI"}
+            ? "Sign in to continue to Innoalaxy"
+            : "Get started with Innoalaxy"}
         </p>
 
         {/* Google Sign In Button */}

@@ -14,7 +14,7 @@ export default defineConfig(({ mode }) => ({
     },
     proxy: {
       '/functions': {
-        target: 'https://eahpikunzsaacibikwtj.supabase.co',
+        target: 'https://auth.innoalaxy.in',
         changeOrigin: true,
         secure: true,
       }

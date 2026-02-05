@@ -37,7 +37,7 @@ inputs:
     description: Detailed error logs
 
 variables:
-  supabase_url: "https://eahpikunzsaacibikwtj.supabase.co"
+  supabase_url: "https://auth.innoalaxy.in"
   max_fix_attempts: 3
 
 tasks:

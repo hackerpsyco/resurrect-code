@@ -276,3 +276,4 @@ Before going to production:
 - Test with a different email address
 - Check browser console for JavaScript errors
 
+

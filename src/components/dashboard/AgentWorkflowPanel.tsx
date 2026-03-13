@@ -64,7 +64,7 @@ export function AgentWorkflowPanel({
       <div className="px-4 py-3 border-b border-border bg-background flex items-center justify-between">
         <div className="flex items-center gap-2">
           <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-          <span className="text-sm font-medium">Kestra AI Agent</span>
+          <span className="text-sm font-medium">AI Agent</span>
           {projectName && (
             <span className="text-xs text-muted-foreground">— {projectName}</span>
           )}
@@ -160,19 +160,10 @@ export function AgentWorkflowPanel({
         )}
       </div>
 
-      {/* Kestra workflow info */}
+      {/* AI workflow info */}
       <div className="px-4 py-3 border-t border-border bg-background/50">
         <p className="text-xs text-muted-foreground">
-          Powered by{" "}
-          <a
-            href="https://kestra.io"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-primary hover:underline"
-          >
-            Kestra
-          </a>{" "}
-          workflow orchestration
+          Powered by ResurrectCI AI workflow orchestration
         </p>
       </div>
     </Card>

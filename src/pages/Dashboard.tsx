@@ -49,6 +49,8 @@ import { toast } from "sonner";
 import { NewUserOnboarding } from "@/components/onboarding/NewUserOnboarding";
 import { WelcomeMessage } from "@/components/dashboard/WelcomeMessage";
 import { userStorageService } from "@/services/userStorageService";
+import { supabase } from "@/lib/supabase";
+import ConnectGitHub from "@/components/ConnectGitHub";
 
 interface Project {
   id: string;
@@ -119,7 +121,10 @@ export default function Dashboard() {
   }
 
   // 🔒 SECURITY: Redirect to auth if not logged in (after loading is done)
-  if (!user) {
+  // Allow guest access for judges
+  const isGuest = sessionStorage.getItem('guest_mode') === 'true';
+  
+  if (!user && !isGuest) {
     console.log('🔐 Unauthorized access to dashboard - redirecting to auth');
     return <Navigate to="/auth" replace />;
   }
@@ -210,6 +215,7 @@ export default function Dashboard() {
   >('general');
   const [settingsInitialIntegration, setSettingsInitialIntegration] = useState<'github' | 'vercel'>('github');
   const [hasSelectedGithubRepos, setHasSelectedGithubRepos] = useState(false);
+  const [incidents, setIncidents] = useState<any[]>([]);
   
   const { isAuthenticated, repositories } = useGitHubAuth();
   const [extensionsOpen, setExtensionsOpen] = useState(false);
@@ -565,6 +571,49 @@ export default function Dashboard() {
     setIdeProject(project);
   };
 
+  const monitorRepo = async (repo: any) => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      toast.error("Please log in first");
+      return;
+    }
+    
+    const token = (session as any).provider_token;
+
+    // Save repo + token to DB
+    await supabase.from('monitored_repos').upsert({
+      user_id: session.user.id,
+      repo_full_name: repo.full_name,
+      repo_id: repo.id,
+      github_token: token
+    });
+
+    // Install webhook on GitHub repo automatically
+    try {
+      await fetch(`https://api.github.com/repos/${repo.full_name}/hooks`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          name: 'web',
+          active: true,
+          events: ['workflow_run'],
+          config: {
+            url: `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/webhook-receiver`,
+            content_type: 'json',
+            secret: import.meta.env.VITE_WEBHOOK_SECRET
+          }
+        })
+      });
+      toast.success(`Monitoring ${repo.full_name}`);
+    } catch (err) {
+      console.error('Webhook error:', err);
+      toast.error("Failed to install webhook");
+    }
+  };
+
   const handleExternalLink = (project: Project, e: React.MouseEvent) => {
     e.stopPropagation();
     if (project.vercelProjectId) {
@@ -671,18 +720,7 @@ export default function Dashboard() {
               <Plus className="w-4 h-4 mr-2" />
               New Project
             </Button>
-            <Button 
-              variant="outline" 
-              className="border-[#30363d] text-white hover:bg-[#21262d]"
-              onClick={handleImportFromGitHub}
-            >
-              <Download className="w-4 h-4 mr-2" />
-              {!githubService.isAuthenticated()
-                ? "Connect GitHub"
-                : hasSelectedGithubRepos
-                  ? "Browse GitHub Repos"
-                  : "Select GitHub Repos"}
-            </Button>
+            <ConnectGitHub />
             <Button 
               variant="outline" 
               className="border-[#30363d] text-white hover:bg-[#21262d]"
@@ -756,13 +794,26 @@ export default function Dashboard() {
                       </Button>
                     </div>
                     
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <GitBranch className="w-3 h-3 text-[#7d8590]" />
-                        <span className="text-xs text-[#7d8590]">{project.framework}</span>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <GitBranch className="w-3 h-3 text-[#7d8590]" />
+                          <span className="text-xs text-[#7d8590]">{project.framework}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Button 
+                            size="sm" 
+                            variant="outline" 
+                            className="h-7 text-xs border-[#238636] text-[#238636] hover:bg-[#238636] hover:text-white"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              monitorRepo({ full_name: `${project.owner}/${project.repo}`, id: project.id, name: project.name });
+                            }}
+                          >
+                            Monitor
+                          </Button>
+                          {getStatusBadge(project.status)}
+                        </div>
                       </div>
-                      {getStatusBadge(project.status)}
-                    </div>
                   </div>
                 ))}
               </div>
@@ -824,14 +875,7 @@ export default function Dashboard() {
                       )}
                       
                       <div className="space-y-3">
-                        <Button 
-                          onClick={() => setActiveView("settings")} 
-                          className="w-full bg-[#238636] hover:bg-[#2ea043]"
-                          size="lg"
-                        >
-                          <Zap className="w-4 h-4 mr-2" />
-                          Connect GitHub & Vercel
-                        </Button>
+                        <ConnectGitHub />
                         
                         <div className="bg-[#161b22] border border-[#30363d] rounded-lg p-4 text-left">
                           <h4 className="text-sm font-medium text-white mb-2">What you'll need:</h4>
@@ -914,13 +958,58 @@ export default function Dashboard() {
             )}
 
             {/* Show message when no activity yet */}
-            {automatedFixes.length === 0 && activityLog.length === 0 && projects.length > 0 && (
+            {incidents.length === 0 && projects.length > 0 && (
               <div className="text-center py-8">
                 <Activity className="w-8 h-8 text-[#7d8590] mx-auto mb-2" />
                 <h3 className="text-sm font-medium text-white mb-1">No Activity Yet</h3>
                 <p className="text-xs text-[#7d8590]">
                   Activity will appear here as you use ResurrectCI features
                 </p>
+              </div>
+            )}
+
+            {/* Live Agent Activity Feed */}
+            {incidents.length > 0 && (
+              <div className="mt-8">
+                <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                  <Activity className="w-5 h-5 text-[#238636]" />
+                  Live Agent Activity
+                </h3>
+                <div className="space-y-4">
+                  {incidents.map((inc) => {
+                    const statusColor = {
+                      detected: 'border-yellow-500 text-yellow-500',
+                      analyzing: 'border-blue-500 text-blue-500',
+                      fixed: 'border-green-500 text-green-500',
+                      failed: 'border-red-500 text-red-500'
+                    }[inc.status as string] || 'border-gray-500 text-gray-500';
+
+                    return (
+                      <div key={inc.id} className={`bg-[#161b22] border-l-4 ${statusColor.split(' ')[0]} border-[#30363d] rounded-lg p-4`}>
+                        <div className="flex justify-between items-start mb-2">
+                          <strong className="text-white">{inc.repo_full_name}</strong>
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${statusColor}`}>
+                            {inc.status.toUpperCase()}
+                          </span>
+                        </div>
+                        <p className="text-xs text-[#7d8590] mb-2">Branch: {inc.branch}</p>
+                        {inc.root_cause && (
+                          <p className="text-sm text-white mb-2 italic">"{inc.root_cause}"</p>
+                        )}
+                        {inc.pr_url && (
+                          <a 
+                            href={inc.pr_url} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="text-xs text-green-400 hover:underline flex items-center gap-1"
+                          >
+                            View Auto-Fix PR <ExternalLink className="w-3 h-3" />
+                          </a>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             )}
           </div>

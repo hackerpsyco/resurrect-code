@@ -162,7 +162,7 @@ Where errors lurk both day and night,
 ResurrectCI stands tall and true,
 Fixing bugs for me and you!
 
-With Kestra's flow and Rabbit's eye,
+With automated flow and Rabbit's eye,
 No broken build shall make us cry,
 Automated actions, swift and clean,
 The finest DevOps ever seen! 🚀`

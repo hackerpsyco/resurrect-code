@@ -6,7 +6,6 @@ Thank you for your interest in contributing to ResurrectCI! This document provid
 
 ### Prerequisites
 - Node.js 18+
-- Docker (for Kestra)
 - Git
 - GitHub account
 
@@ -37,8 +36,6 @@ resurrect-code/
 │   └── types/              # TypeScript type definitions
 ├── supabase/
 │   └── functions/          # Edge functions
-├── kestra/
-│   └── workflows/          # Kestra workflow definitions
 └── docs/                   # Documentation
 ```
 
@@ -172,7 +169,6 @@ test(services): add unit tests for AI service
 ### **Technologies Used**
 - [React Documentation](https://reactjs.org/docs)
 - [TypeScript Handbook](https://www.typescriptlang.org/docs)
-- [Kestra Documentation](https://kestra.io/docs)
 - [Supabase Guides](https://supabase.com/docs)
 
 ### **DevOps & AI**

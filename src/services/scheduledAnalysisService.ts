@@ -1,7 +1,7 @@
 /**
  * Scheduled Analysis Service
  * Handles backend logic for scheduled code analysis execution
- * Integrates with Kestra, GitHub, and email notifications
+ * Integrates with GitHub and email notifications
  */
 
 import { toast } from 'sonner';

@@ -1,10 +1,16 @@
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Zap, GitBranch, Shield } from "lucide-react";
-import { Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 
 export function HeroSection() {
   const { user } = useAuth();
+  const navigate = useNavigate();
+
+  const handleTryNow = () => {
+    sessionStorage.setItem('guest_mode', 'true');
+    navigate('/dashboard');
+  };
 
   return (
     <section className="relative min-h-screen flex items-center justify-center overflow-hidden pt-16">
@@ -29,33 +35,31 @@ export function HeroSection() {
         
         {/* Subtitle */}
         <p className="text-xl md:text-2xl text-muted-foreground max-w-3xl mx-auto mb-12">
-          ResurrectCI detects failures, analyzes errors, searches for solutions, 
-          patches your code autonomously, and redeploys all without human intervention.
+          Harnessing <span className="text-primary font-semibold">Azure OpenAI</span> and 
+          multi-agent orchestration to detect, analyze, and autonomously fix CI/CD failures 
+          before you even notice them.
         </p>
         
         {/* CTA Buttons */}
         <div className="flex flex-col sm:flex-row gap-4 justify-center mb-16">
           {user ? (
-            <Link to="/dashboard">
-              <Button size="lg" className="group bg-primary hover:bg-primary/90 text-primary-foreground px-8 py-6 text-lg font-semibold shadow-[var(--glow-primary)]">
-                Open Dashboard
-                <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
-              </Button>
-            </Link>
+            <Button 
+              onClick={() => navigate('/dashboard')}
+              size="lg" 
+              className="group bg-primary hover:bg-primary/90 text-primary-foreground px-8 py-6 text-lg font-semibold shadow-[var(--glow-primary)]"
+            >
+              Open Dashboard
+              <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
+            </Button>
           ) : (
-            <>
-              <Link to="/auth">
-                <Button size="lg" className="group bg-primary hover:bg-primary/90 text-primary-foreground px-8 py-6 text-lg font-semibold shadow-[var(--glow-primary)]">
-                  Get Started Free
-                  <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
-                </Button>
-              </Link>
-              <Link to="/auth">
-                <Button size="lg" variant="outline" className="px-8 py-6 text-lg border-border hover:bg-secondary">
-                  Sign In
-                </Button>
-              </Link>
-            </>
+            <Button 
+              onClick={handleTryNow}
+              size="lg" 
+              className="group bg-primary hover:bg-primary/90 text-primary-foreground px-12 py-6 text-xl font-bold shadow-[var(--glow-primary)]"
+            >
+              Try Now Free
+              <ArrowRight className="ml-2 w-6 h-6 group-hover:translate-x-1 transition-transform" />
+            </Button>
           )}
         </div>
         

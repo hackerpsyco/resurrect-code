@@ -33,6 +33,8 @@ export interface AnalysisReport {
   shortSummary: string;
   fullReport: string;
   prUrl?: string;
+  prNumber?: number;
+  branchName?: string;
   emailSent: boolean;
 }
 

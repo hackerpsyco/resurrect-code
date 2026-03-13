@@ -9,8 +9,6 @@ interface UserCredentials {
   vercelToken?: string;
   githubToken?: string;
   geminiApiKey?: string;
-  kestraUrl?: string;
-  kestraToken?: string;
 }
 
 interface UserSettings {
@@ -85,7 +83,7 @@ class UserStorageService {
     try {
       console.log('💾 Storing credentials for user:', this.currentUserId.substring(0, 8));
       
-      const { error } = await supabase
+      const { error } = await (supabase as any)
         .from('user_credentials')
         .upsert(
           {
@@ -118,7 +116,7 @@ class UserStorageService {
     }
 
     try {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('user_credentials')
         .select('credentials')
         .eq('user_id', this.currentUserId)
@@ -149,7 +147,7 @@ class UserStorageService {
     try {
       console.log('💾 Storing settings for user:', this.currentUserId.substring(0, 8));
       
-      const { error } = await supabase
+      const { error } = await (supabase as any)
         .from('user_settings')
         .upsert(
           {
@@ -182,7 +180,7 @@ class UserStorageService {
     }
 
     try {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('user_settings')
         .select('settings')
         .eq('user_id', this.currentUserId)
@@ -213,8 +211,8 @@ class UserStorageService {
       
       // Clear from database
       await Promise.all([
-        supabase.from('user_credentials').delete().eq('user_id', this.currentUserId),
-        supabase.from('user_settings').delete().eq('user_id', this.currentUserId)
+        (supabase as any).from('user_credentials').delete().eq('user_id', this.currentUserId),
+        (supabase as any).from('user_settings').delete().eq('user_id', this.currentUserId)
       ]);
 
       // Clear from localStorage

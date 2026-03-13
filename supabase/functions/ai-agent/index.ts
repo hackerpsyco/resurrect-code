@@ -216,7 +216,7 @@ Respond with this exact JSON structure:
         break;
 
       case "full_analysis":
-        // Combined analysis for Kestra workflow - single call that does everything
+        // Combined analysis for automation workflow - single call that does everything
         prompt = `You are running a full CI/CD error analysis and fix generation.
 
 PROJECT: ${errorInfo?.projectName}

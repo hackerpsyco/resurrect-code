@@ -50,7 +50,6 @@ Once the custom domain is active:
 
 ✅ `.env` - Updated VITE_SUPABASE_URL  
 ✅ `vite.config.ts` - Updated proxy target  
-✅ `kestra/workflows/resurrect-agent.yml` - Updated supabase_url  
 
 ## Testing
 

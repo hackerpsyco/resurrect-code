@@ -269,16 +269,16 @@ export function ProjectDetailPanel({
             </div>
           </div>
 
-          {/* Kestra Workflow Info */}
+          {/* AI execution statistics */}
           <Card className="p-4 bg-background border-border">
             <div className="flex items-center gap-3 mb-3">
               <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center">
                 <Zap className="w-5 h-5 text-primary" />
               </div>
               <div>
-                <h3 className="font-medium">Kestra Workflow: resurrect-agent</h3>
+                <h3 className="font-medium">Automation Statistics</h3>
                 <p className="text-xs text-muted-foreground">
-                  Autonomous error analysis, solution search, and fix generation
+                  AI-powered error analysis and fix generation metrics
                 </p>
               </div>
             </div>
@@ -300,13 +300,6 @@ export function ProjectDetailPanel({
                 <p className="text-2xl font-bold text-accent">45s</p>
                 <p className="text-xs text-muted-foreground">Avg. Time</p>
               </div>
-            </div>
-
-            <div className="mt-4 p-3 rounded bg-secondary/30 border border-border">
-              <p className="text-xs text-muted-foreground mb-2">Webhook Endpoint:</p>
-              <code className="text-xs font-mono text-foreground break-all">
-                {`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/webhook-handler`}
-              </code>
             </div>
           </Card>
         </div>

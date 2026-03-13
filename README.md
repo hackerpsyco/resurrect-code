@@ -3,7 +3,6 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![React](https://img.shields.io/badge/React-20232A?logo=react&logoColor=61DAFB)](https://reactjs.org/)
-[![Kestra](https://img.shields.io/badge/Kestra-FF6B35?logo=kestra&logoColor=white)](https://kestra.io/)
 [![CodeRabbit](https://img.shields.io/badge/CodeRabbit-FF6B35?logo=coderabbit&logoColor=white)](https://coderabbit.ai/)
 
 > **Autonomous AI-powered DevOps platform that automatically detects, analyzes, and fixes build errors without human intervention.**
@@ -14,7 +13,7 @@ ResurrectCI is a revolutionary DevOps automation platform that **takes action** 
 
 - 🔍 **Detects** build failures in real-time
 - 🤖 **Analyzes** errors using Gemini AI
-- 🔄 **Orchestrates** fixes using Kestra workflows
+- 🔄 **Orchestrates** fixes using automated workflows
 - 📝 **Creates** GitHub PRs with automated solutions
 - 🐰 **Reviews** code quality with CodeRabbit
 - ✅ **Auto-merges** when tests pass
@@ -31,7 +30,7 @@ ResurrectCI is a revolutionary DevOps automation platform that **takes action** 
 - **Smart fix strategies** for dependencies, syntax, and configuration errors
 
 ### 🔄 **Workflow Orchestration**
-- **Kestra integration** for complex workflow automation
+- **Automated flows** for complex workflow automation
 - **Multi-step processes** coordinated seamlessly
 - **Error handling** and retry mechanisms
 - **Real-time monitoring** and progress tracking
@@ -60,7 +59,7 @@ ResurrectCI is a revolutionary DevOps automation platform that **takes action** 
 graph TB
     A[Vercel Deployment] -->|Fails| B[ResurrectCI Detection]
     B --> C[Gemini AI Analysis]
-    C --> D[Kestra Workflow]
+    C --> D[Automated Workflow]
     D --> E[Fix Generation]
     E --> F[GitHub PR Creation]
     F --> G[CodeRabbit Review]
@@ -82,7 +81,6 @@ graph TB
 
 ### Prerequisites
 - Node.js 18+
-- Docker (for Kestra)
 - GitHub account with repository access
 - Vercel account for deployments
 
@@ -106,23 +104,12 @@ VERCEL_TOKEN=your_vercel_token
 VITE_GEMINI_API_KEY=your_gemini_api_key
 ```
 
-### 3. Start Kestra (Workflow Engine)
-```bash
-docker run -p 8080:8080 kestra/kestra:latest server local
-```
-
-### 4. Deploy ResurrectCI Workflow
-1. Open http://localhost:8080
-2. Go to "Flows" → "Create"
-3. Copy content from `kestra/workflows/resurrect-agent.yml`
-4. Save as `resurrectci.resurrect-agent`
-
-### 5. Start the Application
+### 3. Start the Application
 ```bash
 npm run dev
 ```
 
-### 6. Test the Automation
+### 4. Test the Automation
 1. Open http://localhost:5173
 2. Go to Dashboard → DevOps Panel
 3. Click "Test Automation" button
@@ -147,10 +134,9 @@ const fixStrategy = await analyzeErrorAndCreateStrategy(deployment, error);
 
 ### 3. **Workflow Orchestration**
 ```yaml
-# Kestra workflow coordinates the entire fix process
+# Automated workflow coordinates the entire fix process
 - id: analyze_error
-  type: io.kestra.plugin.core.http.Request
-  uri: "{{ vars.supabase_url }}/functions/v1/ai-agent"
+  type: io.resurrectci.Action
   body: |
     {
       "action": "analyze_error",
@@ -174,7 +160,7 @@ const prResult = await createFixPR(deployment, fixStrategy);
 
 ### **Backend & Integration**
 - **Supabase** for backend services
-- **Kestra** for workflow orchestration
+- **Automated Workflows** for orchestration
 - **Vercel API** for deployment monitoring
 - **GitHub API** for repository management
 
@@ -199,7 +185,6 @@ const prResult = await createFixPR(deployment, fixStrategy);
 
 ### **Automated Actions**
 - 🔍 **Error Analysis**: AI-powered error understanding
-- 🔄 **Workflow Trigger**: Kestra orchestration
 - 📝 **PR Creation**: Automated GitHub integration
 - 🐰 **Code Review**: CodeRabbit quality analysis
 - ✅ **Auto-Merge**: Smart merging when tests pass
@@ -207,7 +192,6 @@ const prResult = await createFixPR(deployment, fixStrategy);
 ### **Integration Status**
 - ✅ **Vercel**: Real deployment monitoring
 - ✅ **GitHub**: Automatic PR management
-- ✅ **Kestra**: Workflow orchestration
 - ✅ **CodeRabbit**: AI code reviews
 - ✅ **Gemini AI**: Error analysis
 
@@ -224,7 +208,7 @@ npm run test:services
 
 ### **Manual Testing**
 1. **Use Test Automation Button**: Simulates a build failure
-2. **Monitor Kestra UI**: http://localhost:8080
+2. **Monitor Action Feed**: Watch automation progress in real-time
 3. **Check GitHub PRs**: Automatically created
 4. **Verify CodeRabbit**: AI analysis on PRs
 
@@ -246,7 +230,6 @@ npm install
 
 # Start development servers
 npm run dev          # React app
-npm run dev:kestra   # Kestra workflow engine
 npm run dev:supabase # Supabase local development
 ```
 
@@ -262,7 +245,7 @@ npm run dev:supabase # Supabase local development
 - [x] Real-time error detection
 - [x] AI-powered error analysis
 - [x] Automated PR creation
-- [x] Kestra workflow integration
+- [x] Automated workflow integration
 
 ### **Phase 2: Enhanced Intelligence** 🚧
 - [ ] Machine learning for fix prediction
@@ -288,7 +271,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🙏 Acknowledgments
 
-- **Kestra Team** for the amazing workflow orchestration platform
 - **CodeRabbit** for AI-powered code reviews
 - **Vercel** for seamless deployment infrastructure
 - **Supabase** for the excellent backend platform

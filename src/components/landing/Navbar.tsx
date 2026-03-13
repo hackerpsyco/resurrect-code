@@ -1,10 +1,16 @@
 import { Button } from "@/components/ui/button";
 import { Cpu, Github, LogOut } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 
 export function Navbar() {
   const { user, signOut } = useAuth();
+  const navigate = useNavigate();
+
+  const handleTryNow = () => {
+    sessionStorage.setItem('guest_mode', 'true');
+    navigate('/dashboard');
+  };
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-xl">
@@ -40,11 +46,12 @@ export function Navbar() {
           
           {user ? (
             <>
-              <Link to="/dashboard">
-                <Button className="bg-primary hover:bg-primary/90 text-primary-foreground">
-                  Dashboard
-                </Button>
-              </Link>
+              <Button 
+                onClick={() => navigate('/dashboard')}
+                className="bg-primary hover:bg-primary/90 text-primary-foreground"
+              >
+                Dashboard
+              </Button>
               <Button
                 variant="ghost"
                 size="icon"
@@ -55,18 +62,12 @@ export function Navbar() {
               </Button>
             </>
           ) : (
-            <>
-              <Link to="/auth">
-                <Button variant="ghost" className="text-muted-foreground hover:text-foreground">
-                  Sign In
-                </Button>
-              </Link>
-              <Link to="/auth">
-                <Button className="bg-primary hover:bg-primary/90 text-primary-foreground">
-                  Get Started
-                </Button>
-              </Link>
-            </>
+            <Button 
+              onClick={handleTryNow}
+              className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold px-6"
+            >
+              Try Now Free
+            </Button>
           )}
         </div>
       </div>

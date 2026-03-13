@@ -36,7 +36,7 @@ const Index = () => {
               Stop Debugging. Start <span className="text-primary">Shipping.</span>
             </h2>
             <p className="text-muted-foreground text-lg max-w-xl mx-auto mb-8">
-              Let AI handle your CI/CD failures while you focus on building features.
+              Let <span className="text-primary font-semibold">Azure OpenAI Agents</span> handle your CI/CD failures while you focus on building features.
             </p>
             <div className="flex flex-col sm:flex-row justify-center gap-4">
               {user ? (
@@ -46,18 +46,15 @@ const Index = () => {
                   </button>
                 </Link>
               ) : (
-                <>
-                  <Link to="/auth">
-                    <button className="px-8 py-4 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-lg shadow-[var(--glow-primary)] transition-all">
-                      Get Started Free
-                    </button>
-                  </Link>
-                  <Link to="/auth">
-                    <button className="px-8 py-4 bg-card hover:bg-card/80 border border-border font-semibold rounded-lg transition-all">
-                      Sign In
-                    </button>
-                  </Link>
-                </>
+                <button 
+                  onClick={() => {
+                    sessionStorage.setItem('guest_mode', 'true');
+                    window.location.href = '/dashboard';
+                  }}
+                  className="px-12 py-4 bg-primary hover:bg-primary/90 text-primary-foreground text-xl font-bold rounded-lg shadow-[var(--glow-primary)] transition-all"
+                >
+                  Try Now Free
+                </button>
               )}
             </div>
           </div>
@@ -67,7 +64,7 @@ const Index = () => {
         <footer className="py-8 border-t border-border">
           <div className="container mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-4">
             <p className="text-sm text-muted-foreground">
-              © 2024 ResurrectCI. Built for the Kestra x Vercel Hackathon.
+              © 2024 ResurrectCI. Built for Autonomous DevOps.
             </p>
             <div className="flex items-center gap-6">
               <a href="#" className="text-sm text-muted-foreground hover:text-foreground">

@@ -1,12 +1,11 @@
 /**
  * Automated Action Service
  * Takes automated corrective actions when deployments fail
- * Integrates with Kestra workflows, CodeRabbit, and GitHub for autonomous fixing
+ * Integrates with automated workflows, CodeRabbit, and GitHub for autonomous fixing
  */
 
 import { toast } from 'sonner';
 import { RealDeployment, DeploymentError } from './deploymentMonitor';
-import { kestraService } from './kestraService';
 import { coderabbitService } from './coderabbitService';
 
 export interface AutomatedAction {
@@ -103,13 +102,14 @@ class AutomatedActionService {
       analyzeAction.completedAt = new Date().toISOString();
       this.notifyListeners(analyzeAction);
 
-      // Step 2: Trigger Kestra workflow for automated fixing
+      // Step 2: Trigger AI analysis for automated fixing
       const workflowAction = await this.createAction(deployment.id, 'trigger_workflow',
-        'Triggering Kestra ResurrectCI workflow for automated error fixing');
+        'Triggering automated error fixing workflow');
       
-      await this.triggerKestraWorkflow(deployment, error, fixStrategy);
+      // Trigger automation via Supabase Edge Function
+      await this.triggerAutomationWorkflow(deployment, error, fixStrategy);
       workflowAction.status = 'completed';
-      workflowAction.result = 'Kestra workflow triggered successfully';
+      workflowAction.result = 'Automation workflow triggered successfully';
       workflowAction.completedAt = new Date().toISOString();
       this.notifyListeners(workflowAction);
 
@@ -272,71 +272,38 @@ export default ${pascalCaseName};
   }
 
   /**
-   * Trigger Kestra workflow for automated fixing
+   * Trigger automation workflow for automated fixing
    */
-  private async triggerKestraWorkflow(deployment: RealDeployment, error: DeploymentError, strategy: FixStrategy): Promise<void> {
-    console.log('🔄 Triggering Kestra ResurrectCI workflow...');
-
+  private async triggerAutomationWorkflow(deployment: RealDeployment, error: DeploymentError, strategy: FixStrategy): Promise<void> {
+    console.log('🔄 Triggering automation workflow...');
+    
     try {
-      // First check if Kestra is available
-      const isKestraAvailable = await kestraService.checkConnection();
-      
-      if (isKestraAvailable) {
-        // Use real Kestra webhook service (FREE MODE)
-        // Get the real Vercel project ID
-        const projectId = await this.getVercelProjectId(deployment.name);
-        
-        const result = await kestraService.triggerResurrectWorkflow({
-          project_id: projectId,
-          project_name: deployment.name,
-          branch: deployment.branch,
-          error_message: error.error,
-          error_logs: error.logs.map(l => l.message)
-        });
-
-        console.log('✅ Real Kestra workflow triggered via webhook:', result.executionId);
-        toast.success(`🤖 Kestra workflow triggered: ${result.executionId}`);
-        
-        // Note: Monitoring requires admin API token, so we skip it in free mode
-        if (kestraService.hasAdminAccess()) {
-          console.log('🔍 Admin access available - monitoring execution...');
-          // Monitor execution progress (only if admin token available)
-        } else {
-          console.log('ℹ️ Webhook mode - execution monitoring not available without admin token');
-          toast.info('🔄 Workflow triggered via webhook - check Kestra UI for progress');
-        }
-
-      } else {
-        // Fallback to Supabase Edge Function
-        console.log('⚠️ Kestra not available, using Supabase fallback...');
-        await this.triggerKestraViaSupabase(deployment, error, strategy);
-      }
-      
-    } catch (error) {
-      console.error('❌ Failed to trigger Kestra workflow:', error);
-      console.log('🔄 Continuing with local fix implementation...');
-      // Continue with local fix implementation as fallback
+      await this.triggerWorkflowViaSupabase(deployment, error, strategy);
+      console.log('✅ Automation workflow triggered successfully');
+    } catch (err) {
+      console.error('❌ Failed to trigger automation workflow:', err);
+      toast.error('Failed to trigger automation workflow');
     }
   }
 
   /**
-   * Fallback: Trigger Kestra via Supabase Edge Function
+   * Trigger automation via Supabase Edge Function
    */
-  private async triggerKestraViaSupabase(deployment: RealDeployment, error: DeploymentError, strategy: FixStrategy): Promise<void> {
+  private async triggerWorkflowViaSupabase(deployment: RealDeployment, error: DeploymentError, strategy: FixStrategy): Promise<void> {
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-    const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+    const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
     if (!supabaseUrl || !supabaseKey) {
-      console.warn('⚠️ Supabase not configured, simulating Kestra workflow...');
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      return;
+      console.warn('⚠️ Supabase not configured, simulating automation workflow...');
+      return new Promise((resolve) => setTimeout(resolve, 2000));
     }
 
     try {
       // Get the real Vercel project ID
       const projectId = await this.getVercelProjectId(deployment.name);
       
-      const response = await fetch(`${supabaseUrl}/functions/v1/kestra-webhook`, {
+      // We use the webhook handler as the generic entry point for automation
+      const response = await fetch(`${supabaseUrl}/functions/v1/webhook-handler`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -357,14 +324,14 @@ export default ${pascalCaseName};
       });
 
       if (!response.ok) {
-        throw new Error(`Kestra workflow trigger failed: ${response.statusText}`);
+        throw new Error(`Automation workflow trigger failed: ${response.statusText}`);
       }
 
       const result = await response.json();
-      console.log('✅ Kestra workflow triggered via Supabase:', result.data);
+      console.log('✅ Automation workflow triggered via Supabase:', result.data);
       
     } catch (error) {
-      console.error('❌ Supabase Kestra trigger failed:', error);
+      console.error('❌ Supabase automation trigger failed:', error);
     }
   }
 
@@ -610,7 +577,7 @@ ${strategy.files.map(f => `- ${f.action.toUpperCase()}: \`${f.path}\``).join('\n
 ### How it works:
 1. 🔍 **Error Detection**: Deployment failure was automatically detected
 2. 🤖 **AI Analysis**: Gemini AI analyzed the error and determined the fix strategy
-3. 🔄 **Kestra Workflow**: ResurrectCI workflow was triggered for automated fixing
+3. 🔄 **Workflow Trigger**: Automation workflow was triggered for automated fixing
 4. 📝 **Code Generation**: Fix was automatically generated and applied
 5. 🚀 **PR Creation**: This PR was created for review and testing
 

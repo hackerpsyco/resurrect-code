@@ -473,7 +473,7 @@ export function AnalysisAutomationSettings({ onClose }: AnalysisAutomationSettin
 
           <div className="p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
             <p className="text-xs text-yellow-400">
-              ⚠️ <strong>Note:</strong> Automated scheduling requires Kestra workflow setup. 
+              ⚠️ <strong>Note:</strong> Automated scheduling requires workflow setup. 
               Currently, manual analysis in DevOps panel is available.
             </p>
           </div>

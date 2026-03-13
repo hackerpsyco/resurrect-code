@@ -2,34 +2,34 @@ import { Card } from "@/components/ui/card";
 
 const technologies = [
   {
-    name: "Kestra",
-    description: "Orchestration engine powering the AI agent workflows",
-    icon: "⚡",
-    color: "from-purple-500 to-violet-600",
+    name: "Azure OpenAI",
+    description: "Enterprise-grade AI reasoning for autonomous debugging & fixes",
+    icon: "🧠",
+    color: "from-blue-500 to-indigo-600",
   },
   {
-    name: "Vercel",
-    description: "Frontend hosting with instant preview deployments",
-    icon: "▲",
-    color: "from-gray-600 to-gray-800",
-  },
-  {
-    name: "AI Agents",
-    description: "reasoning for intelligent debugging",
-    icon: "🤖",
-    color: "from-emerald-500 to-teal-600",
-  },
-  {
-    name: "GitHub",
-    description: "Webhook integration for build monitoring",
+    name: "GitHub OAuth",
+    description: "One-click connection for repository and CI/CD access",
     icon: "🐙",
     color: "from-gray-700 to-gray-900",
   },
   {
-    name: "Cline",
-    description: "VS Code AI assistant for code generation",
-    icon: "🧠",
-    color: "from-blue-500 to-cyan-600",
+    name: "Supabase",
+    description: "Real-time backend orchestration via Deno Edge Functions",
+    icon: "⚡",
+    color: "from-emerald-500 to-teal-600",
+  },
+  {
+    name: "Multi-Agent Logic",
+    description: "Coordinated agent chain: detection → analysis → automation",
+    icon: "🤖",
+    color: "from-purple-500 to-pink-600",
+  },
+  {
+    name: "Self-Healing CI",
+    description: "Automated recovery flow with zero developer intervention",
+    icon: "🛠️",
+    color: "from-orange-500 to-red-600",
   },
 ];
 

@@ -74,10 +74,10 @@ const ONBOARDING_STEPS: OnboardingStep[] = [
   {
     id: "devops",
     title: "Configure DevOps",
-    description: "Set up automated workflows with Kestra",
+    description: "Set up automated workflows for your projects",
     icon: <Workflow className="w-8 h-8" />,
     details: [
-      "Connect to your Kestra instance",
+      "Set up automation triggers",
       "Create deployment workflows",
       "Set up monitoring and alerts",
       "Configure rollback procedures",

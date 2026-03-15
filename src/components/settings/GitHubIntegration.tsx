@@ -24,7 +24,7 @@ import { toast } from 'sonner';
 import { githubOAuthService } from '@/services/githubOAuthService';
 import { userStorageService } from '@/services/userStorageService';
 // import { supabase } from '@/integrations/supabase/client'
-const supabase = new Proxy({}, { get: () => () => ({ data: {}, error: null }) }); // Mocked for removal;
+import { supabase } from '@/lib/mockSupabase';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 

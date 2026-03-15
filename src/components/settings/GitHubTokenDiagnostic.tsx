@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Loader2, CheckCircle, AlertCircle, RefreshCw } from 'lucide-react';
 // import { supabase } from '@/integrations/supabase/client'
-const supabase = new Proxy({}, { get: () => () => ({ data: {}, error: null }) }); // Mocked for removal;
+import { supabase } from '@/lib/mockSupabase';
 
 export function GitHubTokenDiagnostic() {
   const [isChecking, setIsChecking] = useState(false);

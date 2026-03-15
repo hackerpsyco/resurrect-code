@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react";
 // import { supabase } from "@/integrations/supabase/client"
-const supabase = new Proxy({}, { get: () => () => ({ data: {}, error: null }) }); // Mocked for removal;
+import { supabase } from '@/lib/mockSupabase';
 import { toast } from "sonner";
 
 interface ErrorInfo {

@@ -50,7 +50,7 @@ import { NewUserOnboarding } from "@/components/onboarding/NewUserOnboarding";
 import { WelcomeMessage } from "@/components/dashboard/WelcomeMessage";
 import { userStorageService } from "@/services/userStorageService";
 // import { supabase } from "@/lib/supabase"
-const supabase = new Proxy({}, { get: () => () => ({ data: {}, error: null }) }); // Mocked for removal;
+import { supabase } from '@/lib/mockSupabase';
 import ConnectGitHub from "@/components/ConnectGitHub";
 
 interface Project {

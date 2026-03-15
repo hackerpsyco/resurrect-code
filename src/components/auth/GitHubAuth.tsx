@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Github as GithubIcon, Key, CheckCircle, AlertCircle, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 // import { supabase } from "@/integrations/supabase/client"
-const supabase = new Proxy({}, { get: () => () => ({ data: {}, error: null }) }); // Mocked for removal;
+import { supabase } from '@/lib/mockSupabase';
 import { userStorageService } from "@/services/userStorageService";
 
 interface GitHubAuthProps {

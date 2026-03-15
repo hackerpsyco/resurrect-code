@@ -4,7 +4,7 @@
  */
 
 // import { supabase } from '@/integrations/supabase/client'
-const supabase = new Proxy({}, { get: () => () => ({ data: {}, error: null }) }); // Mocked for removal;
+import { supabase } from '@/lib/mockSupabase';
 
 interface UserCredentials {
   vercelToken?: string;

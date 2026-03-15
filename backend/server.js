@@ -284,6 +284,9 @@ app.post('/api/monitor', authenticateToken, async (req, res) => {
     return res.status(400).json({ success: false, error: 'repo_full_name is required' });
   }
 
+  // Safe parsing for repo_id to avoid NaN triggering database type errors
+  const parsedRepoId = repo_id && !isNaN(parseInt(repo_id)) ? parseInt(repo_id) : null;
+
   try {
     // A. Verify/Insert into Monitored Repos in Neon DB
     const checkQuery = 'SELECT id FROM monitored_repos WHERE repo_full_name = $1 AND user_id = $2';
@@ -292,7 +295,7 @@ app.post('/api/monitor', authenticateToken, async (req, res) => {
     if (checkResult.rows.length === 0) {
       await pool.query(
         'INSERT INTO monitored_repos (user_id, repo_full_name, repo_id, github_token) VALUES ($1, $2, $3, $4)', 
-        [userId, repo_full_name, repo_id ? parseInt(repo_id) : null, githubToken]
+        [userId, repo_full_name, parsedRepoId, githubToken]
       );
     } else {
       await pool.query(

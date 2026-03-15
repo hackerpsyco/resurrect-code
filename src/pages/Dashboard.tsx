@@ -49,7 +49,8 @@ import { toast } from "sonner";
 import { NewUserOnboarding } from "@/components/onboarding/NewUserOnboarding";
 import { WelcomeMessage } from "@/components/dashboard/WelcomeMessage";
 import { userStorageService } from "@/services/userStorageService";
-import { supabase } from "@/lib/supabase";
+// import { supabase } from "@/lib/supabase"
+const supabase = new Proxy({}, { get: () => () => ({ data: {}, error: null }) }); // Mocked for removal;
 import ConnectGitHub from "@/components/ConnectGitHub";
 
 interface Project {
@@ -633,45 +634,35 @@ export default function Dashboard() {
   };
 
   const monitorRepo = async (repo: any) => {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
-      toast.error("Please log in first");
+    const token = localStorage.getItem('token');
+    if (!token) {
+      toast.error("Please log in with GitHub first");
       return;
     }
     
-    const token = (session as any).provider_token;
-
-    // Save repo + token to DB
-    await supabase.from('monitored_repos').upsert({
-      user_id: session.user.id,
-      repo_full_name: repo.full_name,
-      repo_id: repo.id,
-      github_token: token
-    });
-
-    // Install webhook on GitHub repo automatically
     try {
-      await fetch(`https://api.github.com/repos/${repo.full_name}/hooks`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || ''}/api/monitor`, {
         method: 'POST',
         headers: {
-          Authorization: `Bearer ${token}`,
+          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          name: 'web',
-          active: true,
-          events: ['workflow_run'],
-          config: {
-            url: `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/webhook-receiver`,
-            content_type: 'json',
-            secret: import.meta.env.VITE_WEBHOOK_SECRET
-          }
+          repo_full_name: repo.full_name,
+          repo_id: repo.id
         })
       });
-      toast.success(`Monitoring ${repo.full_name}`);
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        toast.success(data.message || `Monitoring ${repo.full_name}`);
+      } else {
+        toast.error(data.error || "Failed to configure monitoring");
+      }
     } catch (err) {
-      console.error('Webhook error:', err);
-      toast.error("Failed to install webhook");
+      console.error('Monitor trigger error:', err);
+      toast.error("Failed to configure monitoring");
     }
   };
 

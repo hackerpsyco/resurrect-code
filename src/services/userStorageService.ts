@@ -3,7 +3,8 @@
  * Stores user credentials and settings per authenticated user in Supabase database
  */
 
-import { supabase } from '@/integrations/supabase/client';
+// import { supabase } from '@/integrations/supabase/client'
+const supabase = new Proxy({}, { get: () => () => ({ data: {}, error: null }) }); // Mocked for removal;
 
 interface UserCredentials {
   vercelToken?: string;

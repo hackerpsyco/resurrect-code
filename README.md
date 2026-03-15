@@ -1,75 +1,61 @@
-# 🤖 ResurrectCI - Autonomous DevOps Error Fixing
+# 🤖 ResurrectCI - Autonomous Agentic DevOps & Reliability Engineering
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![React](https://img.shields.io/badge/React-20232A?logo=react&logoColor=61DAFB)](https://reactjs.org/)
-[![CodeRabbit](https://img.shields.io/badge/CodeRabbit-FF6B35?logo=coderabbit&logoColor=white)](https://coderabbit.ai/)
+[![Azure OpenAI](https://img.shields.io/badge/Azure_OpenAI-0078D4?logo=microsoft&logoColor=white)](https://azure.microsoft.com/en-us/products/ai-services/openai-service/)
 
-> **Autonomous AI-powered DevOps platform that automatically detects, analyzes, and fixes build errors without human intervention.**
+> **Autonomous AI-powered DevOps platform leveraging Microsoft Azure AI to automatically detect, analyze, and fix CI/CD build failures without human intervention.**
+
+---
 
 ## 🚀 What is ResurrectCI?
 
-ResurrectCI is a revolutionary DevOps automation platform that **takes action** when your builds fail. Instead of just monitoring and alerting, it:
+ResurrectCI is a revolutionary **Agentic DevOps** automation platform designed to keep software delivery pipelines green. Instead of just monitoring and triggering alerts, ResurrectCI **takes action** leveraging **Azure OpenAI (GPT-4o)** model reasoning to:
 
-- 🔍 **Detects** build failures in real-time
-- 🤖 **Analyzes** errors using Gemini AI
-- 🔄 **Orchestrates** fixes using automated workflows
-- 📝 **Creates** GitHub PRs with automated solutions
-- 🐰 **Reviews** code quality with CodeRabbit
-- ✅ **Auto-merges** when tests pass
-- 🚀 **Redeploys** automatically
+- 🔍 **Detect** build and deployment failures in real-time
+- 🧠 **Analyze** error logs contextually with advanced reasoning 
+- 🛠️ **Generate code fixes** for dependencies, configuration, or syntax regressions
+- 📝 **Orchestrate Multi-Step Workflows** for verification inside a sandbox WebContainer
+- 🔀 **Create & Submit Pull Requests** with detailed automated solutions
+- ✅ **Secure & Verify** fixes before auto-merging approved candidates
 
-**No more broken builds sitting for hours. ResurrectCI fixes them automatically!**
+**No more broken builds sitting stalled in pipelines for hours. ResurrectCI resurrects them automatically!**
 
-## ✨ Key Features
+---
 
-### 🤖 **Autonomous Error Fixing**
-- **Real-time detection** of Vercel deployment failures
-- **AI-powered analysis** using Gemini AI for error understanding
-- **Automatic code generation** to fix common build issues
-- **Smart fix strategies** for dependencies, syntax, and configuration errors
+## ✨ Specialized Tech Capabilities (Microsoft AI Solution)
 
-### 🔄 **Workflow Orchestration**
-- **Automated flows** for complex workflow automation
-- **Multi-step processes** coordinated seamlessly
-- **Error handling** and retry mechanisms
-- **Real-time monitoring** and progress tracking
+### 🤖 **Agentic Incident Response**
+- **Autonomous Error Resolution**: Bridges the gap between alerting and resolving by actively writing remedies.
+- **Advanced Code Reasoning**: Backed by **Azure OpenAI GPT-4o** to understand stacktraces, package conflicts, and logic flaws immediately.
 
-### 📝 **GitHub Integration**
-- **Automatic PR creation** with detailed fix descriptions
-- **Branch management** with timestamped fix branches
-- **Commit message generation** with context
-- **Auto-merge** when CI/CD tests pass
+### 🔄 **Multi-Agent Orchestration & Sandboxing**
+- **WebContainer Sandboxing**: Mounts your repository files inside an isolated browser-side shell to execute `npm run build` safely locally testing remedies before patching!
+- **Verifiers & Testers**: Separate analytical tasks validation checks prevent rolling updates that just break something else.
 
-### 🐰 **Code Quality Assurance**
-- **CodeRabbit integration** for AI code reviews
-- **Best practices enforcement** in generated fixes
-- **Quality scoring** and recommendations
-- **Automated code analysis** on every PR
+### 🛡️ **Enterprise-Grade CI Integration**
+- **Automatic PR Provisioning**: Branches, fixes, and descriptive summaries pushes directly to GitHub securely.
+- **Action Dashboard Review logs**: Single pane of glass for seeing exactly what fix branch has been pushed and why.
 
-### 🎯 **Professional DevOps Panel**
-- **Real-time monitoring** of deployments and actions
-- **Detailed logging** with categorized build information
-- **Service connection status** for all integrations
-- **One-click testing** and automation controls
+---
 
-## 🏗️ Architecture
+## 🏗️ Solution Architecture
 
 ```mermaid
 graph TB
-    A[Vercel Deployment] -->|Fails| B[ResurrectCI Detection]
-    B --> C[Gemini AI Analysis]
-    C --> D[Automated Workflow]
-    D --> E[Fix Generation]
-    E --> F[GitHub PR Creation]
-    F --> G[CodeRabbit Review]
-    G --> H[Auto-Merge]
-    H --> I[Redeploy]
+    A[Vercel / GitHub Actions] -->|Deployment Fails| B[ResurrectCI Detector]
+    B --> C[Azure OpenAI Model Analysis]
+    C --> D[Multi-Agent Sandbox Verification]
+    D --> E[Safe Fix Generator]
+    E --> F[GitHub Pull Request Creation]
+    F --> G[CI/CD Retest & Verification]
+    G --> H[Auto-Merge / Redploy]
     
-    subgraph "Monitoring"
-        J[DevOps Panel]
-        K[Real-time Logs]
-        L[Action Feed]
+    subgraph "Agentic Workspace"
+        J[DevOps Dashboard Panel]
+        K[Real-Time Sandboxed Terminal]
+        L[AI Assistant Sidebar Panel]
     end
     
     B --> J
@@ -77,12 +63,26 @@ graph TB
     F --> L
 ```
 
-## 🚀 Quick Start
+---
 
-### Prerequisites
-- Node.js 18+
-- GitHub account with repository access
-- Vercel account for deployments
+## 🛠️ Technology Stack (Azure Edition)
+
+### **AI & Reasoning Layer**
+- **Microsoft Azure OpenAI**: Powers fix synthesis & error review utilizing secure enterprise access keys.
+- **Llama 3.3 Multi-Agent Handlers**: Support execution routines securely.
+
+### **Frontend & Workspaces**
+- **React 18** + TypeScript & Vite compilation.
+- **Tailwind CSS & ShadCN/ui** aesthetics for responsive design layouts.
+- **WebContainer API**: In-browser node environment verifying solutions instantly sequential.
+
+### **Backend Core Services**
+- **Node.js + Express**: Serves robust proxy API routing workflows dynamically.
+- **PostgreSQL Database**: Storing logs, incidents feeds safely sequential.
+
+---
+
+## 🚀 Quick Start for Hackathon Testing
 
 ### 1. Clone and Install
 ```bash
@@ -92,203 +92,30 @@ npm install
 ```
 
 ### 2. Environment Setup
-```bash
-# Copy environment template
-cp .env.example .env
+Create a `.env` with critical keys:
+```env
+# Azure OpenAI configurations
+AZURE_OPENAI_API_KEY=your_secure_azure_key
+AZURE_OPENAI_ENDPOINT=https://your-endpoint.openai.azure.com/
 
-# Add your API keys
-VITE_SUPABASE_URL=your_supabase_url
-VITE_SUPABASE_PUBLISHABLE_KEY=your_supabase_key
+# GitHub Workspace Integrations
 GITHUB_TOKEN=your_github_token
-VERCEL_TOKEN=your_vercel_token
-VITE_GEMINI_API_KEY=your_gemini_api_key
 ```
 
-### 3. Start the Application
+### 3. Start Application
 ```bash
 npm run dev
 ```
 
-### 4. Test the Automation
-1. Open http://localhost:5173
-2. Go to Dashboard → DevOps Panel
-3. Click "Test Automation" button
-4. Watch ResurrectCI automatically fix a simulated build error!
+---
 
-## 🎯 How It Works
+## 🏆 Hackathon Eligibility Categories Alignment
 
-### 1. **Error Detection**
-```typescript
-// Real-time monitoring of Vercel deployments
-const deployment = await deploymentMonitor.triggerDeployment(projectId, {
-  environment: 'preview',
-  branch: 'main'
-});
-```
-
-### 2. **AI Analysis**
-```typescript
-// Gemini AI analyzes the error and determines fix strategy
-const fixStrategy = await analyzeErrorAndCreateStrategy(deployment, error);
-```
-
-### 3. **Workflow Orchestration**
-```yaml
-# Automated workflow coordinates the entire fix process
-- id: analyze_error
-  type: io.resurrectci.Action
-  body: |
-    {
-      "action": "analyze_error",
-      "errorInfo": { ... }
-    }
-```
-
-### 4. **Automated PR Creation**
-```typescript
-// Creates GitHub PR with the generated fix
-const prResult = await createFixPR(deployment, fixStrategy);
-```
-
-## 🛠️ Technology Stack
-
-### **Frontend**
-- **React 18** with TypeScript
-- **Vite** for fast development
-- **Tailwind CSS** for styling
-- **Shadcn/ui** for components
-
-### **Backend & Integration**
-- **Supabase** for backend services
-- **Automated Workflows** for orchestration
-- **Vercel API** for deployment monitoring
-- **GitHub API** for repository management
-
-### **AI & Analysis**
-- **Gemini AI** for error analysis
-- **CodeRabbit** for code quality review
-- **Custom AI agents** for fix generation
-
-### **DevOps & Monitoring**
-- **Real-time logging** with categorization
-- **WebSocket connections** for live updates
-- **Docker** for containerized services
-- **Professional monitoring** dashboard
-
-## 📊 Features Showcase
-
-### **DevOps Panel**
-- 📈 **Real-time metrics** and deployment statistics
-- 🔄 **Live action feed** showing automation progress
-- 📋 **Detailed build logs** with source categorization
-- ⚙️ **Service configuration** and connection status
-
-### **Automated Actions**
-- 🔍 **Error Analysis**: AI-powered error understanding
-- 📝 **PR Creation**: Automated GitHub integration
-- 🐰 **Code Review**: CodeRabbit quality analysis
-- ✅ **Auto-Merge**: Smart merging when tests pass
-
-### **Integration Status**
-- ✅ **Vercel**: Real deployment monitoring
-- ✅ **GitHub**: Automatic PR management
-- ✅ **CodeRabbit**: AI code reviews
-- ✅ **Gemini AI**: Error analysis
-
-## 🧪 Testing
-
-### **Automated Testing**
-```bash
-# Test the complete automation flow
-npm run test:automation
-
-# Test individual services
-npm run test:services
-```
-
-### **Manual Testing**
-1. **Use Test Automation Button**: Simulates a build failure
-2. **Monitor Action Feed**: Watch automation progress in real-time
-3. **Check GitHub PRs**: Automatically created
-4. **Verify CodeRabbit**: AI analysis on PRs
-
-## 📚 Documentation
-
-- 📖 **[Setup Guide](docs/SETUP_INTEGRATIONS.md)** - Complete integration setup
-- 🏗️ **[Architecture](docs/ARCHITECTURE.md)** - System design and components
-- 🧪 **[Testing Guide](TESTING_CHECKLIST.md)** - Comprehensive testing instructions
-- 🔧 **[API Reference](docs/API.md)** - Service APIs and endpoints
-
-## 🤝 Contributing
-
-We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
-
-### **Development Setup**
-```bash
-# Install dependencies
-npm install
-
-# Start development servers
-npm run dev          # React app
-npm run dev:supabase # Supabase local development
-```
-
-### **Code Quality**
-- **ESLint** for code linting
-- **Prettier** for code formatting
-- **TypeScript** for type safety
-- **CodeRabbit** for AI code reviews
-
-## 📈 Roadmap
-
-### **Phase 1: Core Automation** ✅
-- [x] Real-time error detection
-- [x] AI-powered error analysis
-- [x] Automated PR creation
-- [x] Automated workflow integration
-
-### **Phase 2: Enhanced Intelligence** 🚧
-- [ ] Machine learning for fix prediction
-- [ ] Multi-language error support
-- [ ] Advanced deployment strategies
-- [ ] Custom workflow templates
-
-### **Phase 3: Enterprise Features** 📋
-- [ ] Team collaboration features
-- [ ] Advanced analytics dashboard
-- [ ] Custom integration plugins
-- [ ] Enterprise security features
-
-## 🏆 Awards & Recognition
-
-- 🥇 **Best DevOps Innovation** - TechCrunch Disrupt 2024
-- 🏅 **AI Excellence Award** - DevOps World 2024
-- ⭐ **Community Choice** - GitHub Stars 2024
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🙏 Acknowledgments
-
-- **CodeRabbit** for AI-powered code reviews
-- **Vercel** for seamless deployment infrastructure
-- **Supabase** for the excellent backend platform
-- **Google AI** for Gemini API access
-
-## 📞 Support
-
-- 📧 **Email**: support@resurrectci.com
-- 💬 **Discord**: [Join our community](https://discord.gg/resurrectci)
-- 🐛 **Issues**: [GitHub Issues](https://github.com/hackerpsyco/resurrect-code/issues)
-- 📖 **Docs**: [Documentation Site](https://docs.resurrectci.com)
+Perfectly qualified and targeting:
+- **Challenge winner: Automate and Optimize Software Delivery - Agentic DevOps**: Built to securely fix incidents, auto-approve, and speed verification cycles reducing downtime directly.
+- **Best Multi-Agent System**: Combines isolated browser Sandboxing verifying generation sequentially transparently alongside reasoning outputs.
 
 ---
 
-<div align="center">
-
-**Made by the ResurrectCI Team**
-
-[Website](https://resurrectci.com) • [Documentation](https://docs.resurrectci.com) • [Community](https://discord.gg/resurrectci)
-
-</div>
+## 🙏 Credits & Dedication
+Created securely for **Microsoft AI Applications & Agents Hackathon** to revolutionize modern CI pipelines reliability mechanics.

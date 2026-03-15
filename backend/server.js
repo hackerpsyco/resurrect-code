@@ -274,6 +274,71 @@ app.post('/api/ai/chat', authenticateToken, async (req, res) => {
     }
   }
 });
+// 4. Monitor Repository Configuration (Auto Webhook Install)
+app.post('/api/monitor', authenticateToken, async (req, res) => {
+  const { repo_full_name, repo_id } = req.body;
+  const userId = req.user.userId;
+  const githubToken = req.user.githubToken;
+
+  if (!repo_full_name) {
+    return res.status(400).json({ success: false, error: 'repo_full_name is required' });
+  }
+
+  try {
+    // A. Verify/Insert into Monitored Repos in Neon DB
+    const checkQuery = 'SELECT id FROM monitored_repos WHERE repo_full_name = $1 AND user_id = $2';
+    const checkResult = await pool.query(checkQuery, [repo_full_name, userId]);
+    
+    if (checkResult.rows.length === 0) {
+      await pool.query(
+        'INSERT INTO monitored_repos (user_id, repo_full_name, repo_id, github_token) VALUES ($1, $2, $3, $4)', 
+        [userId, repo_full_name, repo_id ? parseInt(repo_id) : null, githubToken]
+      );
+    } else {
+      await pool.query(
+        'UPDATE monitored_repos SET github_token = $1 WHERE id = $2',
+        [githubToken, checkResult.rows[0].id]
+      );
+    }
+
+    // B. Install Github Webhook Autopilot
+    const [owner, repoName] = repo_full_name.split('/');
+    const webhookUrl = `${process.env.BACKEND_URL || 'https://resurrect-code-j5om.vercel.app'}/api/webhook/github`;
+
+    const webhookResponse = await fetch(`https://api.github.com/repos/${owner}/${repoName}/hooks`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${githubToken}`,
+        'Content-Type': 'application/json',
+        'User-Agent': 'ResurrectCI-Backend'
+      },
+      body: JSON.stringify({
+        name: 'web',
+        active: true,
+        events: ['push'],
+        config: {
+          url: webhookUrl,
+          content_type: 'json'
+        }
+      })
+    });
+
+    const webhookData = await webhookResponse.json();
+
+    if (!webhookResponse.ok) {
+       if (webhookResponse.status === 422 && webhookData.message?.includes('already exists')) {
+          return res.json({ success: true, message: 'Repository Monitored. Webhook is already live on GitHub.' });
+       }
+       throw new Error(`GitHub Webhook failed: ${webhookData.message || webhookResponse.statusText}`);
+    }
+
+    res.json({ success: true, message: 'Monitoring enabled. Webhook installed successfully!', webhook: webhookData.id });
+
+  } catch (err) {
+    console.error('🔴 Monitor API Error:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
 
 // 3. GitHub Webhook for Push Events (Code Quality Code Review)
 app.post('/api/webhook/github', async (req, res) => {

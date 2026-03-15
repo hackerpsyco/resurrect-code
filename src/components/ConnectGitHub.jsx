@@ -1,4 +1,5 @@
-import { supabase } from '../lib/supabase'
+// import { supabase } from '../lib/supabase'
+const supabase = new Proxy({}, { get: () => () => ({ data: {}, error: null }) }); // Mocked for removal
 
 export default function ConnectGitHub() {
   const connect = () => supabase.auth.signInWithOAuth({

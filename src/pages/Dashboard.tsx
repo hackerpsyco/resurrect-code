@@ -229,6 +229,7 @@ export default function Dashboard() {
   const [settingsInitialIntegration, setSettingsInitialIntegration] = useState<'github' | 'vercel'>('github');
   const [hasSelectedGithubRepos, setHasSelectedGithubRepos] = useState(false);
   const [incidents, setIncidents] = useState<any[]>([]);
+  const [monitoredRepos, setMonitoredRepos] = useState<string[]>([]);
   
   const { isAuthenticated, repositories } = useGitHubAuth();
   const [extensionsOpen, setExtensionsOpen] = useState(false);
@@ -310,6 +311,20 @@ export default function Dashboard() {
               allRepos = await response.json();
               isConnectedCheck = true;
               console.log(`✅ Fetched ${allRepos.length} repos from backend`);
+              
+              // Also fetch monitored repos
+              try {
+                const monitoredResponse = await fetch(`${import.meta.env.VITE_API_URL || 'https://resurrect-code-j5om.vercel.app'}/api/monitored-repos`, {
+                  headers: { 'Authorization': `Bearer ${jwtToken}` }
+                });
+                if (monitoredResponse.ok) {
+                  const monitoredList = await monitoredResponse.json();
+                  setMonitoredRepos(monitoredList.map((r: any) => r.repo_full_name));
+                  console.log(`✅ Fetched ${monitoredList.length} monitored repos`);
+                }
+              } catch (err) {
+                console.error("Failed to fetch monitored repos list:", err);
+              }
             } else {
               console.warn(`⚠️ Backend fetch failed: ${response.status}`);
             }
@@ -657,6 +672,7 @@ export default function Dashboard() {
 
       if (response.ok && data.success) {
         toast.success(data.message || `Monitoring ${repo.full_name}`);
+        setMonitoredRepos(prev => [...prev, repo.full_name]); // ✅ Append State updating UI instantly
       } else {
         console.error("Monitor Server Error Data:", data);
         toast.error(data.error || "Failed to configure monitoring");
@@ -853,17 +869,25 @@ export default function Dashboard() {
                           <span className="text-xs text-[#7d8590]">{project.framework}</span>
                         </div>
                         <div className="flex items-center gap-2">
-                          <Button 
-                            size="sm" 
-                            variant="outline" 
-                            className="h-7 text-xs border-[#238636] text-[#238636] hover:bg-[#238636] hover:text-white"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              monitorRepo({ full_name: `${project.owner}/${project.repo}`, id: project.id, name: project.name });
-                            }}
-                          >
-                            Monitor
-                          </Button>
+                          {(() => {
+                            const isMonitored = monitoredRepos.includes(`${project.owner}/${project.repo}`);
+                            return (
+                              <Button 
+                                size="sm" 
+                                variant="outline" 
+                                disabled={isMonitored}
+                                className={`h-7 text-xs ${isMonitored ? 'border-gray-500 text-gray-500 hover:bg-transparent cursor-default' : 'border-[#238636] text-[#238636] hover:bg-[#238636] hover:text-white'}`}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (!isMonitored) {
+                                    monitorRepo({ full_name: `${project.owner}/${project.repo}`, id: project.id, name: project.name });
+                                  }
+                                }}
+                              >
+                                {isMonitored ? "Monitored" : "Monitor"}
+                              </Button>
+                            );
+                          })()}
                           {getStatusBadge(project.status)}
                         </div>
                       </div>

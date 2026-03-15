@@ -145,6 +145,16 @@ app.get('/api/repos', authenticateToken, async (req, res) => {
   }
 });
 
+// 2b. Fetch Monitored Repositories
+app.get('/api/monitored-repos', authenticateToken, async (req, res) => {
+  try {
+    const result = await pool.query('SELECT repo_full_name FROM monitored_repos WHERE user_id = $1', [req.user.userId]);
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // 3. Generic GitHub API Proxy (Mimics Supabase Edge Function to avoid breaking frontend)
 app.post('/api/github-api', authenticateToken, async (req, res) => {
   const { action, owner, repo, branch, path, content, message, sha } = req.body;

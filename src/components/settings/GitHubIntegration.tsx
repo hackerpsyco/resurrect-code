@@ -25,6 +25,8 @@ import { githubOAuthService } from '@/services/githubOAuthService';
 import { userStorageService } from '@/services/userStorageService';
 import { supabase } from '@/integrations/supabase/client';
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
 interface GitHubUser {
   login: string;
   name: string;
@@ -82,7 +84,7 @@ export function GitHubIntegration({ onClose }: GitHubIntegrationProps) {
     
     setIsConnecting(true);
     try {
-      const response = await fetch('/api/user/me', {
+      const response = await fetch(`${API_URL}/api/user/me`, {
         headers: {
           'Authorization': `Bearer ${tokenToCheck}`,
           'Accept': 'application/json'
@@ -116,10 +118,10 @@ export function GitHubIntegration({ onClose }: GitHubIntegrationProps) {
 
     setIsLoadingRepos(true);
     try {
-      const response = await fetch('/api/repos', {
+      const response = await fetch(`${API_URL}/api/repos`, {
         headers: {
-          'Authorization': `Bearer ${jwtToken}`,
-          'Accept': 'application/json'
+            'Authorization': `Bearer ${jwtToken}`,
+            'Accept': 'application/json'
         }
       });
 
@@ -137,7 +139,7 @@ export function GitHubIntegration({ onClose }: GitHubIntegrationProps) {
   };
 
   const handleConnect = () => {
-    window.location.href = '/api/auth/github';
+    window.location.href = `${API_URL}/api/auth/github`;
   };
 
   const handleOAuthCallback = async (code: string, state: string) => {

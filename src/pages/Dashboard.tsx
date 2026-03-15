@@ -641,7 +641,7 @@ export default function Dashboard() {
     }
     
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL || ''}/api/monitor`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'https://resurrect-code-j5om.vercel.app'}/api/monitor`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,

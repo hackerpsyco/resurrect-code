@@ -9,7 +9,10 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // Middleware
-app.use(cors({ origin: 'http://localhost:8080', credentials: true }));
+app.use(cors({ 
+  origin: ['http://localhost:8080', 'https://www.innoalaxy.in'], 
+  credentials: true 
+}));
 app.use(express.json());
 
 // Database Pool (Neon)
@@ -389,4 +392,7 @@ ${reviewResult.issues.map((i, idx) => `${idx + 1}. **${i.severity.toUpperCase()}
   }
 });
 
-app.listen(PORT, () => console.log(`🚀 ResurrectCI Backend running on http://localhost:${PORT}`));
+if (require.main === module) {
+  app.listen(PORT, () => console.log(`🚀 ResurrectCI Backend running on http://localhost:${PORT}`));
+}
+module.exports = app;

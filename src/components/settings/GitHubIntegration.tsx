@@ -26,7 +26,7 @@ import { userStorageService } from '@/services/userStorageService';
 // import { supabase } from '@/integrations/supabase/client'
 import { supabase } from '@/lib/mockSupabase';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const API_URL = import.meta.env.VITE_API_URL || 'https://resurrect-code-j5om.vercel.app';
 
 interface GitHubUser {
   login: string;

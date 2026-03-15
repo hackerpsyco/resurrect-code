@@ -142,17 +142,28 @@ app.get('/api/user/me', authenticateToken, async (req, res) => {
 // 2. Fetch Repositories to connect
 app.get('/api/repos', authenticateToken, async (req, res) => {
   try {
-    const response = await fetch('https://api.github.com/user/repos?sort=updated&per_page=50', {
-      headers: { 
-        'Authorization': `Bearer ${req.user.githubToken}`,
-        'User-Agent': 'ResurrectCI-Backend'
+    let allRepos = [];
+    let page = 1;
+    let hasMore = true;
+
+    while (hasMore) {
+      const response = await fetch(`https://api.github.com/user/repos?sort=updated&per_page=100&page=${page}`, {
+        headers: { 
+          'Authorization': `Bearer ${req.user.githubToken}`,
+          'User-Agent': 'ResurrectCI-Backend'
+        }
+      });
+      const repos = await response.json();
+
+      if (!response.ok) {
+        return res.status(response.status).json({ success: false, error: repos.message || 'GitHub API error' });
       }
-    });
-    const repos = await response.json();
-    if (!response.ok) {
-      return res.status(response.status).json({ success: false, error: repos.message || 'GitHub API error' });
+
+      allRepos = allRepos.concat(repos);
+      hasMore = repos.length === 100; // If we got 100 repos, there might be more
+      page++;
     }
-    res.json(repos);
+    res.json(allRepos);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

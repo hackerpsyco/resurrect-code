@@ -106,6 +106,8 @@ const automatedFixes: any[] = []; // Empty - will be populated from user's actua
 
 const activityLog: any[] = []; // Empty - will be populated from user's actual activity
 
+const API_URL = import.meta.env.VITE_API_URL || 'https://resurrect-code-j5om.vercel.app';
+
 export default function Dashboard() {
   const { user, signOut, loading } = useAuth();
   
@@ -306,7 +308,7 @@ export default function Dashboard() {
         try {
           if (jwtToken) {
             console.log('🔄 Fetching repositories from custom backend...');
-            const response = await fetch('/api/repos', {
+            const response = await fetch(`${API_URL}/api/repos`, {
               headers: { 'Authorization': `Bearer ${jwtToken}` }
             });
             if (response.ok) {
@@ -348,7 +350,10 @@ export default function Dashboard() {
             const selectedRepoIds = githubService.getSelectedRepositories();
             setHasSelectedGithubRepos(selectedRepoIds.length > 0);
             
-            const selectedRepos = allRepos.filter(repo => selectedRepoIds.includes(repo.id));
+            // Bulletproof string-based typecast inclusive matching triggers
+            const selectedRepos = allRepos.filter(repo => 
+              selectedRepoIds.map(String).includes(String(repo.id))
+            );
             if (selectedRepos.length > 0) {
                 const githubProjects: Project[] = selectedRepos.map((repo: GitHubRepository) => {
                   const owner = repo.owner?.login || 'unknown';

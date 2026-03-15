@@ -139,7 +139,7 @@ export function GitHubIntegration({ onClose }: GitHubIntegrationProps) {
   };
 
   const handleConnect = () => {
-    window.location.href = `${API_URL}/api/auth/github`;
+    window.location.href = `${API_URL}/api/auth/github?origin=${encodeURIComponent(window.location.origin)}`;
   };
 
   const handleOAuthCallback = async (code: string, state: string) => {

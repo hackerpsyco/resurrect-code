@@ -39,13 +39,14 @@ app.get('/api/auth/github', (req, res) => {
     return res.status(500).json({ error: 'GITHUB_CLIENT_ID not configured in backend/.env' });
   }
 
-  const githubAuthUrl = `https://github.com/login/oauth/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&scope=${scope}`;
+  const origin = req.query.origin || 'http://localhost:8080';
+  const githubAuthUrl = `https://github.com/login/oauth/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&scope=${scope}&state=${encodeURIComponent(origin)}`;
   res.redirect(githubAuthUrl);
 });
 
 // 2. Callback from GitHub
 app.get('/api/auth/github/callback', async (req, res) => {
-  const { code } = req.query;
+  const { code, state } = req.query;
   const clientId = process.env.GITHUB_CLIENT_ID;
   const clientSecret = process.env.GITHUB_CLIENT_SECRET;
   
@@ -93,7 +94,8 @@ app.get('/api/auth/github/callback', async (req, res) => {
 
     // E. Redirect back to frontend dashboard with Token
     // In production, use HttpOnly cookies. For the hackathon/demo, redirect with query param is okay.
-    res.redirect(`http://localhost:8080/dashboard?token=${jwtToken}`);
+    const redirectBack = state || 'http://localhost:8080';
+    res.redirect(`${redirectBack}/dashboard?token=${jwtToken}`);
   } catch (err) {
     console.error('OAuth Callback Error:', err.message);
     res.status(500).json({ error: 'OAuth failed', details: err.message });

@@ -350,18 +350,22 @@ export default function Dashboard() {
             
             const selectedRepos = allRepos.filter(repo => selectedRepoIds.includes(repo.id));
             if (selectedRepos.length > 0) {
-                const githubProjects: Project[] = selectedRepos.map((repo: GitHubRepository) => ({
-                  id: `github-${repo.id}`,
-                  name: repo.name,
-                  branch: repo.default_branch || "main",
-                  status: "deployed" as const,
-                  lastCommit: `Latest from ${repo.owner.login}/${repo.name}`,
-                  timeAgo: `Updated ${new Date(repo.updated_at).toLocaleDateString()}`,
-                  language: repo.language?.substring(0, 2).toUpperCase() || "JS",
-                  framework: detectFramework(repo.name, repo.description),
-                  owner: repo.owner.login,
-                  repo: repo.name
-                }));
+                const githubProjects: Project[] = selectedRepos.map((repo: GitHubRepository) => {
+                  const owner = repo.owner?.login || 'unknown';
+                  const timeAgo = repo.updated_at ? `Updated ${new Date(repo.updated_at).toLocaleDateString()}` : 'Updated recently';
+                  return {
+                    id: `github-${repo.id}`,
+                    name: repo.name,
+                    branch: repo.default_branch || "main",
+                    status: "deployed" as const,
+                    lastCommit: `Latest from ${owner}/${repo.name}`,
+                    timeAgo,
+                    language: repo.language?.substring(0, 2).toUpperCase() || "JS",
+                    framework: detectFramework(repo.name, repo.description),
+                    owner,
+                    repo: repo.name
+                  };
+                });
                 
                 userProjects = [...userProjects, ...githubProjects];
                 console.log(`✅ Added ${githubProjects.length} GitHub repositories`);

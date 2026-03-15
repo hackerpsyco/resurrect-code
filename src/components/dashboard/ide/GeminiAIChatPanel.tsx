@@ -1,11 +1,11 @@
 import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Send, Copy, Check, AlertCircle, Loader2 } from 'lucide-react';
 import { AIService } from '@/services/aiService';
 import { geminiKeyService } from '@/services/geminiKeyService';
 import { toast } from 'sonner';
+import ReactMarkdown from 'react-markdown';
 
 interface GeminiAIChatPanelProps {
   selectedCode?: string;
@@ -39,7 +39,7 @@ export function GeminiAIChatPanel({
   const [isLoading, setIsLoading] = useState(false);
   const [aiService, setAiService] = useState<AIService | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const bottomRef = useRef<HTMLDivElement>(null);
 
   // Initialize AI Service
   useEffect(() => {
@@ -69,9 +69,7 @@ export function GeminiAIChatPanel({
 
   // Auto-scroll to latest message
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollIntoView({ behavior: 'smooth' });
-    }
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
   const buildContext = (): string => {
@@ -254,8 +252,8 @@ export function GeminiAIChatPanel({
       </div>
 
       {/* Messages */}
-      <ScrollArea className="flex-1 p-4">
-        <div className="space-y-4" ref={scrollRef}>
+      <div className="flex-1 overflow-y-auto p-4" style={{ minHeight: 0 }}>
+        <div className="space-y-4">
           {messages.length === 0 && (
             <div className="text-center py-8">
               <p className="text-xs text-[#7d8590] mb-2">
@@ -281,9 +279,11 @@ export function GeminiAIChatPanel({
                     : 'bg-[#161b22] text-[#e6edf3] border border-[#30363d]'
                 }`}
               >
-                <p className="text-xs whitespace-pre-wrap break-words">
-                  {message.content}
-                </p>
+                <div className="text-xs prose prose-invert max-w-none">
+                  <ReactMarkdown>
+                    {message.content}
+                  </ReactMarkdown>
+                </div>
 
                 {/* Code Blocks */}
                 {message.codeBlocks && message.codeBlocks.length > 0 && (
@@ -347,8 +347,9 @@ export function GeminiAIChatPanel({
               </div>
             </div>
           )}
+          <div ref={bottomRef} />
         </div>
-      </ScrollArea>
+      </div>
 
       {/* Input */}
       <div className="h-16 bg-[#161b22] border-t border-[#30363d] p-3 flex-shrink-0">

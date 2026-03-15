@@ -263,9 +263,10 @@ export function PreviewWithURLChange({
               width: deviceSizes[deviceType].width,
               height: deviceSizes[deviceType].height,
               maxWidth: "100%",
-              maxHeight: "100%"
+              maxHeight: "100%",
+              transform: "translateZ(0)"
             }}
-          >
+           >
             {isLoading && (
               <div className="absolute inset-0 bg-[#1e1e1e] flex items-center justify-center z-10">
                 <div className="text-center text-[#cccccc]">
@@ -279,6 +280,7 @@ export function PreviewWithURLChange({
               ref={iframeRef}
               src={url}
               className="w-full h-full border-none"
+              style={{ willChange: "transform" }}
               onLoad={handleIframeLoad}
               onError={handleIframeError}
               title="Preview"

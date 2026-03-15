@@ -13,12 +13,12 @@ export default defineConfig(({ mode }) => ({
       'Cross-Origin-Opener-Policy': 'same-origin',
     },
     proxy: {
-      '/functions': {
-        target: 'https://auth.innoalaxy.in',
+      '/api': {
+        target: 'http://localhost:5000',
         changeOrigin: true,
-        secure: true,
-      }
-    }
+        rewrite: (path) => path,
+      },
+    },
   },
   plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
   resolve: {

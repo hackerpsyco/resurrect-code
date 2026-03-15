@@ -39,33 +39,28 @@ export function useGitHub() {
     console.log('Calling GitHub API with:', body);
     
     try {
-      const { data, error } = await supabase.functions.invoke("github-api", { body });
+      const jwtToken = localStorage.getItem('token');
+      const response = await fetch('/api/github-api', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${jwtToken}`
+        },
+        body: JSON.stringify(body)
+      });
       
-      if (error) {
-        console.error('Supabase function error:', error);
-        throw new Error(`Supabase Function Error: ${error.message || JSON.stringify(error)}`);
+      const data = await response.json();
+      
+      if (!response.ok || !data.success) {
+        console.error('Backend GitHub API error:', data?.error);
+        throw new Error(data?.error || 'Unknown error from backend GitHub API');
       }
       
-      if (!data) {
-        throw new Error('No data returned from Supabase function');
-      }
-      
-      console.log('Supabase function response:', data);
-      
-      if (!data.success) {
-        console.error('GitHub API error from edge function:', data.error);
-        throw new Error(`Edge Function Error: ${data.error || 'Unknown error from GitHub API'}`);
-      }
-      
-      console.log('GitHub API success via edge function:', data.data);
+      console.log('GitHub API success via backend:', data.data);
       return data.data;
     } catch (error) {
       console.error('GitHub API call failed:', error);
-      // Re-throw with more context
-      if (error instanceof Error) {
-        throw new Error(`GitHub API via Supabase failed: ${error.message}`);
-      }
-      throw new Error('GitHub API via Supabase failed: Unknown error');
+      throw error;
     }
   };
 

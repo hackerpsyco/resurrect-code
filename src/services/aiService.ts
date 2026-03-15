@@ -1,4 +1,4 @@
-export type AIProvider = "deepseek" | "openai" | "claude" | "lovable" | "gemini";
+export type AIProvider = "deepseek" | "openai" | "claude" | "lovable" | "gemini" | "groq";
 
 export interface AIMessage {
   role: "user" | "assistant" | "system";
@@ -94,7 +94,7 @@ export class AIService {
     throw new Error('Max retries exceeded');
   }
 
-  async *streamChat(messages: AIMessage[]): AsyncGenerator<AIStreamResponse> {
+  async *streamChat(messages: AIMessage[], owner?: string, repo?: string): AsyncGenerator<AIStreamResponse> {
     switch (this.provider) {
 
       case "deepseek":
@@ -111,6 +111,9 @@ export class AIService {
         break;
       case "lovable":
         yield* this.streamLovable(messages);
+        break;
+      case "groq":
+        yield* this.streamGroq(messages, owner, repo);
         break;
       default:
         throw new Error(`Unsupported provider: ${this.provider}`);
@@ -610,6 +613,60 @@ An error occurred while communicating with the Gemini API.
     }
 
     yield { content: "", done: true };
+  }
+
+  private async *streamGroq(messages: AIMessage[], owner?: string, repo?: string): AsyncGenerator<AIStreamResponse> {
+    console.log('🔍 Starting Groq API call through backend');
+    const token = localStorage.getItem('token');
+    
+    try {
+      const response = await fetch("/api/ai/chat", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          messages: messages.map(m => ({ role: m.role, content: m.content })),
+          context: "Open file and project scope references",
+          owner,
+          repo
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Groq Backend error`);
+      }
+
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+
+      if (!reader) throw new Error("No response body");
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value);
+        const lines = chunk.split("\n").filter((line) => line.trim() && line.startsWith("data: "));
+
+        for (const line of lines) {
+          const data = line.replace("data: ", "");
+          if (data === "[DONE]") continue;
+
+          try {
+            const json = JSON.parse(data);
+            if (json.text) {
+              yield { content: json.text, done: false };
+            }
+          } catch (e) { }
+        }
+      }
+      yield { content: "", done: true };
+    } catch (error) {
+      yield { content: `❌ Error`, done: false };
+      yield { content: "", done: true };
+    }
   }
 }
 

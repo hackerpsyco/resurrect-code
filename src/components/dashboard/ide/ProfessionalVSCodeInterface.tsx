@@ -4,6 +4,7 @@ import {
   FolderTree,
   FileCode,
   Bot,
+  ShieldAlert,
   X,
   ChevronRight,
   ChevronDown,
@@ -25,6 +26,7 @@ import { EnhancedCodeEditor } from "./EnhancedCodeEditor";
 import { RealWebContainerTerminal } from "./RealWebContainerTerminal";
 import { PreviewWithURLChange } from "./PreviewWithURLChange";
 import { WorkingAIChatPanel } from "./WorkingAIChatPanel";
+import { AIScannerPanel } from "./AIScannerPanel";
 // Toast removed for clean UI
 import { useGitHub } from "@/hooks/useGitHub";
 import { useGitHubAuth } from "@/hooks/useGitHubAuth";
@@ -93,6 +95,7 @@ export function ProfessionalVSCodeInterface({ project, onClose }: ProfessionalVS
   // UI state
   const [showExplorer, setShowExplorer] = useState(true);
   const [showAIChat, setShowAIChat] = useState(false);
+  const [showAIScanner, setShowAIScanner] = useState(false);
   const [showTerminal, setShowTerminal] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const [previewUrl, setPreviewUrl] = useState("http://localhost:3000");
@@ -451,7 +454,7 @@ export function ProfessionalVSCodeInterface({ project, onClose }: ProfessionalVS
   const currentFile = openFiles.find((f) => f.path === activeFile);
 
   return (
-    <div className="fixed inset-0 z-50 bg-[#1e1e1e] flex flex-col">
+    <div className="fixed inset-0 z-[100] bg-[#1e1e1e] flex flex-col">
       {/* Top Menu Bar */}
       <div className="h-8 bg-[#323233] border-b border-[#464647] flex items-center justify-between px-4">
         <div className="flex items-center gap-4">
@@ -529,6 +532,27 @@ export function ProfessionalVSCodeInterface({ project, onClose }: ProfessionalVS
           <Button
             variant="ghost"
             size="sm"
+            onClick={() => {
+              if (showAIScanner) {
+                setShowAIScanner(false);
+              } else {
+                setShowAIScanner(true);
+                setShowAIChat(false);
+                setShowExplorer(false);
+              }
+            }}
+            className={`h-12 w-12 p-0 rounded-none border-l-2 ${
+              showAIScanner 
+                ? "bg-[#37373d] border-l-[#0078d4] text-white" 
+                : "border-l-transparent text-[#cccccc] hover:text-white"
+            }`}
+            title="AI Code Scanner"
+          >
+            <ShieldAlert className="w-6 h-6" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={() => setShowTerminal(!showTerminal)}
             className={`h-12 w-12 p-0 rounded-none border-l-2 ${
               showTerminal 
@@ -542,7 +566,7 @@ export function ProfessionalVSCodeInterface({ project, onClose }: ProfessionalVS
         </div>
 
         {/* Left Sidebar */}
-        {(showExplorer || showAIChat) && (
+        {(showExplorer || showAIChat || showAIScanner) && (
           <div 
             className={`bg-[#252526] border-r border-[#464647] flex flex-col relative ${
               sidebarMaximized ? 'w-full' : ''
@@ -584,10 +608,21 @@ export function ProfessionalVSCodeInterface({ project, onClose }: ProfessionalVS
             )}
 
             {showAIChat && (
-              <div className="flex-1 flex flex-col">
+              <div className="flex-1 flex flex-col" style={{ minHeight: 0 }}>
                 {/* AI Chat Content */}
+                <div className="flex-1" style={{ minHeight: 0 }}>
+                  <WorkingAIChatPanel owner={project?.owner} repo={project?.name} />
+                </div>
+              </div>
+            )}
+
+            {showAIScanner && (
+              <div className="flex-1 flex flex-col">
                 <div className="flex-1">
-                  <WorkingAIChatPanel />
+                  <AIScannerPanel 
+                    currentFile={currentFile ? { path: currentFile.path, content: currentFile.content } : undefined} 
+                    onFixApplied={(newContent) => handleContentChange(currentFile!.path, newContent)}
+                  />
                 </div>
               </div>
             )}

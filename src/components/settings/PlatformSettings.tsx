@@ -5,8 +5,6 @@ import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
 import { GitHubIntegration } from './GitHubIntegration';
-import { VercelIntegration } from './VercelIntegration';
-import { GeminiIntegration } from './GeminiIntegration';
 import { AnalysisAutomationSettings } from './AnalysisAutomationSettings';
 import { 
   X, 
@@ -93,7 +91,7 @@ export function PlatformSettings({ onClose, initialSection, initialIntegration }
     { id: 'keybindings', label: 'Keybindings', icon: Keyboard },
     { id: 'integrations', label: 'Integrations', icon: Zap },
     { id: 'analysis', label: 'Analysis Automation', icon: Sparkles },
-  ];
+  ] as const;
 
   const renderGeneralSettings = () => (
     <div className="space-y-6">
@@ -336,37 +334,11 @@ export function PlatformSettings({ onClose, initialSection, initialIntegration }
             <Github className="w-4 h-4 mr-2" />
             GitHub
           </Button>
-          <Button
-            variant="ghost"
-            onClick={() => setActiveIntegration('vercel')}
-            className={`px-4 py-2 rounded-none border-b-2 ${
-              activeIntegration === 'vercel'
-                ? 'border-black text-white bg-black/10'
-                : 'border-transparent text-[#7d8590] hover:text-white'
-            }`}
-          >
-            <Globe className="w-4 h-4 mr-2" />
-            Vercel
-          </Button>
-          <Button
-            variant="ghost"
-            onClick={() => setActiveIntegration('gemini')}
-            className={`px-4 py-2 rounded-none border-b-2 ${
-              activeIntegration === 'gemini'
-                ? 'border-blue-500 text-blue-400 bg-blue-500/10'
-                : 'border-transparent text-[#7d8590] hover:text-white'
-            }`}
-          >
-            <Zap className="w-4 h-4 mr-2" />
-            Gemini
-          </Button>
         </div>
 
         {/* Integration Content */}
         <div className="mt-6">
           {activeIntegration === 'github' && <GitHubIntegration />}
-          {activeIntegration === 'vercel' && <VercelIntegration />}
-          {activeIntegration === 'gemini' && <GeminiIntegration />}
         </div>
       </div>
     );

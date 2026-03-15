@@ -7,10 +7,12 @@ import { Bot, User, Send, Settings, Loader2, Copy, Check } from "lucide-react";
 import { AIService, AIMessage, getAIConfig } from "@/services/aiService";
 
 interface WorkingAIChatPanelProps {
+  owner?: string;
+  repo?: string;
   onClose?: () => void;
 }
 
-export function WorkingAIChatPanel({ onClose }: WorkingAIChatPanelProps) {
+export function WorkingAIChatPanel({ owner, repo, onClose }: WorkingAIChatPanelProps) {
   const [messages, setMessages] = useState<AIMessage[]>([
     {
       role: "system",
@@ -70,7 +72,7 @@ export function WorkingAIChatPanel({ onClose }: WorkingAIChatPanelProps) {
       let fullResponse = "";
       
       // Stream the response
-      for await (const chunk of aiService.streamChat(newMessages)) {
+      for await (const chunk of aiService.streamChat(newMessages, owner, repo)) {
         if (chunk.content) {
           fullResponse += chunk.content;
           setMessages([...newMessages, { role: "assistant", content: fullResponse }]);
@@ -170,7 +172,7 @@ export function WorkingAIChatPanel({ onClose }: WorkingAIChatPanelProps) {
       </div>
 
       {/* Messages */}
-      <ScrollArea ref={scrollAreaRef} className="flex-1 p-3">
+      <ScrollArea ref={scrollAreaRef} className="flex-1 p-3" style={{ minHeight: 0 }}>
         <div className="space-y-4">
           {messages.filter(m => m.role !== "system").map((message, index) => (
             <div

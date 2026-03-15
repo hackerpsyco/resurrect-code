@@ -51,6 +51,8 @@ export function RealWebContainerTerminal({
   const [isRunning, setIsRunning] = useState(false);
   const [devServerUrl, setDevServerUrl] = useState<string | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
+  const initiatingRef = useRef(false);
+  const [activeProcess, setActiveProcess] = useState<any | null>(null);
   
   const { webContainer, isReady, isLoading, error: webContainerError } = useWebContainer();
   const { fetchFile, fetchFileTree } = useGitHub();
@@ -108,7 +110,8 @@ export function RealWebContainerTerminal({
   // Initialize WebContainer with real project files from GitHub
   useEffect(() => {
     const initializeWebContainer = async () => {
-      if (!webContainer || !isReady || isInitialized) return;
+      if (!webContainer || !isReady || isInitialized || initiatingRef.current) return;
+      initiatingRef.current = true;
 
       try {
         addOutput("🚀 Initializing WebContainer...");
@@ -330,6 +333,7 @@ export function RealWebContainerTerminal({
       } catch (error) {
         console.error("Failed to initialize WebContainer:", error);
         addOutput(`❌ Failed to initialize: ${error}`);
+        initiatingRef.current = false;
       }
     };
 
@@ -337,6 +341,26 @@ export function RealWebContainerTerminal({
       initializeWebContainer();
     }
   }, [webContainer, isReady, projectFiles, project, isInitialized, fetchFileTree, fetchFile, hasAutoInstalled, isLoading, webContainerError]);
+
+  // Listen for server-ready events to open preview
+  useEffect(() => {
+    if (!webContainer || !isReady) return;
+
+    console.log('🔌 Subscribing to WebContainer server-ready events');
+    const unsubscribe = webContainer.on('server-ready', (port, url) => {
+      console.log(`🚀 Dev server ready at: ${url} (port ${port})`);
+      setDevServerUrl(url);
+      if (onDevServerStart) {
+        onDevServerStart(url);
+      }
+    });
+
+    return () => {
+      if (unsubscribe) {
+        unsubscribe();
+      }
+    };
+  }, [webContainer, isReady, onDevServerStart]);
 
   const addOutput = (text: string) => {
     setSessions(prev => prev.map(session => 
@@ -472,6 +496,7 @@ export function RealWebContainerTerminal({
       if (command.includes('npm run dev') || command.includes('vite')) {
         // Start dev server
         const process = await webContainer.spawn('npm', ['run', 'dev']);
+        setActiveProcess(process);
         
         // Handle output with proper stream reading
         const reader = process.output.getReader();
@@ -516,6 +541,7 @@ export function RealWebContainerTerminal({
 
       // Execute regular commands (npm install, ls, etc.)
       const process = await webContainer.spawn('sh', ['-c', command]);
+      setActiveProcess(process);
       
       // Handle output streaming
       const reader = process.output.getReader();
@@ -554,6 +580,7 @@ export function RealWebContainerTerminal({
       
       // Wait for process to complete
       const exitCode = await process.exit;
+      setActiveProcess(null);
       
       // Show exit code if command failed
       if (exitCode !== 0) {
@@ -602,6 +629,21 @@ export function RealWebContainerTerminal({
           setHistoryIndex(newIndex);
           setCurrentInput(commandHistory[newIndex]);
         }
+      }
+    } else if (e.ctrlKey && e.key.toLowerCase() === "c") {
+      e.preventDefault();
+      addOutput("^C");
+      if (activeProcess) {
+        try {
+          activeProcess.kill();
+          addOutput("🛑 Process stopped by user");
+        } catch (err) {
+          console.warn("Failed to kill process:", err);
+        }
+        setActiveProcess(null);
+        setIsRunning(false);
+      } else {
+        setCurrentInput("");
       }
     } else if (e.key === "Backspace") {
       setCurrentInput(prev => prev.slice(0, -1));
@@ -654,6 +696,12 @@ export function RealWebContainerTerminal({
   };
 
   const stopDevServer = () => {
+    if (activeProcess) {
+      try {
+        activeProcess.kill();
+      } catch (err) {}
+      setActiveProcess(null);
+    }
     if (devServerUrl) {
       setDevServerUrl(null);
       onDevServerStop?.();

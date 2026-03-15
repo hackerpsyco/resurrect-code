@@ -23,6 +23,7 @@ import {
 import { toast } from 'sonner';
 import { githubOAuthService } from '@/services/githubOAuthService';
 import { userStorageService } from '@/services/userStorageService';
+import { supabase } from '@/integrations/supabase/client';
 
 interface GitHubUser {
   login: string;
@@ -62,45 +63,14 @@ export function GitHubIntegration({ onClose }: GitHubIntegrationProps) {
   // Load saved settings on mount (per Supabase user)
   useEffect(() => {
     const initializeFromStorage = async () => {
-      // Handle possible GitHub OAuth callback in URL
-      const oauthCallback = githubOAuthService.isOAuthCallback();
-      if (oauthCallback.isCallback) {
-        if (oauthCallback.error) {
-          // Clean up URL silently
-          window.history.replaceState({}, document.title, window.location.pathname);
-        } else if (oauthCallback.code && oauthCallback.state) {
-          await handleOAuthCallback(oauthCallback.code, oauthCallback.state);
-        }
-        return;
-      }
-
-      // Prefer per-user data from Supabase
       try {
-        const credentials = await userStorageService.getCredentials();
-        const settings = await userStorageService.getSettings();
-
-        if (credentials.githubToken) {
-          setToken(credentials.githubToken);
-          await checkConnection(credentials.githubToken);
-        } else {
-          // Fallback to legacy localStorage (single-user) if no DB record yet
-          const savedToken = localStorage.getItem('github_token');
-          if (savedToken) {
-            setToken(savedToken);
-            await checkConnection(savedToken);
-          }
-        }
-
-        if (settings.githubSelectedRepos) {
-          setSelectedRepos(new Set(settings.githubSelectedRepos));
-        } else {
-          const savedRepos = localStorage.getItem('github_selected_repos');
-          if (savedRepos) {
-            setSelectedRepos(new Set(JSON.parse(savedRepos)));
-          }
+        const token = localStorage.getItem('token');
+        if (token) {
+          setToken(token);
+          await checkConnection(token);
         }
       } catch (error) {
-        console.error('Failed to initialize GitHub integration from storage:', error);
+        console.error('Failed to initialize from storage:', error);
       }
     };
 
@@ -112,84 +82,62 @@ export function GitHubIntegration({ onClose }: GitHubIntegrationProps) {
     
     setIsConnecting(true);
     try {
-      const response = await fetch('https://api.github.com/user', {
+      const response = await fetch('/api/user/me', {
         headers: {
-          'Authorization': `token ${tokenToCheck}`,
-          'Accept': 'application/vnd.github.v3+json'
+          'Authorization': `Bearer ${tokenToCheck}`,
+          'Accept': 'application/json'
         }
       });
 
       if (response.ok) {
         const userData = await response.json();
-        setUser(userData);
+        // Backend user schema might use 'username' and 'avatar_url'
+        setUser({
+          login: userData.username,
+          avatar_url: userData.avatar_url
+        } as any);
         setIsConnected(true);
-        // Silent success
-        
-        // Auto-load repositories
-        await loadRepositories(tokenToCheck);
+        await loadRepositories();
       } else {
-        throw new Error(`GitHub API error: ${response.status}`);
+        throw new Error(`Backend error: ${response.status}`);
       }
     } catch (error) {
-      console.error('GitHub connection failed:', error);
+      console.error('Connection verification failed:', error);
       setIsConnected(false);
       setUser(null);
-      // Silent error
     } finally {
       setIsConnecting(false);
     }
   };
 
-  const loadRepositories = async (tokenToUse?: string) => {
-    const authToken = tokenToUse || token;
-    if (!authToken.trim()) return;
+  const loadRepositories = async () => {
+    const jwtToken = localStorage.getItem('token') || token;
+    if (!jwtToken) return;
 
     setIsLoadingRepos(true);
     try {
-      // Get user's repositories (both public and private)
-      const response = await fetch('https://api.github.com/user/repos?sort=updated&per_page=50', {
+      const response = await fetch('/api/repos', {
         headers: {
-          'Authorization': `token ${authToken}`,
-          'Accept': 'application/vnd.github.v3+json'
+          'Authorization': `Bearer ${jwtToken}`,
+          'Accept': 'application/json'
         }
       });
 
       if (response.ok) {
         const repos = await response.json();
         setRepositories(repos);
-        // Silent success - no popup
       } else {
         throw new Error(`Failed to load repositories: ${response.status}`);
       }
     } catch (error) {
       console.error('Failed to load repositories:', error);
-      // Silent error
     } finally {
       setIsLoadingRepos(false);
     }
   };
 
-  const handleConnect = async () => {
-    if (authMethod === 'token') {
-      if (!token.trim()) {
-        // Silent error
-        return;
-      }
-      await checkConnection(token);
-    } else {
-      // OAuth flow
-      if (!clientId.trim()) {
-        // Silent error
-        return;
-      }
-      
-      try {
-        // Silent info
-        await githubOAuthService.startOAuthFlow(clientId);
-      } catch (error) {
-        // Silent error
-      }
-    }
+  const handleConnect = () => {
+    window.location.href = '/api/auth/github';
   };
 
   const handleOAuthCallback = async (code: string, state: string) => {
@@ -238,14 +186,12 @@ export function GitHubIntegration({ onClose }: GitHubIntegrationProps) {
     try {
       const repoArray = Array.from(selectedRepos);
 
-      // Save to database via userStorageService
-      await userStorageService.storeGitHubToken(token, repoArray);
-      
-      // Also save user info
+      // Save to localStorage locally for dashboard to read
+      localStorage.setItem('github_selected_repos', JSON.stringify(repoArray));
       localStorage.setItem('github_user', JSON.stringify(user));
       
       if (repoArray.length === 0) {
-        toast.success("✅ GitHub token saved. Select repositories any time to show them in your dashboard.");
+        toast.success("✅ Connected to GitHub. Select repositories as setting triggers later.");
       } else {
         toast.success(`✅ Settings saved! ${repoArray.length} repositories selected.`);
       }
@@ -333,139 +279,35 @@ export function GitHubIntegration({ onClose }: GitHubIntegrationProps) {
         <CardContent className="space-y-4">
           {/* Authentication Method Selection */}
           <div className="space-y-4">
-            <div>
-              <label className="text-sm font-medium text-white mb-3 block">
-                Authentication Method
-              </label>
-              <div className="flex gap-2">
+            {!isConnected ? (
+              <div className="flex flex-col items-center justify-center py-6 space-y-4">
                 <Button
-                  variant={authMethod === 'token' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setAuthMethod('token')}
-                  className={authMethod === 'token' ? 'bg-[#238636] hover:bg-[#2ea043]' : 'border-[#30363d] text-[#7d8590] hover:text-white'}
+                  onClick={handleConnect}
+                  disabled={isConnecting}
+                  className="bg-[#238636] hover:bg-[#2ea043] w-full max-w-sm"
                 >
-                  <Key className="w-4 h-4 mr-2" />
-                  Personal Token
+                  {isConnecting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Connecting...
+                    </>
+                  ) : (
+                    <>
+                      <Github className="w-4 h-4 mr-2" />
+                      Connect with GitHub
+                    </>
+                  )}
                 </Button>
-                <Button
-                  variant={authMethod === 'oauth' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setAuthMethod('oauth')}
-                  className={authMethod === 'oauth' ? 'bg-[#238636] hover:bg-[#2ea043]' : 'border-[#30363d] text-[#7d8590] hover:text-white'}
-                >
-                  <Link className="w-4 h-4 mr-2" />
-                  OAuth App
-                </Button>
-              </div>
-            </div>
-
-            {authMethod === 'token' ? (
-              /* Token Input */
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-white">
-                  GitHub Personal Access Token
-                </label>
-                <div className="flex gap-2">
-                  <div className="relative flex-1">
-                    <Input
-                      type={showToken ? "text" : "password"}
-                      value={token}
-                      onChange={(e) => setToken(e.target.value)}
-                      placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
-                      className="bg-[#21262d] border-[#30363d] text-white pr-10"
-                      disabled={isConnecting}
-                    />
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setShowToken(!showToken)}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 h-6 w-6 p-0 text-[#7d8590]"
-                    >
-                      {showToken ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </Button>
-                  </div>
-                  <Button
-                    onClick={handleConnect}
-                    disabled={isConnecting || !token.trim()}
-                    className="bg-[#238636] hover:bg-[#2ea043]"
-                  >
-                    {isConnecting ? (
-                      <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Connecting...
-                      </>
-                    ) : (
-                      <>
-                        <Key className="w-4 h-4 mr-2" />
-                        Connect
-                      </>
-                    )}
-                  </Button>
-                </div>
-                <div className="text-xs text-[#7d8590]">
-                  <p className="mb-1">
-                    Create a token at{' '}
-                    <a 
-                      href="https://github.com/settings/tokens/new?scopes=repo,user&description=ResurrectCI%20Dashboard" 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="text-[#58a6ff] hover:underline inline-flex items-center gap-1"
-                    >
-                      github.com/settings/tokens
-                      <ExternalLink className="w-3 h-3" />
-                    </a>
-                  </p>
-                  <p>Required scopes: <code className="bg-[#21262d] px-1 rounded">repo</code>, <code className="bg-[#21262d] px-1 rounded">user</code></p>
-                </div>
+                <p className="text-xs text-[#7d8590] text-center">
+                  This will redirect you to GitHub to authorize the application and connect your account securely.
+                </p>
               </div>
             ) : (
-              /* OAuth Input */
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-white">
-                  GitHub App Client ID
-                </label>
-                <div className="flex gap-2">
-                  <Input
-                    type="text"
-                    value={clientId}
-                    onChange={(e) => setClientId(e.target.value)}
-                    placeholder="Iv1.xxxxxxxxxxxxxxxx"
-                    className="bg-[#21262d] border-[#30363d] text-white"
-                    disabled={isConnecting}
-                  />
-                  <Button
-                    onClick={handleConnect}
-                    disabled={isConnecting || !clientId.trim()}
-                    className="bg-[#238636] hover:bg-[#2ea043]"
-                  >
-                    {isConnecting ? (
-                      <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Connecting...
-                      </>
-                    ) : (
-                      <>
-                        <Link className="w-4 h-4 mr-2" />
-                        Connect via OAuth
-                      </>
-                    )}
-                  </Button>
+              <div className="flex items-center justify-between">
+                <div className="text-sm text-[#7d8590]">
+                  Logged in with GitHub. Select repositories below to monitor them.
                 </div>
-                <div className="text-xs text-[#7d8590]">
-                  <p className="mb-1">
-                    Create a GitHub App at{' '}
-                    <a 
-                      href="https://github.com/settings/apps/new" 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="text-[#58a6ff] hover:underline inline-flex items-center gap-1"
-                    >
-                      github.com/settings/apps/new
-                      <ExternalLink className="w-3 h-3" />
-                    </a>
-                  </p>
-                  <p>Callback URL: <code className="bg-[#21262d] px-1 rounded">{window.location.origin}/auth/github/callback</code></p>
-                </div>
+                {/* Disconnect button handled below */}
               </div>
             )}
           </div>
@@ -502,7 +344,7 @@ export function GitHubIntegration({ onClose }: GitHubIntegrationProps) {
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={loadRepositories}
+                  onClick={() => loadRepositories()}
                   disabled={isLoadingRepos}
                   className="text-[#7d8590] hover:text-white"
                 >
@@ -593,7 +435,7 @@ export function GitHubIntegration({ onClose }: GitHubIntegrationProps) {
                 <p>No repositories found</p>
                 <Button
                   variant="ghost"
-                  onClick={loadRepositories}
+                  onClick={() => loadRepositories()}
                   className="mt-2 text-[#58a6ff] hover:text-white"
                 >
                   <RefreshCw className="w-4 h-4 mr-2" />
@@ -651,28 +493,18 @@ export function GitHubIntegration({ onClose }: GitHubIntegrationProps) {
         </CardHeader>
         <CardContent className="space-y-3 text-sm text-[#7d8590]">
           <div>
-            <strong className="text-white">1. Create GitHub Token:</strong>
+            <strong className="text-white">1. Connect Account:</strong>
             <ul className="list-disc list-inside ml-4 mt-1 space-y-1">
-              <li>Go to GitHub Settings → Developer settings → Personal access tokens</li>
-              <li>Click "Generate new token (classic)"</li>
-              <li>Select scopes: <code className="bg-[#21262d] px-1 rounded">repo</code> and <code className="bg-[#21262d] px-1 rounded">user</code></li>
-              <li>Copy the generated token</li>
+              <li>Click "Connect with GitHub"</li>
+              <li>Authorize the application on GitHub</li>
+              <li>Your account will be connected securely</li>
             </ul>
           </div>
           <div>
-            <strong className="text-white">2. Connect Account:</strong>
-            <ul className="list-disc list-inside ml-4 mt-1 space-y-1">
-              <li>Paste your token in the field above</li>
-              <li>Click "Connect" to verify the token</li>
-              <li>Your repositories will load automatically</li>
-            </ul>
-          </div>
-          <div>
-            <strong className="text-white">3. Select Repositories:</strong>
+            <strong className="text-white">2. Select Repositories:</strong>
             <ul className="list-disc list-inside ml-4 mt-1 space-y-1">
               <li>Choose which repositories to show in your dashboard</li>
-              <li>Only selected repositories will be available for editing</li>
-              <li>Click "Save Settings" to apply changes</li>
+              <li>Click "Save & Apply Settings" to finish</li>
             </ul>
           </div>
         </CardContent>

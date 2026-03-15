@@ -186,8 +186,18 @@ export default function Dashboard() {
   
   useEffect(() => {
     const isNewUserFlag = localStorage.getItem('is_new_user') === 'true';
-    const hasConnectedBefore = localStorage.getItem('github_token') || localStorage.getItem('vercel_token') || 
-                               githubService.isAuthenticated() || vercelService.isAuthenticated();
+    
+    // Include back-end token checks to prevent redirect race condition
+    const urlParams = new URLSearchParams(window.location.search);
+    const hasTokenInUrl = urlParams.has('token');
+    const hasTokenInStorage = !!localStorage.getItem('token');
+
+    const hasConnectedBefore = localStorage.getItem('github_token') || 
+                               localStorage.getItem('vercel_token') || 
+                               hasTokenInStorage || 
+                               hasTokenInUrl || 
+                               githubService.isAuthenticated() || 
+                               vercelService.isAuthenticated();
     
     if (isNewUserFlag || !hasConnectedBefore) {
       setIsNewUser(true);
@@ -227,7 +237,34 @@ export default function Dashboard() {
   const { fetchRepo, fetchFileTree, isLoading: githubLoading } = useGitHub();
   const { fetchProjects: fetchVercelProjects, fetchDeployments, isLoading: vercelLoading } = useVercel();
 
-  // Load real projects from GitHub and Vercel - ONLY user's own projects
+  // Capture JWT Token on redirect from backend
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const token = urlParams.get('token');
+    if (token) {
+      localStorage.setItem('token', token);
+      console.log('🔑 JWT Token saved from URL redirect');
+
+      try {
+        // Decode JWT payload without third-party library
+        const base64Url = token.split('.')[1];
+        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+        const payload = JSON.parse(window.atob(base64));
+        
+        if (payload.githubToken) {
+          localStorage.setItem('github_token', payload.githubToken);
+          githubService.setToken(payload.githubToken); // singleton update
+          console.log('✅ github_token extracted for file operations');
+        }
+      } catch (err) {
+        console.error('Failed to decode JWT to extract githubToken:', err);
+      }
+
+      // Clean up URL parameter to remove token from address bar
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, []);
+
   useEffect(() => {
     const loadProjects = async () => {
       setIsLoading(true);
@@ -236,34 +273,62 @@ export default function Dashboard() {
       try {
         let userProjects: Project[] = [];
         
+        // Bypass race condition: Extract token directly if present in URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const urlToken = urlParams.get('token');
+        if (urlToken) {
+          try {
+            const base64Url = urlToken.split('.')[1];
+            const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+            const payload = JSON.parse(window.atob(base64));
+            if (payload.githubToken) {
+              localStorage.setItem('github_token', payload.githubToken);
+              githubService.setToken(payload.githubToken);
+            }
+          } catch (e) {
+            console.error("Failed to parse token inline in loadProjects:", e);
+          }
+        }
+
         // Check GitHub authentication - STRICT user isolation
         setGithubStatus("checking");
         
-        if (githubService.isAuthenticated()) {
-          try {
-            // Verify token is valid and get user info
-            const githubUser = await githubService.getUser();
+        const jwtToken = localStorage.getItem('token');
+        let allRepos: GitHubRepository[] = [];
+        let isConnectedCheck = false;
+
+        try {
+          if (jwtToken) {
+            console.log('🔄 Fetching repositories from custom backend...');
+            const response = await fetch('/api/repos', {
+              headers: { 'Authorization': `Bearer ${jwtToken}` }
+            });
+            if (response.ok) {
+              allRepos = await response.json();
+              isConnectedCheck = true;
+              console.log(`✅ Fetched ${allRepos.length} repos from backend`);
+            } else {
+              console.warn(`⚠️ Backend fetch failed: ${response.status}`);
+            }
+          } else if (githubService.isAuthenticated()) {
+            console.log('🔄 Fetching repositories from direct GitHub API...');
+            allRepos = await githubService.getRepositories({
+              sort: 'updated',
+              direction: 'desc',
+              per_page: 100
+            });
+            isConnectedCheck = true;
+          }
+
+          if (isConnectedCheck) {
             setGithubStatus("connected");
-            console.log(`✅ GitHub connected as: ${githubUser.login}`);
             
             // Get ONLY selected repositories from THIS user's settings
             const selectedRepoIds = githubService.getSelectedRepositories();
             setHasSelectedGithubRepos(selectedRepoIds.length > 0);
             
-            if (selectedRepoIds.length > 0) {
-              console.log(`📂 Loading ${selectedRepoIds.length} selected repositories...`);
-              
-              // Get user's repositories
-              const allRepos = await githubService.getRepositories({
-                sort: 'updated',
-                direction: 'desc',
-                per_page: 100
-              });
-              
-              // Filter to ONLY selected repositories
-              const selectedRepos = allRepos.filter(repo => selectedRepoIds.includes(repo.id));
-              
-              if (selectedRepos.length > 0) {
+            const selectedRepos = allRepos.filter(repo => selectedRepoIds.includes(repo.id));
+            if (selectedRepos.length > 0) {
                 const githubProjects: Project[] = selectedRepos.map((repo: GitHubRepository) => ({
                   id: `github-${repo.id}`,
                   name: repo.name,
@@ -289,17 +354,11 @@ export default function Dashboard() {
               } else {
                 console.log("⚠️ No selected repositories found - user needs to select repos in settings");
               }
-            } else {
-              console.log("⚠️ No repositories selected - user needs to configure GitHub integration");
-            }
+            } // Close if (isConnectedCheck)
           } catch (error) {
             console.error("❌ GitHub authentication failed:", error);
             setGithubStatus("disconnected");
           }
-        } else {
-          setGithubStatus("disconnected");
-          console.log("⚠️ GitHub not connected");
-        }
 
         // Check Vercel connection - STRICT user isolation
         setVercelStatus("checking");
@@ -720,7 +779,7 @@ export default function Dashboard() {
               <Plus className="w-4 h-4 mr-2" />
               New Project
             </Button>
-            <ConnectGitHub />
+            {githubStatus !== "connected" && <ConnectGitHub />}
             <Button 
               variant="outline" 
               className="border-[#30363d] text-white hover:bg-[#21262d]"
@@ -875,7 +934,28 @@ export default function Dashboard() {
                       )}
                       
                       <div className="space-y-3">
-                        <ConnectGitHub />
+                        {githubStatus !== "connected" ? (
+                          <ConnectGitHub />
+                        ) : (
+                          <div className="bg-[#1c2128] border border-yellow-500/30 rounded-lg p-4 text-left">
+                            <h4 className="text-sm font-medium text-yellow-500 mb-1">⚠️ No Repositories Selected</h4>
+                            <p className="text-xs text-[#7d8590]">
+                              You are connected to GitHub, but haven't selected any repositories to display.
+                            </p>
+                            <Button 
+                              size="sm" 
+                              variant="link" 
+                              className="text-[#58a6ff] p-0 h-auto mt-1 text-xs"
+                              onClick={() => {
+                                setSettingsInitialSection('integrations');
+                                setSettingsInitialIntegration('github');
+                                setActiveView('settings');
+                              }}
+                            >
+                              Go to Settings to select repos →
+                            </Button>
+                          </div>
+                        )}
                         
                         <div className="bg-[#161b22] border border-[#30363d] rounded-lg p-4 text-left">
                           <h4 className="text-sm font-medium text-white mb-2">What you'll need:</h4>
@@ -1111,15 +1191,6 @@ export default function Dashboard() {
             <kbd className="px-2 py-1 text-xs bg-[#21262d] border border-[#30363d] rounded hidden sm:inline">⌘K</kbd>
           </div>
           <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2 text-sm hidden sm:flex">
-              <div className={`w-2 h-2 rounded-full ${
-                vercelStatus === "connected" ? "bg-green-400" : 
-                vercelStatus === "checking" ? "bg-yellow-400" : "bg-red-400"
-              }`}></div>
-              <span className="text-[#7d8590]">
-                Vercel: {vercelStatus === "checking" ? "Checking..." : vercelStatus}
-              </span>
-            </div>
             <div className="flex items-center gap-2 text-sm hidden sm:flex">
               <div className={`w-2 h-2 rounded-full ${
                 githubStatus === "connected" ? "bg-green-400" : 

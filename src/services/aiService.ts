@@ -672,7 +672,14 @@ An error occurred while communicating with the Gemini API.
 
 export function getAIConfig(): { provider: AIProvider; apiKey: string; model: string } | null {
   const stored = localStorage.getItem("ai_config");
-  if (!stored) return null;
+  const token = localStorage.getItem('token');
+  
+  if (!stored) {
+    if (token) {
+      return { provider: "groq", apiKey: "backend", model: "llama-3.3-70b-versatile" };
+    }
+    return null;
+  }
   
   const config = JSON.parse(stored);
   

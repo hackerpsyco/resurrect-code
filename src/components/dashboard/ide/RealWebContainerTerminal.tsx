@@ -176,9 +176,9 @@ export function RealWebContainerTerminal({
               );
               
               // Combine: priority files first, then source files
-              const filesToLoad = [...priorityFiles, ...sourceFiles].slice(0, 100);
+              const filesToLoad = [...priorityFiles, ...sourceFiles].slice(0, 1000);
               
-              addOutput(`📦 Loading ${filesToLoad.length} files (${priorityFiles.length} config files + ${Math.min(sourceFiles.length, 100 - priorityFiles.length)} source files)...`);
+              addOutput(`📦 Loading ${filesToLoad.length} files (${priorityFiles.length} config files + ${Math.min(sourceFiles.length, 1000 - priorityFiles.length)} source files)...`);
               
               let loadedCount = 0;
               let failedCount = 0;

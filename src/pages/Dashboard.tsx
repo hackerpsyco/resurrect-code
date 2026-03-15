@@ -230,6 +230,7 @@ export default function Dashboard() {
   const [hasSelectedGithubRepos, setHasSelectedGithubRepos] = useState(false);
   const [incidents, setIncidents] = useState<any[]>([]);
   const [monitoredRepos, setMonitoredRepos] = useState<string[]>([]);
+  const [recentCommits, setRecentCommits] = useState<any[]>([]);
   
   const { isAuthenticated, repositories } = useGitHubAuth();
   const [extensionsOpen, setExtensionsOpen] = useState(false);
@@ -469,6 +470,32 @@ export default function Dashboard() {
       window.removeEventListener('vercel-settings-updated', handleVercelSettingsUpdate);
     };
   }, []);
+
+  // 🔄 Fetch Recent Commits for Dashboard Sidebar Feed
+  useEffect(() => {
+    const loadCommits = async () => {
+      if (projects.length > 0) {
+        const firstProject = projects[0];
+        try {
+          const response = await fetch(`${import.meta.env.VITE_API_URL || 'https://resurrect-code-j5om.vercel.app'}/api/github-api`, {
+            method: 'POST',
+            headers: { 
+              'Authorization': `Bearer ${localStorage.getItem('token')}`, 
+              'Content-Type': 'application/json' 
+            },
+            body: JSON.stringify({ action: 'get_commits', owner: firstProject.owner, repo: firstProject.repo })
+          });
+          if (response.ok) {
+            const data = await response.json();
+            setRecentCommits(Array.isArray(data) ? data : []);
+          }
+        } catch (err) {
+          console.error("Failed to load commits sidebar:", err);
+        }
+      }
+    };
+    loadCommits();
+  }, [projects]);
 
   const handleNewProject = () => {
     console.log('🔍 Checking user integrations before opening New Project dialog...');
@@ -1056,13 +1083,39 @@ export default function Dashboard() {
             )}
 
             {/* Show message when no activity yet */}
-            {incidents.length === 0 && projects.length > 0 && (
+            {incidents.length === 0 && projects.length > 0 && recentCommits.length === 0 && (
               <div className="text-center py-8">
                 <Activity className="w-8 h-8 text-[#7d8590] mx-auto mb-2" />
                 <h3 className="text-sm font-medium text-white mb-1">No Activity Yet</h3>
                 <p className="text-xs text-[#7d8590]">
                   Activity will appear here as you use ResurrectCI features
                 </p>
+              </div>
+            )}
+
+            {/* Recent Commits Feed (Replaces static view when loading dashboard) */}
+            {recentCommits.length > 0 && incidents.length === 0 && (
+              <div>
+                <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                  <Activity className="w-5 h-5 text-[#238636]" />
+                  Recent Commits ({projects[0]?.name})
+                </h3>
+                <div className="space-y-3">
+                  {recentCommits.map((commit: any) => (
+                    <div key={commit.sha} className="bg-[#161b22] border border-[#30363d] rounded-lg p-3">
+                      <div className="flex items-start gap-3">
+                        <div className="w-6 h-6 bg-purple-500/20 rounded-full flex items-center justify-center mt-0.5">
+                          <GitBranch className="w-3 h-3 text-purple-400" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h4 className="text-sm font-medium text-white">{commit.commit?.message?.split("\n")[0]}</h4>
+                          <p className="text-xs text-[#7d8590] mt-1">by {commit.commit?.author?.name}</p>
+                          <span className="text-[10px] text-[#7d8590]">{new Date(commit.commit?.author?.date).toLocaleString()}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
 

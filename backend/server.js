@@ -192,6 +192,8 @@ app.post('/api/github-api', authenticateToken, async (req, res) => {
         sha: sha || undefined,
         branch: branch || 'main'
       };
+    } else if (action === 'get_commits') {
+      url = `https://api.github.com/repos/${owner}/${repo}/commits?per_page=10`;
     } else {
       return res.status(400).json({ success: false, error: 'Unknown action type' });
     }

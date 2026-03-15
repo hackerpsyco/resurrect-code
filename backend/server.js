@@ -39,7 +39,7 @@ app.get('/api/auth/github', (req, res) => {
     return res.status(500).json({ error: 'GITHUB_CLIENT_ID not configured in backend/.env' });
   }
 
-  const origin = req.query.origin || 'http://localhost:8080';
+  const origin = req.query.origin || 'https://www.innoalaxy.in';
   const githubAuthUrl = `https://github.com/login/oauth/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&scope=${scope}&state=${encodeURIComponent(origin)}`;
   res.redirect(githubAuthUrl);
 });
@@ -93,8 +93,8 @@ app.get('/api/auth/github/callback', async (req, res) => {
     const jwtToken = jwt.sign(payload, process.env.JWT_SECRET || 'fallback_secret', { expiresIn: '7d' });
 
     // E. Redirect back to frontend dashboard with Token
-    // In production, use HttpOnly cookies. For the hackathon/demo, redirect with query param is okay.
-    const redirectBack = state || 'http://localhost:8080';
+    // Defaulting to production domain instead of localhost fallback
+    const redirectBack = state || 'https://www.innoalaxy.in';
     res.redirect(`${redirectBack}/dashboard?token=${jwtToken}`);
   } catch (err) {
     console.error('OAuth Callback Error:', err.message);

@@ -295,12 +295,12 @@ app.post('/api/monitor', authenticateToken, async (req, res) => {
     if (checkResult.rows.length === 0) {
       await pool.query(
         'INSERT INTO monitored_repos (user_id, repo_full_name, repo_id, github_token) VALUES ($1, $2, $3, $4)', 
-        [userId, repo_full_name, parsedRepoId, githubToken]
+        [userId, repo_full_name, parsedRepoId, githubToken || null]
       );
     } else {
       await pool.query(
         'UPDATE monitored_repos SET github_token = $1 WHERE id = $2',
-        [githubToken, checkResult.rows[0].id]
+        [githubToken || null, checkResult.rows[0].id]
       );
     }
 

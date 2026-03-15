@@ -658,6 +658,7 @@ export default function Dashboard() {
       if (response.ok && data.success) {
         toast.success(data.message || `Monitoring ${repo.full_name}`);
       } else {
+        console.error("Monitor Server Error Data:", data);
         toast.error(data.error || "Failed to configure monitoring");
       }
     } catch (err) {

@@ -32,7 +32,7 @@ app.get('/', (req, res) => {
 // 1. Redirect to GitHub
 app.get('/api/auth/github', (req, res) => {
   const clientId = process.env.GITHUB_CLIENT_ID;
-  const redirectUri = process.env.GITHUB_REDIRECT_URI || 'http://localhost:5000/api/auth/github/callback';
+  const redirectUri = process.env.GITHUB_REDIRECT_URI || 'https://resurrect-code-j5om.vercel.app/api/auth/github/callback';
   const scope = 'repo workflow read:user';
   
   if (!clientId) {

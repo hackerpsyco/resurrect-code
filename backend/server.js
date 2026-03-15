@@ -21,8 +21,18 @@ const pool = new Pool({
   ssl: { rejectUnauthorized: false }
 });
 
-app.get('/', (req, res) => {
-  res.send('🚀 ResurrectCI Backend is Alive and Well!');
+// Run startup migrations
+pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS total_tokens INT DEFAULT 0;')
+  .then(() => console.log('✅ total_tokens safe column added successfully!'))
+  .catch(err => console.error('❌ Startup Migration Failed:', err.message));
+
+app.get('/api/admin/setup-table', async (req, res) => {
+  try {
+    await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS total_tokens INT DEFAULT 0;');
+    res.send('✅ total_tokens safe column added successfully!');
+  } catch (err) {
+    res.status(500).send(`❌ Failed: ${err.message}`);
+  }
 });
 
 // ==========================================
@@ -139,6 +149,9 @@ app.get('/api/repos', authenticateToken, async (req, res) => {
       }
     });
     const repos = await response.json();
+    if (!response.ok) {
+      return res.status(response.status).json({ success: false, error: repos.message || 'GitHub API error' });
+    }
     res.json(repos);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -236,7 +249,7 @@ app.post('/api/ai/scan-file', authenticateToken, async (req, res) => {
     const { content, fileName } = req.body;
     if (!content) return res.status(400).json({ success: false, error: 'No content provided for scan' });
 
-    const report = await scanFile(content, fileName || 'unknown');
+    const report = await scanFile(content, fileName || 'unknown', req.user.userId);
     res.json({ success: true, issues: report.issues || [] });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -251,7 +264,7 @@ app.post('/api/ai/fix-file', authenticateToken, async (req, res) => {
     if (!issueDescription) return res.status(400).json({ success: false, error: 'No issue description provided' });
 
     console.log(`🧠 AI Fixing file: ${fileName}`);
-    const fixedContent = await fixFileCode(content, issueDescription, fileName || 'unknown');
+    const fixedContent = await fixFileCode(content, issueDescription, fileName || 'unknown', req.user.userId);
     
     res.json({ success: true, fixedContent });
   } catch (err) {
@@ -381,7 +394,7 @@ app.post('/api/webhook/github', async (req, res) => {
   try {
     // A. Find matching monitored repo to get access token to compare diffs
     const repoResult = await pool.query(
-      'SELECT github_token FROM monitored_repos WHERE repo_full_name = $1 LIMIT 1',
+      'SELECT github_token, user_id FROM monitored_repos WHERE repo_full_name = $1 LIMIT 1',
       [repoFullName]
     );
 
@@ -391,6 +404,7 @@ app.post('/api/webhook/github', async (req, res) => {
     }
 
     const githubToken = repoResult.rows[0].github_token;
+    const webhookUserId = repoResult.rows[0].user_id;
 
     // B. Fetch Compare Diff from GitHub
     const compareUrl = `https://api.github.com/repos/${owner}/${repoName}/compare/${before}...${after}`;
@@ -429,7 +443,7 @@ app.post('/api/webhook/github', async (req, res) => {
 
     // D. Run Groq Code Review
     console.log(`🧠 Running AI Code Review for commit ${after}`);
-    const reviewResult = await reviewCommitDiff(combineDiff);
+    const reviewResult = await reviewCommitDiff(combineDiff, '', webhookUserId);
     console.log(`✅ AI Review complete for ${after}`);
 
     // E. Save to Database

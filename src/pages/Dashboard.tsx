@@ -231,6 +231,7 @@ export default function Dashboard() {
   const [incidents, setIncidents] = useState<any[]>([]);
   const [monitoredRepos, setMonitoredRepos] = useState<string[]>([]);
   const [recentCommits, setRecentCommits] = useState<any[]>([]);
+  const [totalTokens, setTotalTokens] = useState<number>(0);
   
   const { isAuthenticated, repositories } = useGitHubAuth();
   const [extensionsOpen, setExtensionsOpen] = useState(false);
@@ -309,7 +310,8 @@ export default function Dashboard() {
               headers: { 'Authorization': `Bearer ${jwtToken}` }
             });
             if (response.ok) {
-              allRepos = await response.json();
+              const data = await response.json();
+              allRepos = Array.isArray(data) ? data : [];
               isConnectedCheck = true;
               console.log(`✅ Fetched ${allRepos.length} repos from backend`);
               
@@ -496,6 +498,29 @@ export default function Dashboard() {
     };
     loadCommits();
   }, [projects]);
+
+  // 🔄 Fetch Total Tokens for Dashboard Sidebar/Header
+  useEffect(() => {
+    const fetchTokens = async () => {
+      const jwtToken = localStorage.getItem('token');
+      if (jwtToken) {
+        try {
+          const response = await fetch(`${import.meta.env.VITE_API_URL || 'https://resurrect-code-j5om.vercel.app'}/api/user/me`, {
+            headers: { 'Authorization': `Bearer ${jwtToken}` }
+          });
+          if (response.ok) {
+            const data = await response.json();
+            if (data.total_tokens !== undefined) setTotalTokens(data.total_tokens);
+          }
+        } catch (err) {
+          console.error("Failed to fetch token usage count:", err);
+        }
+      }
+    };
+    fetchTokens();
+    const interval = setInterval(fetchTokens, 10000); // Polling update count every 10s
+    return () => clearInterval(interval);
+  }, []);
 
   const handleNewProject = () => {
     console.log('🔍 Checking user integrations before opening New Project dialog...');
@@ -1271,6 +1296,13 @@ export default function Dashboard() {
                 GitHub: {githubStatus === "checking" ? "Checking..." : githubStatus}
               </span>
             </div>
+            
+            {totalTokens > 0 && (
+              <div className="flex items-center gap-1.5 text-xs bg-[#238636]/10 text-[#238636] border border-[#238636]/30 px-2.5 py-1 rounded-full hidden md:flex">
+                <Zap className="w-3.5 h-3.5 fill-current" />
+                <span>Tokens: {totalTokens.toLocaleString()}</span>
+              </div>
+            )}
             <Button 
               variant="ghost" 
               size="sm" 

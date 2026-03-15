@@ -1,7 +1,13 @@
 const { Groq } = require('groq-sdk');
+const { Pool } = require('pg');
 
 const groq = new Groq({
   apiKey: process.env.GROQ_API_KEY
+});
+
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false }
 });
 
 /**
@@ -32,7 +38,7 @@ async function retryWithBackoff(operation, maxRetries = 4, baseDelay = 5000) {
 /**
  * Scans file content for bugs, performance issues, and standards.
  */
-async function scanFile(content, fileName) {
+async function scanFile(content, fileName, userId = null) {
   const prompt = `You are a Senior Software Architect and security auditor.
 Analyze the following file: "${fileName}" for:
 1. Critical bugs and security vulnerabilities.
@@ -64,10 +70,15 @@ ${content}
     temperature: 0.1, // Low temp for structured analysis
   }));
 
+  // Incremental Token Counter
+  if (userId && response.usage) {
+    pool.query('UPDATE users SET total_tokens = total_tokens + $1 WHERE id = $2', [response.usage.total_tokens, userId])
+        .catch(err => console.error("Failed to increment tokens:", err.message));
+  }
+
   const text = response.choices[0]?.message?.content || '{}';
   
   try {
-    // Attempt to parse JSON (sometimes models include markdown backticks, so let's strip them)
     const jsonString = text.replace(/^```json/, '').replace(/```$/, '').trim();
     return JSON.parse(jsonString);
   } catch (err) {
@@ -160,7 +171,7 @@ Guidelines:
 /**
  * Reviews a commit diff for code quality, bugs, and improvements.
  */
-async function reviewCommitDiff(diffContent, projectContext = '') {
+async function reviewCommitDiff(diffContent, projectContext = '', userId = null) {
   const prompt = `You are a Senior Software Architect and code reviewer.
 Analyze the following git diff for code quality issues, bugs, security vulnerabilities, or anti-patterns:
 
@@ -195,6 +206,12 @@ Format:
     temperature: 0.1, // Low temp for structured analysis
   }));
 
+  // Incremental Token Counter
+  if (userId && response.usage) {
+    pool.query('UPDATE users SET total_tokens = total_tokens + $1 WHERE id = $2', [response.usage.total_tokens, userId])
+        .catch(err => console.error("Failed to increment tokens:", err.message));
+  }
+
   const text = response.choices[0]?.message?.content || '{}';
   
   try {
@@ -209,7 +226,7 @@ Format:
 /**
  * Fixes code content based on an issue or instruction.
  */
-async function fixFileCode(content, issueDescription, fileName) {
+async function fixFileCode(content, issueDescription, fileName, userId = null) {
   const prompt = `You are an expert developer and security engineer.
 Review the following file: "${fileName}" and the description of the issue to solve.
 
@@ -231,6 +248,12 @@ DO NOT include any explanation or markdown before/after the code block, EXCEPT t
     model: 'llama-3.3-70b-versatile',
     temperature: 0.2, // Low temp for code generation
   }));
+
+  // Incremental Token Counter
+  if (userId && response.usage) {
+    pool.query('UPDATE users SET total_tokens = total_tokens + $1 WHERE id = $2', [response.usage.total_tokens, userId])
+        .catch(err => console.error("Failed to increment tokens:", err.message));
+  }
 
   const text = response.choices[0]?.message?.content || '';
   

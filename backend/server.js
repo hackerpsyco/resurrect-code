@@ -21,6 +21,10 @@ const pool = new Pool({
   ssl: { rejectUnauthorized: false }
 });
 
+app.get('/', (req, res) => {
+  res.send('🚀 ResurrectCI Backend is Alive and Well!');
+});
+
 // ==========================================
 // 🔐 AUTHENTICATION ENDPOINTS (GitHub OAuth)
 // ==========================================

@@ -123,8 +123,10 @@ export default function Dashboard() {
   // 🔒 SECURITY: Redirect to auth if not logged in (after loading is done)
   // Allow guest access for judges
   const isGuest = sessionStorage.getItem('guest_mode') === 'true';
+  const hasTokenInUrl = new URLSearchParams(window.location.search).has('token');
+  const hasTokenInStorage = !!localStorage.getItem('token');
   
-  if (!user && !isGuest) {
+  if (!user && !isGuest && !hasTokenInUrl && !hasTokenInStorage) {
     console.log('🔐 Unauthorized access to dashboard - redirecting to auth');
     return <Navigate to="/auth" replace />;
   }

@@ -1,3 +1,5 @@
+const API_URL = import.meta.env.VITE_API_URL || 'https://resurrect-code-j5om.vercel.app';
+
 export type AIProvider = "deepseek" | "openai" | "claude" | "lovable" | "gemini" | "groq";
 
 export interface AIMessage {
@@ -620,7 +622,7 @@ An error occurred while communicating with the Gemini API.
     const token = localStorage.getItem('token');
     
     try {
-      const response = await fetch("/api/ai/chat", {
+      const response = await fetch(`${API_URL}/api/ai/chat`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

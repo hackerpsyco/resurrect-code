@@ -329,10 +329,14 @@ app.post('/api/monitor', authenticateToken, async (req, res) => {
     const webhookData = await webhookResponse.json();
 
     if (!webhookResponse.ok) {
-       if (webhookResponse.status === 422 && webhookData.message?.includes('already exists')) {
+       const errorsStr = webhookData.errors ? JSON.stringify(webhookData.errors) : '';
+       const isDuplicate = errorsStr.toLowerCase().includes('already exists') || 
+                           (webhookData.message && webhookData.message.toLowerCase().includes('already exists'));
+
+       if (webhookResponse.status === 422 && isDuplicate) {
           return res.json({ success: true, message: 'Repository Monitored. Webhook is already live on GitHub.' });
        }
-       throw new Error(`GitHub Webhook failed: ${webhookData.message || webhookResponse.statusText}`);
+       throw new Error(`GitHub Webhook failed: ${errorsStr || webhookData.message || webhookResponse.statusText}`);
     }
 
     res.json({ success: true, message: 'Monitoring enabled. Webhook installed successfully!', webhook: webhookData.id });

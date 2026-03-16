@@ -79,7 +79,8 @@ ${content}
   const text = response.choices[0]?.message?.content || '{}';
   
   try {
-    const jsonString = text.replace(/^```json/, '').replace(/```$/, '').trim();
+    const match = text.match(/```(?:json)?\n?([\s\S]*?)```/);
+    const jsonString = match ? match[1].trim() : text.trim();
     return JSON.parse(jsonString);
   } catch (err) {
     console.error('Failed to parse Groq response:', text);
@@ -215,7 +216,8 @@ Format:
   const text = response.choices[0]?.message?.content || '{}';
   
   try {
-    const jsonString = text.replace(/^```json/, '').replace(/```$/, '').trim();
+    const match = text.match(/```(?:json)?\n?([\s\S]*?)```/);
+    const jsonString = match ? match[1].trim() : text.trim();
     return JSON.parse(jsonString);
   } catch (err) {
     console.error('Failed to parse Groq response:', text);

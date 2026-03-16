@@ -15,6 +15,8 @@ interface AIScannerPanelProps {
   onFixApplied?: (newContent: string) => void;
 }
 
+const API_URL = import.meta.env.VITE_API_URL || 'https://resurrect-code-j5om.vercel.app';
+
 export function AIScannerPanel({ currentFile, onFixApplied }: AIScannerPanelProps) {
   const [loading, setLoading] = useState(false);
   const [fixingIdx, setFixingIdx] = useState<number | null>(null);
@@ -30,7 +32,7 @@ export function AIScannerPanel({ currentFile, onFixApplied }: AIScannerPanelProp
     const token = localStorage.getItem('token');
 
     try {
-      const response = await fetch("/api/ai/fix-file", {
+      const response = await fetch(`${API_URL}/api/ai/fix-file`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -68,7 +70,7 @@ export function AIScannerPanel({ currentFile, onFixApplied }: AIScannerPanelProp
     const token = localStorage.getItem('token');
 
     try {
-      const response = await fetch("/api/ai/scan-file", {
+      const response = await fetch(`${API_URL}/api/ai/scan-file`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

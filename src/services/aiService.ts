@@ -685,9 +685,16 @@ export function getAIConfig(): { provider: AIProvider; apiKey: string; model: st
   
   const config = JSON.parse(stored);
   
+  // Migrate Gemini to Groq if token is available (since user uses Groq)
+  if (config.provider === 'gemini' && token) {
+    config.provider = 'groq';
+    config.apiKey = 'backend';
+    config.model = 'llama-3.3-70b-versatile';
+    localStorage.setItem("ai_config", JSON.stringify(config));
+  }
   // Keep gemini-1.5-flash as is (free tier)
   // Only update old model names if they're not flash
-  if (config.model === 'gemini-pro') {
+  else if (config.model === 'gemini-pro') {
     config.model = 'gemini-1.5-flash';
     localStorage.setItem("ai_config", JSON.stringify(config));
   }

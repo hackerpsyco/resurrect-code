@@ -14,8 +14,8 @@ const technologies = [
     color: "from-gray-700 to-gray-900",
   },
   {
-    name: "Supabase",
-    description: "Real-time backend orchestration via Deno Edge Functions",
+    name: "Neon Database",
+    description: "Serverless Postgres for scalable data storage & orchestration",
     icon: "⚡",
     color: "from-emerald-500 to-teal-600",
   },

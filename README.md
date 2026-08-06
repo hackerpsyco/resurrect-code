@@ -5,7 +5,7 @@
   <img src="https://img.shields.io/badge/Sandbox-WebContainer-green?style=for-the-badge" alt="WebContainer"/>
 </p>
 
-# ResurrectCI
+# ResurrectCI  
 
 **Autonomous Agentic DevOps & Reliability Engineering Platform.**
 
@@ -223,7 +223,7 @@ GITHUB_TOKEN=your_github_token
 ### 3. Start Application
 ```bash
 npm run dev
-# Dashboard available at http://localhost:5173
+# Dashboard available at http://localhost:5000
 ```
 
 ---

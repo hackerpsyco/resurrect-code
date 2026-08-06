@@ -716,6 +716,9 @@ export default function Dashboard() {
       return;
     }
     
+    // Show loading toast
+    const loadingToast = toast.loading("Setting up monitoring and webhook...");
+    
     try {
       const response = await fetch(`${import.meta.env.VITE_API_URL || 'https://resurrect-code-lzgz.vercel.app'}/api/monitor`, {
         method: 'POST',
@@ -730,15 +733,24 @@ export default function Dashboard() {
       });
 
       const data = await response.json();
+      toast.dismiss(loadingToast);
 
       if (response.ok && data.success) {
-        toast.success(data.message || `Monitoring ${repo.full_name}`);
-        setMonitoredRepos(prev => [...prev, repo.full_name]); // ✅ Append State updating UI instantly
+        toast.success(data.message || `✅ Monitoring ${repo.full_name} - Webhook installed!`);
+        setMonitoredRepos(prev => [...prev, repo.full_name]);
+        
+        // Show additional info about what was set up
+        setTimeout(() => {
+          toast.info("📬 Webhook will automatically trigger AI code review on every commit", {
+            duration: 5000
+          });
+        }, 1000);
       } else {
         console.error("Monitor Server Error Data:", data);
         toast.error(data.error || "Failed to configure monitoring");
       }
     } catch (err) {
+      toast.dismiss(loadingToast);
       console.error('Monitor trigger error:', err);
       toast.error("Failed to configure monitoring");
     }
@@ -932,20 +944,34 @@ export default function Dashboard() {
                         <div className="flex items-center gap-2">
                           {(() => {
                             const isMonitored = monitoredRepos.includes(`${project.owner}/${project.repo}`);
+                            const hasGitHubToken = !!localStorage.getItem('github_token');
+                            
                             return (
                               <Button 
                                 size="sm" 
                                 variant="outline" 
-                                disabled={isMonitored}
-                                className={`h-7 text-xs ${isMonitored ? 'border-gray-500 text-gray-500 hover:bg-transparent cursor-default' : 'border-[#238636] text-[#238636] hover:bg-[#238636] hover:text-white'}`}
+                                disabled={isMonitored || !hasGitHubToken}
+                                className={`h-7 text-xs transition-all ${
+                                  isMonitored 
+                                    ? 'border-green-500 text-green-500 bg-green-500/10 cursor-default' 
+                                    : !hasGitHubToken
+                                    ? 'border-gray-600 text-gray-600 cursor-not-allowed'
+                                    : 'border-[#238636] text-[#238636] hover:bg-[#238636] hover:text-white cursor-pointer'
+                                }`}
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  if (!isMonitored) {
-                                    monitorRepo({ full_name: `${project.owner}/${project.repo}`, id: project.id, name: project.name });
+                                  if (!isMonitored && hasGitHubToken) {
+                                    monitorRepo({ 
+                                      full_name: `${project.owner}/${project.repo}`, 
+                                      id: project.id, 
+                                      name: project.name 
+                                    });
+                                  } else if (!hasGitHubToken) {
+                                    toast.error("GitHub token required. Please reconnect in Settings.");
                                   }
                                 }}
                               >
-                                {isMonitored ? "Monitored" : "Monitor"}
+                                {isMonitored ? "✓ Monitored" : "Monitor"}
                               </Button>
                             );
                           })()}

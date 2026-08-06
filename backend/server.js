@@ -114,7 +114,18 @@ app.get('/api/auth/github/callback', async (req, res) => {
     
     const userId = dbResult.rows[0].id;
 
-    // D. Generate JWT Token
+    // D. Refresh GitHub Access Token for all monitored repos of this user to prevent 401 Unauthorized errors
+    try {
+      await pool.query(
+        'UPDATE monitored_repos SET github_token = $1 WHERE user_id = $2',
+        [accessToken, userId]
+      );
+      console.log(`🔑 Automatically refreshed GitHub token for user ${profile.login}'s monitored repos.`);
+    } catch (tokenUpdateErr) {
+      console.error('Failed to update monitored_repos github_token on login:', tokenUpdateErr.message);
+    }
+
+    // E. Generate JWT Token
     const payload = { userId, username: profile.login, githubToken: accessToken };
     const jwtToken = jwt.sign(payload, process.env.JWT_SECRET || 'fallback_secret', { expiresIn: '7d' });
 

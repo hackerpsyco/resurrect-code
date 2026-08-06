@@ -434,9 +434,14 @@ app.post('/api/webhook/github', async (req, res) => {
   try {
     // A. Find matching monitored repo to get access token to compare diffs
     const repoResult = await pool.query(
-      `SELECT github_token, user_id FROM monitored_repos 
-       WHERE LOWER(repo_full_name) = LOWER($1) 
-       ORDER BY (github_token LIKE 'gho_%' OR github_token LIKE 'ghp_%' OR github_token LIKE 'github_pat_%') DESC, added_at DESC 
+      `SELECT mr.github_token, mr.user_id 
+       FROM monitored_repos mr
+       LEFT JOIN users u ON mr.user_id = u.id
+       WHERE LOWER(mr.repo_full_name) = LOWER($1) 
+       ORDER BY 
+         (mr.github_token LIKE 'gho_%' OR mr.github_token LIKE 'ghp_%' OR mr.github_token LIKE 'github_pat_%') DESC,
+         (LOWER(u.username) = LOWER(SPLIT_PART(mr.repo_full_name, '/', 1))) DESC,
+         mr.added_at DESC 
        LIMIT 1`,
       [repoFullName]
     );
@@ -507,13 +512,57 @@ app.post('/api/webhook/github', async (req, res) => {
 
     // F. Notify User via Commit Comment
     if (reviewResult.issues?.length > 0) {
+       // Fetch all users monitoring this repository to auto-subscribe them via mentions
+       let mentions = [];
+       try {
+         const participantsResult = await pool.query(
+           'SELECT DISTINCT u.username FROM monitored_repos mr JOIN users u ON mr.user_id = u.id WHERE LOWER(mr.repo_full_name) = LOWER($1)',
+           [repoFullName]
+         );
+         mentions = participantsResult.rows.map(r => r.username).filter(Boolean);
+        } catch (mentionErr) {
+          console.warn('Failed to fetch participants for mentions:', mentionErr.message);
+        }
+
+        // Fetch all collaborators from GitHub to auto-subscribe them as well
+        try {
+          const collaboratorsResponse = await fetch(`https://api.github.com/repos/${owner}/${repoName}/collaborators`, {
+            headers: {
+              'Authorization': `Bearer ${githubToken}`,
+              'Accept': 'application/vnd.github.v3+json',
+              'User-Agent': 'ResurrectCI-Backend'
+            }
+          });
+          if (collaboratorsResponse.ok) {
+            const collaborators = await collaboratorsResponse.json();
+            if (Array.isArray(collaborators)) {
+              collaborators.forEach(c => {
+                if (c.login && !mentions.includes(c.login)) {
+                  mentions.push(c.login);
+                }
+              });
+            }
+          }
+        } catch (collabErr) {
+          console.warn('Failed to fetch repository collaborators for mentions:', collabErr.message);
+        }
+
+       if (req.body.sender?.login && !mentions.includes(req.body.sender.login)) {
+         mentions.push(req.body.sender.login);
+       }
+       if (req.body.head_commit?.author?.username && !mentions.includes(req.body.head_commit.author.username)) {
+         mentions.push(req.body.head_commit.author.username);
+       }
+
+       const mentionString = mentions.length > 0 ? `\n\n---\n🔔 **Subscribed**: ${mentions.map(m => `@${m}`).join(' ')}` : '';
+
        const commentBody = `### 🤖 AI Code Quality Review (Senior Developer)
 
 **Summary**: ${reviewResult.summary}
 **Score**: ${reviewResult.score || 'N/A'}/100
 
 #### ⚠️ Issues Found:
-${reviewResult.issues.map((i, idx) => `${idx + 1}. **${i.severity.toUpperCase()}** - \`${i.file}${i.line ? `:${i.line}` : ''}\`: ${i.description}\n   *👉 Fix*: ${i.fix}`).join('\n\n')}
+${reviewResult.issues.map((i, idx) => `${idx + 1}. **${i.severity.toUpperCase()}** - \`${i.file}${i.line ? `:${i.line}` : ''}\`: ${i.description}\n   *👉 Fix*: ${i.fix}`).join('\n\n')}${mentionString}
 `;
 
        const commentUrl = `https://api.github.com/repos/${owner}/${repoName}/commits/${after}/comments`;

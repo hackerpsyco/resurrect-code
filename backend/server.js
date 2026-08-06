@@ -9,8 +9,25 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // Middleware
+const allowedOrigins = [
+  'http://localhost:8080',
+  'http://localhost:5173',
+  'https://www.innoalaxy.in',
+  'https://resurrect-code.vercel.app'
+];
+
 app.use(cors({ 
-  origin: ['http://localhost:8080', 'https://www.innoalaxy.in'], 
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true);
+    const isAllowed = allowedOrigins.includes(origin) || 
+                      origin.endsWith('.vercel.app') || 
+                      /^http:\/\/localhost:\d+$/.test(origin);
+    if (isAllowed) {
+      callback(null, true);
+    } else {
+      callback(null, false);
+    }
+  }, 
   credentials: true 
 }));
 app.use(express.json());

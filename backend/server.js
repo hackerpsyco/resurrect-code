@@ -42,7 +42,7 @@ app.get('/api/admin/setup-table', async (req, res) => {
 // 1. Redirect to GitHub
 app.get('/api/auth/github', (req, res) => {
   const clientId = process.env.GITHUB_CLIENT_ID;
-  const redirectUri = process.env.GITHUB_REDIRECT_URI || 'https://resurrect-code-j5om.vercel.app/api/auth/github/callback';
+  const redirectUri = process.env.GITHUB_REDIRECT_URI || 'https://resurrect-code-lzgz.vercel.app/api/auth/github/callback';
   const scope = 'repo workflow read:user';
   
   if (!clientId) {
@@ -342,7 +342,7 @@ app.post('/api/monitor', authenticateToken, async (req, res) => {
 
     // B. Install Github Webhook Autopilot
     const [owner, repoName] = repo_full_name.split('/');
-    const webhookUrl = `${process.env.BACKEND_URL || 'https://resurrect-code-j5om.vercel.app'}/api/webhook/github`;
+    const webhookUrl = `${process.env.BACKEND_URL || 'https://resurrect-code-lzgz.vercel.app'}/api/webhook/github`;
 
     const webhookResponse = await fetch(`https://api.github.com/repos/${owner}/${repoName}/hooks`, {
       method: 'POST',

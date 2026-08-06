@@ -106,7 +106,7 @@ const automatedFixes: any[] = []; // Empty - will be populated from user's actua
 
 const activityLog: any[] = []; // Empty - will be populated from user's actual activity
 
-const API_URL = import.meta.env.VITE_API_URL || 'https://resurrect-code-j5om.vercel.app';
+const API_URL = import.meta.env.VITE_API_URL || 'https://resurrect-code-lzgz.vercel.app';
 
 export default function Dashboard() {
   const { user, signOut, loading } = useAuth();
@@ -319,7 +319,7 @@ export default function Dashboard() {
               
               // Also fetch monitored repos
               try {
-                const monitoredResponse = await fetch(`${import.meta.env.VITE_API_URL || 'https://resurrect-code-j5om.vercel.app'}/api/monitored-repos`, {
+                const monitoredResponse = await fetch(`${import.meta.env.VITE_API_URL || 'https://resurrect-code-lzgz.vercel.app'}/api/monitored-repos`, {
                   headers: { 'Authorization': `Bearer ${jwtToken}` }
                 });
                 if (monitoredResponse.ok) {
@@ -488,7 +488,7 @@ export default function Dashboard() {
       if (projects.length > 0) {
         const firstProject = projects[0];
         try {
-          const response = await fetch(`${import.meta.env.VITE_API_URL || 'https://resurrect-code-j5om.vercel.app'}/api/github-api`, {
+          const response = await fetch(`${import.meta.env.VITE_API_URL || 'https://resurrect-code-lzgz.vercel.app'}/api/github-api`, {
             method: 'POST',
             headers: { 
               'Authorization': `Bearer ${localStorage.getItem('token')}`, 
@@ -514,7 +514,7 @@ export default function Dashboard() {
       const jwtToken = localStorage.getItem('token');
       if (jwtToken) {
         try {
-          const response = await fetch(`${import.meta.env.VITE_API_URL || 'https://resurrect-code-j5om.vercel.app'}/api/user/me`, {
+          const response = await fetch(`${import.meta.env.VITE_API_URL || 'https://resurrect-code-lzgz.vercel.app'}/api/user/me`, {
             headers: { 'Authorization': `Bearer ${jwtToken}` }
           });
           if (response.ok) {
@@ -717,7 +717,7 @@ export default function Dashboard() {
     }
     
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'https://resurrect-code-j5om.vercel.app'}/api/monitor`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'https://resurrect-code-lzgz.vercel.app'}/api/monitor`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,

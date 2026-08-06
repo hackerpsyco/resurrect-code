@@ -56,7 +56,9 @@ app.get('/api/admin/setup-table', async (req, res) => {
 // 1. Redirect to GitHub
 app.get('/api/auth/github', (req, res) => {
   const clientId = process.env.GITHUB_CLIENT_ID;
-  const redirectUri = process.env.GITHUB_REDIRECT_URI || 'https://resurrect-code-j5om.vercel.app/api/auth/github/callback';
+  const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'https';
+  const host = req.headers.host;
+  const redirectUri = process.env.GITHUB_REDIRECT_URI || `${protocol}://${host}/api/auth/github/callback`;
   const scope = 'repo workflow read:user';
   
   if (!clientId) {
@@ -339,7 +341,7 @@ app.post('/api/monitor', authenticateToken, async (req, res) => {
 
   try {
     // A. Verify/Insert into Monitored Repos in Neon DB
-    const checkQuery = 'SELECT id FROM monitored_repos WHERE repo_full_name = $1 AND user_id = $2';
+    const checkQuery = 'SELECT id FROM monitored_repos WHERE LOWER(repo_full_name) = LOWER($1) AND user_id = $2';
     const checkResult = await pool.query(checkQuery, [repo_full_name, userId]);
     
     if (checkResult.rows.length === 0) {
@@ -356,7 +358,9 @@ app.post('/api/monitor', authenticateToken, async (req, res) => {
 
     // B. Install Github Webhook Autopilot
     const [owner, repoName] = repo_full_name.split('/');
-    const webhookUrl = `${process.env.BACKEND_URL || 'https://resurrect-code-j5om.vercel.app'}/api/webhook/github`;
+    const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'https';
+    const host = req.headers.host;
+    const webhookUrl = process.env.BACKEND_URL || `${protocol}://${host}/api/webhook/github`;
 
     const webhookResponse = await fetch(`https://api.github.com/repos/${owner}/${repoName}/hooks`, {
       method: 'POST',
@@ -419,7 +423,7 @@ app.post('/api/webhook/github', async (req, res) => {
   try {
     // A. Find matching monitored repo to get access token to compare diffs
     const repoResult = await pool.query(
-      'SELECT github_token, user_id FROM monitored_repos WHERE repo_full_name = $1 LIMIT 1',
+      'SELECT github_token, user_id FROM monitored_repos WHERE LOWER(repo_full_name) = LOWER($1) LIMIT 1',
       [repoFullName]
     );
 

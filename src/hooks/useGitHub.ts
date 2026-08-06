@@ -23,7 +23,7 @@ interface FileContent {
   sha: string;
 }
 
-const API_URL = import.meta.env.VITE_API_URL || 'https://resurrect-code-j5om.vercel.app';
+const API_URL = import.meta.env.VITE_API_URL || 'https://resurrect-code-lzgz.vercel.app';
 
 export function useGitHub() {
   const [isLoading, setIsLoading] = useState(false);

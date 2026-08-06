@@ -26,7 +26,7 @@ import { userStorageService } from '@/services/userStorageService';
 // import { backendClient } from '@/integrations/backendClient/client'
 import { backendClient } from '@/lib/mockBackend';
 
-const API_URL = import.meta.env.VITE_API_URL || 'https://resurrect-code-j5om.vercel.app';
+const API_URL = import.meta.env.VITE_API_URL || 'https://resurrect-code-lzgz.vercel.app';
 
 interface GitHubUser {
   login: string;

@@ -109,7 +109,7 @@ const automatedFixes: any[] = []; // Empty - will be populated from user's actua
 
 const activityLog: any[] = []; // Empty - will be populated from user's actual activity
 
-const API_URL = import.meta.env.VITE_API_URL || 'https://resurrect-code-j5om.vercel.app';
+const API_URL = import.meta.env.VITE_API_URL || 'https://resurrect-code-lzgz.vercel.app';
 
 export default function Dashboard() {
   const { user, signOut, loading } = useAuth();
@@ -324,7 +324,7 @@ export default function Dashboard() {
               
               // Also fetch monitored repos
               try {
-                const monitoredResponse = await fetch(`${import.meta.env.VITE_API_URL || 'https://resurrect-code-j5om.vercel.app'}/api/monitored-repos`, {
+                const monitoredResponse = await fetch(`${API_URL}/api/monitored-repos`, {
                   headers: { 'Authorization': `Bearer ${jwtToken}` }
                 });
                 if (monitoredResponse.ok) {
@@ -493,7 +493,7 @@ export default function Dashboard() {
       if (projects.length > 0) {
         const firstProject = projects[0];
         try {
-          const response = await fetch(`${import.meta.env.VITE_API_URL || 'https://resurrect-code-j5om.vercel.app'}/api/github-api`, {
+          const response = await fetch(`${API_URL}/api/github-api`, {
             method: 'POST',
             headers: { 
               'Authorization': `Bearer ${localStorage.getItem('token')}`, 
@@ -519,7 +519,7 @@ export default function Dashboard() {
       const jwtToken = localStorage.getItem('token');
       if (jwtToken) {
         try {
-          const response = await fetch(`${import.meta.env.VITE_API_URL || 'https://resurrect-code-j5om.vercel.app'}/api/user/me`, {
+          const response = await fetch(`${API_URL}/api/user/me`, {
             headers: { 'Authorization': `Bearer ${jwtToken}` }
           });
           if (response.ok) {
@@ -722,7 +722,7 @@ export default function Dashboard() {
     }
     
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'https://resurrect-code-j5om.vercel.app'}/api/monitor`, {
+      const response = await fetch(`${API_URL}/api/monitor`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -962,14 +962,14 @@ export default function Dashboard() {
                                       <p className="text-xs font-medium mb-1">Payload URL *</p>
                                       <div className="flex items-center gap-2">
                                         <div className="flex-1 bg-[#0d1117] border border-[#30363d] rounded px-2 py-1 text-xs truncate">
-                                          https://resurrect-code-j5om.vercel.app/api/webhook/github
+                                          {`${API_URL}/api/webhook/github`}
                                         </div>
                                         <Button 
                                           size="sm" 
                                           variant="ghost" 
                                           className="h-7 w-7 p-0 hover:bg-[#21262d]"
                                           onClick={() => {
-                                            navigator.clipboard.writeText("https://resurrect-code-j5om.vercel.app/api/webhook/github");
+                                            navigator.clipboard.writeText(`${API_URL}/api/webhook/github`);
                                             toast.success("URL copied to clipboard");
                                           }}
                                         >
@@ -994,7 +994,7 @@ export default function Dashboard() {
                                             await githubService.createWebhook(project.owner!, project.repo!, {
                                               name: "web",
                                               config: {
-                                                url: "https://resurrect-code-j5om.vercel.app/api/webhook/github",
+                                                url: `${API_URL}/api/webhook/github`,
                                                 content_type: "json"
                                               },
                                               events: ["push", "pull_request", "check_run", "check_suite"]

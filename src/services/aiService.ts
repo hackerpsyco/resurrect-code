@@ -1,4 +1,4 @@
-const API_URL = import.meta.env.VITE_API_URL || 'https://resurrect-code-j5om.vercel.app';
+const API_URL = import.meta.env.VITE_API_URL || 'https://resurrect-code-lzgz.vercel.app';
 
 export type AIProvider = "deepseek" | "openai" | "claude" | "lovable" | "gemini" | "groq";
 

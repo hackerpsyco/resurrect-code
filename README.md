@@ -222,8 +222,8 @@ GITHUB_TOKEN=your_github_token
 
 ### 3. Start Application
 ```bash
-npm run dev
-# Dashboard available at http://localhost:5000 ok this will se code review ai
+npm run dev 
+# Dashboard available at http://localhost:5000 ok this will se code review ai  try where too slow
 ```
 
 ---

@@ -434,7 +434,10 @@ app.post('/api/webhook/github', async (req, res) => {
   try {
     // A. Find matching monitored repo to get access token to compare diffs
     const repoResult = await pool.query(
-      'SELECT github_token, user_id FROM monitored_repos WHERE LOWER(repo_full_name) = LOWER($1) LIMIT 1',
+      `SELECT github_token, user_id FROM monitored_repos 
+       WHERE LOWER(repo_full_name) = LOWER($1) 
+       ORDER BY (github_token LIKE 'gho_%' OR github_token LIKE 'ghp_%' OR github_token LIKE 'github_pat_%') DESC, added_at DESC 
+       LIMIT 1`,
       [repoFullName]
     );
 

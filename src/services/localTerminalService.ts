@@ -1,5 +1,5 @@
 /**
- * Local Terminal Service - Works without Supabase functions
+ * Local Terminal Service - Works without BackendClient functions
  * Provides real terminal functionality using local development environment
  */
 
@@ -118,7 +118,7 @@ class LocalTerminalService {
       'tailwindcss@3.3.0',
       '@vitejs/plugin-react@4.0.3',
       'lucide-react@0.263.1',
-      '@supabase/supabase-js@2.26.0'
+      '@backendClient/backendClient-js@2.26.0'
     ];
     
     for (let i = 0; i < Math.min(packages.length, 5); i++) {
@@ -203,7 +203,7 @@ class LocalTerminalService {
     output += `📁 node_modules/\n`;
     output += `📁 public/\n`;
     output += `📁 src/\n`;
-    output += `📁 supabase/\n`;
+    output += `📁 backendClient/\n`;
     output += `📄 .env\n`;
     output += `📄 .gitignore\n`;
     output += `📄 index.html\n`;

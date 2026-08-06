@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react";
-// import { supabase } from "@/integrations/supabase/client"
-import { supabase } from '@/lib/mockSupabase';
+// import { backendClient } from "@/integrations/backendClient/client"
+import { backendClient } from '@/lib/mockBackend';
 import { toast } from "sonner";
 
 interface RepoInfo {
@@ -23,6 +23,8 @@ interface FileContent {
   sha: string;
 }
 
+const API_URL = import.meta.env.VITE_API_URL || 'https://resurrect-code-j5om.vercel.app';
+
 export function useGitHub() {
   const [isLoading, setIsLoading] = useState(false);
   const [repoInfo, setRepoInfo] = useState<RepoInfo | null>(null);
@@ -41,7 +43,7 @@ export function useGitHub() {
     
     try {
       const jwtToken = localStorage.getItem('token');
-      const response = await fetch('/api/github-api', {
+      const response = await fetch(`${API_URL}/api/github-api`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -49,6 +51,7 @@ export function useGitHub() {
         },
         body: JSON.stringify(body)
       });
+
       
       const data = await response.json();
       
@@ -105,7 +108,7 @@ export function useGitHub() {
     try {
       console.log(`Fetching file tree for ${owner}/${repo}, branch: ${branch || 'default'}`);
       
-      // First try the Supabase edge function
+      // First try the BackendClient edge function
       try {
         const data = await callGitHubAPI({
           action: "get_tree",
@@ -254,7 +257,7 @@ export function useGitHub() {
   ): Promise<FileContent | null> => {
     setIsLoading(true);
     try {
-      // First try the Supabase edge function
+      // First try the BackendClient edge function
       try {
         const data = await callGitHubAPI({
           action: "get_file",

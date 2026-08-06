@@ -3,13 +3,13 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, CheckCircle, AlertCircle, RefreshCw } from 'lucide-react';
-// import { supabase } from '@/integrations/supabase/client'
-import { supabase } from '@/lib/mockSupabase';
+// import { backendClient } from '@/integrations/backendClient/client'
+import { backendClient } from '@/lib/mockBackend';
 
 export function GitHubTokenDiagnostic() {
   const [isChecking, setIsChecking] = useState(false);
   const [tokenInLocalStorage, setTokenInLocalStorage] = useState(false);
-  const [tokenInSupabase, setTokenInSupabase] = useState(false);
+  const [tokenInBackendClient, setTokenInBackendClient] = useState(false);
   const [tokenValue, setTokenValue] = useState('');
   const [error, setError] = useState('');
 
@@ -24,29 +24,29 @@ export function GitHubTokenDiagnostic() {
         setTokenValue(localToken.substring(0, 10) + '...');
       }
 
-      // Get current session using Supabase client
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      // Get current session using BackendClient client
+      const { data: { session }, error: sessionError } = await backendClient.auth.getSession();
 
       if (sessionError || !session) {
         setError('Not authenticated - please log in');
         return;
       }
 
-      // Check Supabase user_credentials table directly
-      const { data, error: dbError } = await supabase
+      // Check BackendClient user_credentials table directly
+      const { data, error: dbError } = await backendClient
         .from('user_credentials')
         .select('credentials')
         .single();
 
       if (dbError) {
         console.warn('⚠️ Error fetching credentials:', dbError);
-        setTokenInSupabase(false);
+        setTokenInBackendClient(false);
         setError(`Failed to fetch credentials: ${dbError.message}`);
       } else if (data && data.credentials && data.credentials.githubToken) {
-        setTokenInSupabase(true);
+        setTokenInBackendClient(true);
         console.log('✅ GitHub token found in user_credentials table');
       } else {
-        setTokenInSupabase(false);
+        setTokenInBackendClient(false);
         console.log('❌ GitHub token NOT in user_credentials table');
         console.log('📋 Data received:', data);
       }
@@ -93,21 +93,21 @@ export function GitHubTokenDiagnostic() {
             </Badge>
           </div>
 
-          {/* Supabase Settings Table Status */}
+          {/* BackendClient Settings Table Status */}
           <div className="flex items-center justify-between p-3 bg-[#0d1117] rounded-lg border border-[#30363d]">
             <div className="flex items-center gap-3">
-              {tokenInSupabase ? (
+              {tokenInBackendClient ? (
                 <CheckCircle className="w-5 h-5 text-green-400" />
               ) : (
                 <AlertCircle className="w-5 h-5 text-red-400" />
               )}
               <div>
-                <p className="text-sm font-medium text-white">Supabase Database</p>
+                <p className="text-sm font-medium text-white">BackendClient Database</p>
                 <p className="text-xs text-[#7d8590]">GitHub token in user_credentials table</p>
               </div>
             </div>
-            <Badge className={tokenInSupabase ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}>
-              {tokenInSupabase ? '✅ Saved' : '❌ Not Saved'}
+            <Badge className={tokenInBackendClient ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}>
+              {tokenInBackendClient ? '✅ Saved' : '❌ Not Saved'}
             </Badge>
           </div>
         </div>
@@ -122,20 +122,20 @@ export function GitHubTokenDiagnostic() {
         )}
 
         {/* Info Box */}
-        {tokenInLocalStorage && !tokenInSupabase && (
+        {tokenInLocalStorage && !tokenInBackendClient && (
           <div className="p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
             <p className="text-xs text-yellow-400">
-              ⚠️ Your GitHub token is in browser storage but NOT in Supabase. 
+              ⚠️ Your GitHub token is in browser storage but NOT in BackendClient. 
               <br />
-              <strong>Solution:</strong> Disconnect and reconnect GitHub to save it to Supabase.
+              <strong>Solution:</strong> Disconnect and reconnect GitHub to save it to BackendClient.
             </p>
           </div>
         )}
 
-        {tokenInSupabase && (
+        {tokenInBackendClient && (
           <div className="p-3 bg-green-500/10 border border-green-500/30 rounded-lg">
             <p className="text-xs text-green-400">
-              ✅ Your GitHub token is saved in Supabase! Scheduled analysis should work.
+              ✅ Your GitHub token is saved in BackendClient! Scheduled analysis should work.
             </p>
           </div>
         )}
@@ -169,9 +169,9 @@ export function GitHubTokenDiagnostic() {
           <p><strong>What this checks:</strong></p>
           <ul className="list-disc list-inside space-y-1">
             <li>Browser Storage: Token in localStorage (for client-side use)</li>
-            <li>Supabase Database: Token in user_credentials table (for all features)</li>
+            <li>BackendClient Database: Token in user_credentials table (for all features)</li>
           </ul>
-          <p className="mt-2"><strong>If token is missing from Supabase:</strong></p>
+          <p className="mt-2"><strong>If token is missing from BackendClient:</strong></p>
           <ol className="list-decimal list-inside space-y-1">
             <li>Go to Settings → GitHub Integration</li>
             <li>Click Disconnect</li>

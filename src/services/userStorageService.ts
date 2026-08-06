@@ -1,10 +1,10 @@
 /**
  * User-specific Storage Service
- * Stores user credentials and settings per authenticated user in Supabase database
+ * Stores user credentials and settings per authenticated user in BackendClient database
  */
 
-// import { supabase } from '@/integrations/supabase/client'
-import { supabase } from '@/lib/mockSupabase';
+// import { backendClient } from '@/integrations/backendClient/client'
+import { backendClient } from '@/lib/mockBackend';
 
 interface UserCredentials {
   vercelToken?: string;
@@ -35,7 +35,7 @@ class UserStorageService {
 
   constructor() {
     // Listen for auth changes
-    supabase.auth.onAuthStateChange((event, session) => {
+    backendClient.auth.onAuthStateChange((event, session) => {
       const newUserId = session?.user?.id || null;
       
       if (this.currentUserId !== newUserId) {
@@ -58,7 +58,7 @@ class UserStorageService {
   }
 
   private async initializeUserId() {
-    const { data: { session } } = await supabase.auth.getSession();
+    const { data: { session } } = await backendClient.auth.getSession();
     this.currentUserId = session?.user?.id || null;
   }
 
@@ -74,7 +74,7 @@ class UserStorageService {
   }
 
   /**
-   * Store user credentials securely in Supabase
+   * Store user credentials securely in BackendClient
    */
   async storeCredentials(credentials: UserCredentials): Promise<void> {
     if (!this.currentUserId) {
@@ -84,7 +84,7 @@ class UserStorageService {
     try {
       console.log('💾 Storing credentials for user:', this.currentUserId.substring(0, 8));
       
-      const { error } = await (supabase as any)
+      const { error } = await (backendClient as any)
         .from('user_credentials')
         .upsert(
           {
@@ -108,7 +108,7 @@ class UserStorageService {
   }
 
   /**
-   * Retrieve user credentials from Supabase
+   * Retrieve user credentials from BackendClient
    */
   async getCredentials(): Promise<UserCredentials> {
     if (!this.currentUserId) {
@@ -117,7 +117,7 @@ class UserStorageService {
     }
 
     try {
-      const { data, error } = await (supabase as any)
+      const { data, error } = await (backendClient as any)
         .from('user_credentials')
         .select('credentials')
         .eq('user_id', this.currentUserId)
@@ -138,7 +138,7 @@ class UserStorageService {
   }
 
   /**
-   * Store user settings in Supabase
+   * Store user settings in BackendClient
    */
   async storeSettings(settings: UserSettings): Promise<void> {
     if (!this.currentUserId) {
@@ -148,7 +148,7 @@ class UserStorageService {
     try {
       console.log('💾 Storing settings for user:', this.currentUserId.substring(0, 8));
       
-      const { error } = await (supabase as any)
+      const { error } = await (backendClient as any)
         .from('user_settings')
         .upsert(
           {
@@ -172,7 +172,7 @@ class UserStorageService {
   }
 
   /**
-   * Retrieve user settings from Supabase
+   * Retrieve user settings from BackendClient
    */
   async getSettings(): Promise<UserSettings> {
     if (!this.currentUserId) {
@@ -181,7 +181,7 @@ class UserStorageService {
     }
 
     try {
-      const { data, error } = await (supabase as any)
+      const { data, error } = await (backendClient as any)
         .from('user_settings')
         .select('settings')
         .eq('user_id', this.currentUserId)
@@ -212,8 +212,8 @@ class UserStorageService {
       
       // Clear from database
       await Promise.all([
-        (supabase as any).from('user_credentials').delete().eq('user_id', this.currentUserId),
-        (supabase as any).from('user_settings').delete().eq('user_id', this.currentUserId)
+        (backendClient as any).from('user_credentials').delete().eq('user_id', this.currentUserId),
+        (backendClient as any).from('user_settings').delete().eq('user_id', this.currentUserId)
       ]);
 
       // Clear from localStorage

@@ -4,8 +4,8 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Github as GithubIcon, Key, CheckCircle, AlertCircle, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
-// import { supabase } from "@/integrations/supabase/client"
-import { supabase } from '@/lib/mockSupabase';
+// import { backendClient } from "@/integrations/backendClient/client"
+import { backendClient } from '@/lib/mockBackend';
 import { userStorageService } from "@/services/userStorageService";
 
 interface GitHubAuthProps {
@@ -60,14 +60,14 @@ export function GitHubAuth({ onAuthSuccess, onClose }: GitHubAuthProps) {
       localStorage.setItem("github_token", token);
       localStorage.setItem("github_user", JSON.stringify(userData));
       
-      // Also save to Supabase database via userStorageService
+      // Also save to BackendClient database via userStorageService
       try {
-        console.log("📤 Saving GitHub token to Supabase database via userStorageService...");
+        console.log("📤 Saving GitHub token to BackendClient database via userStorageService...");
         
         // Use userStorageService which handles all the database logic
         await userStorageService.storeGitHubToken(token, []);
         
-        console.log("✅ GitHub token saved to Supabase database successfully!");
+        console.log("✅ GitHub token saved to BackendClient database successfully!");
       } catch (dbError) {
         console.error("❌ Error saving to database:", dbError);
         if (dbError instanceof Error) {
@@ -95,16 +95,16 @@ export function GitHubAuth({ onAuthSuccess, onClose }: GitHubAuthProps) {
     localStorage.removeItem("github_token");
     localStorage.removeItem("github_user");
     
-    // Also remove from Supabase metadata
+    // Also remove from BackendClient metadata
     try {
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      const backendClientUrl = import.meta.env.VITE_BACKEND_URL;
+      const backendClientKey = import.meta.env.VITE_BACKEND_KEY;
       
-      if (supabaseUrl && supabaseKey) {
+      if (backendClientUrl && backendClientKey) {
         const authToken = localStorage.getItem("sb_auth_token");
         if (authToken) {
-          console.log("📤 Removing GitHub token from Supabase user metadata...");
-          fetch(`${supabaseUrl}/auth/v1/user`, {
+          console.log("📤 Removing GitHub token from BackendClient user metadata...");
+          fetch(`${backendClientUrl}/auth/v1/user`, {
             method: "PUT",
             headers: {
               "Content-Type": "application/json",
@@ -119,13 +119,13 @@ export function GitHubAuth({ onAuthSuccess, onClose }: GitHubAuthProps) {
             }),
           }).then(response => {
             if (response.ok) {
-              console.log("✅ GitHub token removed from Supabase metadata");
+              console.log("✅ GitHub token removed from BackendClient metadata");
             }
-          }).catch(err => console.warn("⚠️ Could not remove from Supabase metadata:", err));
+          }).catch(err => console.warn("⚠️ Could not remove from BackendClient metadata:", err));
         }
       }
     } catch (error) {
-      console.warn("⚠️ Error removing from Supabase metadata:", error);
+      console.warn("⚠️ Error removing from BackendClient metadata:", error);
     }
     
     setToken("");

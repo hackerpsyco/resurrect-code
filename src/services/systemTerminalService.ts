@@ -129,7 +129,7 @@ class SystemTerminalService {
       'tailwindcss@3.3.0',
       '@vitejs/plugin-react@4.0.3',
       'lucide-react@0.263.1',
-      '@supabase/supabase-js@2.26.0',
+      '@backendClient/backendClient-js@2.26.0',
       'sonner@1.0.3',
       '@radix-ui/react-dialog@1.0.4',
       'class-variance-authority@0.7.0'
@@ -242,7 +242,7 @@ class SystemTerminalService {
     output += `12/10/2024  02:15 PM    <DIR>          public\n`;
     output += `12/10/2024  02:15 PM             3,421 README.md\n`;
     output += `12/10/2024  02:15 PM    <DIR>          src\n`;
-    output += `12/10/2024  02:15 PM    <DIR>          supabase\n`;
+    output += `12/10/2024  02:15 PM    <DIR>          backendClient\n`;
     output += `12/10/2024  02:15 PM               456 tailwind.config.ts\n`;
     output += `12/10/2024  02:15 PM               789 tsconfig.json\n`;
     output += `12/10/2024  02:15 PM               234 vite.config.ts\n`;

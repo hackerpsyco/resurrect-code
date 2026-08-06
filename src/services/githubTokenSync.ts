@@ -1,11 +1,11 @@
 /**
  * GitHub Token Sync Service
- * Syncs GitHub token from localStorage to Supabase user metadata
+ * Syncs GitHub token from localStorage to BackendClient user metadata
  */
 
 import { toast } from 'sonner';
 
-export async function syncGitHubTokenToSupabase(): Promise<boolean> {
+export async function syncGitHubTokenToBackendClient(): Promise<boolean> {
   try {
     console.log('🔄 Starting GitHub token sync...');
 
@@ -22,13 +22,13 @@ export async function syncGitHubTokenToSupabase(): Promise<boolean> {
     const userData = JSON.parse(githubUser);
     console.log(`📤 Syncing token for user: ${userData.login}`);
 
-    // Get Supabase config
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-    const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+    // Get BackendClient config
+    const backendClientUrl = import.meta.env.VITE_BACKEND_URL;
+    const backendClientKey = import.meta.env.VITE_BACKEND_KEY;
 
-    if (!supabaseUrl || !supabaseKey) {
-      console.error('❌ Supabase not configured');
-      toast.error('Supabase configuration missing');
+    if (!backendClientUrl || !backendClientKey) {
+      console.error('❌ BackendClient not configured');
+      toast.error('BackendClient configuration missing');
       return false;
     }
 
@@ -40,10 +40,10 @@ export async function syncGitHubTokenToSupabase(): Promise<boolean> {
       return false;
     }
 
-    console.log('📤 Saving GitHub token to Supabase user metadata...');
+    console.log('📤 Saving GitHub token to BackendClient user metadata...');
 
-    // Save to Supabase metadata
-    const response = await fetch(`${supabaseUrl}/auth/v1/user`, {
+    // Save to BackendClient metadata
+    const response = await fetch(`${backendClientUrl}/auth/v1/user`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -61,12 +61,12 @@ export async function syncGitHubTokenToSupabase(): Promise<boolean> {
     if (!response.ok) {
       const error = await response.json().catch(() => ({}));
       console.error('❌ Failed to sync token:', error);
-      toast.error('Failed to sync GitHub token to Supabase');
+      toast.error('Failed to sync GitHub token to BackendClient');
       return false;
     }
 
-    console.log('✅ GitHub token synced to Supabase successfully');
-    toast.success('✅ GitHub token synced to Supabase!');
+    console.log('✅ GitHub token synced to BackendClient successfully');
+    toast.success('✅ GitHub token synced to BackendClient!');
     return true;
   } catch (error) {
     console.error('❌ Error syncing GitHub token:', error);
@@ -75,15 +75,15 @@ export async function syncGitHubTokenToSupabase(): Promise<boolean> {
   }
 }
 
-export async function verifyGitHubTokenInSupabase(): Promise<boolean> {
+export async function verifyGitHubTokenInBackendClient(): Promise<boolean> {
   try {
-    console.log('🔍 Verifying GitHub token in Supabase...');
+    console.log('🔍 Verifying GitHub token in BackendClient...');
 
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-    const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+    const backendClientUrl = import.meta.env.VITE_BACKEND_URL;
+    const backendClientKey = import.meta.env.VITE_BACKEND_KEY;
 
-    if (!supabaseUrl || !supabaseKey) {
-      console.error('❌ Supabase not configured');
+    if (!backendClientUrl || !backendClientKey) {
+      console.error('❌ BackendClient not configured');
       return false;
     }
 
@@ -94,7 +94,7 @@ export async function verifyGitHubTokenInSupabase(): Promise<boolean> {
     }
 
     // Get current user
-    const response = await fetch(`${supabaseUrl}/auth/v1/user`, {
+    const response = await fetch(`${backendClientUrl}/auth/v1/user`, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${authToken}`,
@@ -110,11 +110,11 @@ export async function verifyGitHubTokenInSupabase(): Promise<boolean> {
     const githubToken = user.user_metadata?.github_token;
 
     if (githubToken) {
-      console.log('✅ GitHub token found in Supabase metadata');
+      console.log('✅ GitHub token found in BackendClient metadata');
       console.log(`📋 GitHub login: ${user.user_metadata?.github_login}`);
       return true;
     } else {
-      console.warn('⚠️ GitHub token NOT found in Supabase metadata');
+      console.warn('⚠️ GitHub token NOT found in BackendClient metadata');
       return false;
     }
   } catch (error) {

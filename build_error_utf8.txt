@@ -1,0 +1,127 @@
+
+> vite_react_shadcn_ts@0.0.0 build
+> vite build
+
+[36mvite v5.4.19 [32mbuilding for production...[36m[39m
+transforming...
+node.exe : 
+Browserslist: browsers 
+data (caniuse-lite) is 
+9 months old. Please 
+run:
+At C:\Program Files\nod
+ejs\npm.ps1:29 char:3
++   & $NODE_EXE 
+$NPM_CLI_JS $args
++   ~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~
+    + CategoryInfo     
+         : NotSpecifi  
+  ed: (Browserslist:   
+  b...ld. Please ru    
+n::String) [], Rem    
+oteException
+    + FullyQualifiedEr 
+   rorId : NativeComm  
+  andError
+ 
+  npx update-browsersli
+st-db@latest
+  Why you should do it 
+regularly: https://gith
+ub.com/browserslist/upd
+ate-db#readme
+[32mΓ£ô[39m 1816 modules transformed.
+[31mx[39m Build 
+failed in 8.22s
+[31merror during 
+build:
+[31msrc/pages/Dashboar
+d.tsx (54:7): 
+"default" is not 
+exported by "src/compon
+ents/ConnectGitHub.jsx"
+, imported by "src/page
+s/Dashboard.tsx".[31m
+file: [36mC:/Users/piy
+us/cicdai/resurrect-cod
+e/src/pages/Dashboard.t
+sx:54:7[31m
+[33m
+52: // import { 
+backendClient } from 
+"@/lib/backendClient"
+53: import { 
+backendClient } from 
+'@/lib/mockBackend';
+54: import 
+ConnectGitHub from "@/c
+omponents/ConnectGitHub
+";
+           ^
+55: 
+56: interface Project {
+[31m
+    at getRollupError (
+file:///C:/Users/piyus/
+cicdai/resurrect-code/n
+ode_modules/rollup/dist
+/es/shared/parseAst.js:
+395:41)
+    at error (file:///C
+:/Users/piyus/cicdai/re
+surrect-code/node_modul
+es/rollup/dist/es/share
+d/parseAst.js:391:42)
+    at Module.error (fi
+le:///C:/Users/piyus/ci
+cdai/resurrect-code/nod
+e_modules/rollup/dist/e
+s/shared/node-entry.js:
+15535:16)
+    at 
+Module.traceVariable (f
+ile:///C:/Users/piyus/c
+icdai/resurrect-code/no
+de_modules/rollup/dist/
+es/shared/node-entry.js
+:15984:29)
+    at ModuleScope.find
+Variable (file:///C:/Us
+ers/piyus/cicdai/resurr
+ect-code/node_modules/r
+ollup/dist/es/shared/no
+de-entry.js:13770:39)
+    at FunctionScope.fi
+ndVariable (file:///C:/
+Users/piyus/cicdai/resu
+rrect-code/node_modules
+/rollup/dist/es/shared/
+node-entry.js:5252:38)
+    at FunctionBodyScop
+e.findVariable (file://
+/C:/Users/piyus/cicdai/
+resurrect-code/node_mod
+ules/rollup/dist/es/sha
+red/node-entry.js:5252:
+38)
+    at ReturnValueScope
+.findVariable (file:///
+C:/Users/piyus/cicdai/r
+esurrect-code/node_modu
+les/rollup/dist/es/shar
+ed/node-entry.js:5252:3
+8)
+    at FunctionBodyScop
+e.findVariable (file://
+/C:/Users/piyus/cicdai/
+resurrect-code/node_mod
+ules/rollup/dist/es/sha
+red/node-entry.js:5252:
+38)
+    at Identifier.bind 
+(file:///C:/Users/piyus
+/cicdai/resurrect-code/
+node_modules/rollup/dis
+t/es/shared/node-entry.
+js:5035:40)[39m

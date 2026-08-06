@@ -45,7 +45,7 @@ export function ConnectProjectDialog({
   const { fetchRepo, isLoading: isGitHubLoading } = useGitHub();
   const { fetchProjects, projects, isLoading: isVercelLoading } = useVercel();
   
-  const webhookUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/webhook-handler`;
+  const webhookUrl = `${import.meta.env.VITE_BACKEND_URL}/functions/v1/webhook-handler`;
 
   useEffect(() => {
     if (step === "vercel" && projects.length === 0) {

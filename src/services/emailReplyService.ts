@@ -140,20 +140,20 @@ class EmailReplyService {
    */
   private async triggerGitHubPush(reportId: string, userEmail: string): Promise<void> {
     try {
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      const backendClientUrl = import.meta.env.VITE_BACKEND_URL;
+      const backendClientKey = import.meta.env.VITE_BACKEND_KEY;
 
-      if (!supabaseUrl || !supabaseKey) {
-        console.warn('⚠️ Supabase not configured');
+      if (!backendClientUrl || !backendClientKey) {
+        console.warn('⚠️ BackendClient not configured');
         return;
       }
 
-      // Call Supabase function to trigger GitHub push
-      const response = await fetch(`${supabaseUrl}/functions/v1/trigger-github-push`, {
+      // Call BackendClient function to trigger GitHub push
+      const response = await fetch(`${backendClientUrl}/functions/v1/trigger-github-push`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${supabaseKey}`
+          'Authorization': `Bearer ${backendClientKey}`
         },
         body: JSON.stringify({
           reportId,

@@ -118,14 +118,14 @@ class AnalysisAutomationService {
 
       // Try to save to database if available
       try {
-        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-        const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+        const backendClientUrl = import.meta.env.VITE_BACKEND_URL;
+        const backendClientKey = import.meta.env.VITE_BACKEND_KEY;
 
-        if (supabaseUrl && supabaseKey) {
+        if (backendClientUrl && backendClientKey) {
           const token = localStorage.getItem('sb_auth_token');
           if (token) {
             console.log('📤 Attempting to save settings to database...');
-            const response = await fetch(`${supabaseUrl}/functions/v1/analysis-settings`, {
+            const response = await fetch(`${backendClientUrl}/functions/v1/analysis-settings`, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
@@ -148,7 +148,7 @@ class AnalysisAutomationService {
             console.warn('⚠️ No auth token available for database save');
           }
         } else {
-          console.warn('⚠️ Supabase not configured');
+          console.warn('⚠️ BackendClient not configured');
         }
       } catch (dbError) {
         console.warn('⚠️ Database save failed (offline mode):', dbError);
@@ -166,11 +166,11 @@ class AnalysisAutomationService {
    */
   async loadSettingsFromDatabase() {
     try {
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      const backendClientUrl = import.meta.env.VITE_BACKEND_URL;
+      const backendClientKey = import.meta.env.VITE_BACKEND_KEY;
 
-      if (!supabaseUrl || !supabaseKey) {
-        console.warn('⚠️ Supabase not configured');
+      if (!backendClientUrl || !backendClientKey) {
+        console.warn('⚠️ BackendClient not configured');
         return;
       }
 
@@ -180,7 +180,7 @@ class AnalysisAutomationService {
         return;
       }
 
-      const response = await fetch(`${supabaseUrl}/functions/v1/analysis-settings`, {
+      const response = await fetch(`${backendClientUrl}/functions/v1/analysis-settings`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -208,11 +208,11 @@ class AnalysisAutomationService {
    */
   async loadReportsFromDatabase(repository?: string) {
     try {
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      const backendClientUrl = import.meta.env.VITE_BACKEND_URL;
+      const backendClientKey = import.meta.env.VITE_BACKEND_KEY;
 
-      if (!supabaseUrl || !supabaseKey) {
-        console.warn('⚠️ Supabase not configured');
+      if (!backendClientUrl || !backendClientKey) {
+        console.warn('⚠️ BackendClient not configured');
         return;
       }
 
@@ -222,7 +222,7 @@ class AnalysisAutomationService {
         return;
       }
 
-      let url = `${supabaseUrl}/functions/v1/analysis-reports`;
+      let url = `${backendClientUrl}/functions/v1/analysis-reports`;
       if (repository) {
         url += `?repository=${encodeURIComponent(repository)}`;
       }
@@ -322,23 +322,23 @@ ${file.suggestions.map((s: any) => `- [${s.priority.toUpperCase()}] ${s.issue}`)
       // Create email reply action (for tracking user response)
       const replyAction = emailReplyService.createReplyAction(report.id, this.settings.userEmail);
 
-      // Use Supabase edge function to send email
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      // Use BackendClient edge function to send email
+      const backendClientUrl = import.meta.env.VITE_BACKEND_URL;
+      const backendClientKey = import.meta.env.VITE_BACKEND_KEY;
 
-      if (!supabaseUrl || !supabaseKey) {
-        console.warn('⚠️ Supabase not configured for email');
+      if (!backendClientUrl || !backendClientKey) {
+        console.warn('⚠️ BackendClient not configured for email');
         return false;
       }
 
-      console.log(`📧 Calling edge function at: ${supabaseUrl}/functions/v1/send-analysis-email`);
+      console.log(`📧 Calling edge function at: ${backendClientUrl}/functions/v1/send-analysis-email`);
       console.log(`📧 Email recipient: ${this.settings.userEmail}`);
 
-      const response = await fetch(`${supabaseUrl}/functions/v1/send-analysis-email`, {
+      const response = await fetch(`${backendClientUrl}/functions/v1/send-analysis-email`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${supabaseKey}`
+          'Authorization': `Bearer ${backendClientKey}`
         },
         body: JSON.stringify({
           to: this.settings.userEmail,
@@ -410,13 +410,13 @@ ${file.suggestions.map((s: any) => `- [${s.priority.toUpperCase()}] ${s.issue}`)
 
       // Try to save to database if available
       try {
-        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-        const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+        const backendClientUrl = import.meta.env.VITE_BACKEND_URL;
+        const backendClientKey = import.meta.env.VITE_BACKEND_KEY;
 
-        if (supabaseUrl && supabaseKey) {
+        if (backendClientUrl && backendClientKey) {
           const token = localStorage.getItem('sb_auth_token');
           if (token) {
-            const response = await fetch(`${supabaseUrl}/functions/v1/analysis-reports`, {
+            const response = await fetch(`${backendClientUrl}/functions/v1/analysis-reports`, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',

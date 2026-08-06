@@ -598,12 +598,12 @@ class ScheduledAnalysisService {
     toast.info('Starting analysis via edge function...');
 
     try {
-      // Get Supabase session from localStorage - try multiple possible keys
+      // Get BackendClient session from localStorage - try multiple possible keys
       let session = null;
       let token = null;
       let userId = null;
 
-      // Try the standard Supabase auth key format
+      // Try the standard BackendClient auth key format
       const possibleKeys = [
         'sb-eahpikunzsaacibikwtj-auth-token',
         'sb_auth_token',
@@ -639,13 +639,13 @@ class ScheduledAnalysisService {
       console.log(`✅ Auth token found, calling edge function...`);
 
       // Call Phase 5 edge function
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const backendClientUrl = import.meta.env.VITE_BACKEND_URL;
       
-      if (!supabaseUrl) {
-        throw new Error('Supabase URL not configured in environment');
+      if (!backendClientUrl) {
+        throw new Error('BackendClient URL not configured in environment');
       }
 
-      console.log(`📤 Calling edge function at: ${supabaseUrl}/functions/v1/run-scheduled-analysis`);
+      console.log(`📤 Calling edge function at: ${backendClientUrl}/functions/v1/run-scheduled-analysis`);
       console.log(`📤 Repositories: ${repositories.join(', ')}`);
       console.log(`📤 User ID: ${userId}`);
 
@@ -674,7 +674,7 @@ class ScheduledAnalysisService {
       console.log(`📤 User email: ${settings.userEmail}`);
 
       const response = await fetch(
-        `${supabaseUrl}/functions/v1/run-scheduled-analysis`,
+        `${backendClientUrl}/functions/v1/run-scheduled-analysis`,
         {
           method: 'POST',
           headers: {

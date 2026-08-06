@@ -135,6 +135,9 @@ class GitHubService {
         if (errorData.message) {
           errorMessage = errorData.message;
         }
+        if (errorData.errors) {
+          errorMessage += `: ${JSON.stringify(errorData.errors)}`;
+        }
       } catch (e) {
         // Use default error message
       }
@@ -305,6 +308,29 @@ class GitHubService {
         used: number;
       };
     }>('/rate_limit');
+  }
+
+  /**
+   * Create a webhook for a repository
+   */
+  async createWebhook(owner: string, repo: string, data: {
+    name?: string;
+    config: {
+      url: string;
+      content_type?: 'json' | 'form';
+      secret?: string;
+      insecure_ssl?: '0' | '1';
+    };
+    events?: string[];
+    active?: boolean;
+  }): Promise<any> {
+    return this.makeRequest(`/repos/${owner}/${repo}/hooks`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(data)
+    });
   }
 
   /**

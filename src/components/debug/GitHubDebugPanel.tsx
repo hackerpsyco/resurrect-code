@@ -81,9 +81,9 @@ export function GitHubDebugPanel() {
     }
   };
 
-  const testSupabaseEdgeFunction = async () => {
+  const testBackendClientEdgeFunction = async () => {
     setIsLoading(true);
-    addResult("Testing Supabase edge function...");
+    addResult("Testing BackendClient edge function...");
     
     try {
       // Test repository fetch via edge function
@@ -221,11 +221,11 @@ export function GitHubDebugPanel() {
             Test Direct GitHub API
           </Button>
           <Button
-            onClick={testSupabaseEdgeFunction}
+            onClick={testBackendClientEdgeFunction}
             disabled={isLoading}
             className="bg-[#0e639c] hover:bg-[#1177bb]"
           >
-            Test Supabase Edge Function
+            Test BackendClient Edge Function
           </Button>
           <Button
             onClick={testFileContent}
@@ -254,7 +254,7 @@ export function GitHubDebugPanel() {
       <div className="mt-6 p-4 bg-[#2d2d30] border border-[#464647] rounded">
         <h3 className="text-md font-semibold mb-2">💡 Troubleshooting Tips</h3>
         <ul className="text-sm text-[#cccccc] space-y-1">
-          <li>• If direct GitHub API works but Supabase fails, check if GITHUB_TOKEN is set in Supabase environment</li>
+          <li>• If direct GitHub API works but BackendClient fails, check if GITHUB_TOKEN is set in BackendClient environment</li>
           <li>• For private repositories, you need a valid GitHub token with appropriate permissions</li>
           <li>• Public repositories should work with direct API even without authentication</li>
           <li>• Check browser console for detailed error messages</li>

@@ -1,4 +1,4 @@
-const API_URL = import.meta.env.VITE_API_URL || 'https://resurrect-code-lzgz.vercel.app';
+const API_URL = import.meta.env.VITE_API_URL || 'https://resurrect-code-j5om.vercel.app';
 
 export type AIProvider = "deepseek" | "openai" | "claude" | "lovable" | "gemini" | "groq";
 
@@ -570,9 +570,9 @@ An error occurred while communicating with the Gemini API.
   }
 
   private async *streamLovable(messages: AIMessage[]): AsyncGenerator<AIStreamResponse> {
-    // Use Supabase edge function for Lovable AI Gateway
+    // Use BackendClient edge function for Lovable AI Gateway
     const response = await fetch(
-      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-chat-stream`,
+      `${import.meta.env.VITE_BACKEND_URL}/functions/v1/ai-chat-stream`,
       {
         method: "POST",
         headers: {

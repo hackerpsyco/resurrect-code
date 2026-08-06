@@ -23,10 +23,10 @@ import {
 import { toast } from 'sonner';
 import { githubOAuthService } from '@/services/githubOAuthService';
 import { userStorageService } from '@/services/userStorageService';
-// import { supabase } from '@/integrations/supabase/client'
-import { supabase } from '@/lib/mockSupabase';
+// import { backendClient } from '@/integrations/backendClient/client'
+import { backendClient } from '@/lib/mockBackend';
 
-const API_URL = import.meta.env.VITE_API_URL || 'https://resurrect-code-lzgz.vercel.app';
+const API_URL = import.meta.env.VITE_API_URL || 'https://resurrect-code-j5om.vercel.app';
 
 interface GitHubUser {
   login: string;
@@ -63,7 +63,7 @@ export function GitHubIntegration({ onClose }: GitHubIntegrationProps) {
   const [authMethod, setAuthMethod] = useState<'token' | 'oauth'>('token');
   const [clientId, setClientId] = useState('');
 
-  // Load saved settings on mount (per Supabase user)
+  // Load saved settings on mount (per BackendClient user)
   useEffect(() => {
     const initializeFromStorage = async () => {
       try {

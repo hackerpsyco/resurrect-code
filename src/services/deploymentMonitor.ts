@@ -143,19 +143,19 @@ class DeploymentMonitorService {
       // Get project details
       const project = await vercelService.getProject(projectId);
       
-      // Use Supabase Edge Function to trigger real deployment
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      // Use BackendClient Edge Function to trigger real deployment
+      const backendClientUrl = import.meta.env.VITE_BACKEND_URL;
+      const backendClientKey = import.meta.env.VITE_BACKEND_KEY;
       
-      if (!supabaseUrl || !supabaseKey) {
-        throw new Error('Supabase configuration missing');
+      if (!backendClientUrl || !backendClientKey) {
+        throw new Error('BackendClient configuration missing');
       }
       
-      const response = await fetch(`${supabaseUrl}/functions/v1/vercel-api`, {
+      const response = await fetch(`${backendClientUrl}/functions/v1/vercel-api`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${supabaseKey}`
+          'Authorization': `Bearer ${backendClientKey}`
         },
         body: JSON.stringify({
           action: 'trigger_deployment',
@@ -328,14 +328,14 @@ class DeploymentMonitorService {
     const checkInterval = setInterval(async () => {
       try {
         // Get real deployment status from Vercel
-        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-        const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+        const backendClientUrl = import.meta.env.VITE_BACKEND_URL;
+        const backendClientKey = import.meta.env.VITE_BACKEND_KEY;
         
-        const response = await fetch(`${supabaseUrl}/functions/v1/vercel-api`, {
+        const response = await fetch(`${backendClientUrl}/functions/v1/vercel-api`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${supabaseKey}`
+            'Authorization': `Bearer ${backendClientKey}`
           },
           body: JSON.stringify({
             action: 'get_deployment',
@@ -388,14 +388,14 @@ class DeploymentMonitorService {
    */
   private async fetchRealDeploymentLogs(deployment: RealDeployment) {
     try {
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      const backendClientUrl = import.meta.env.VITE_BACKEND_URL;
+      const backendClientKey = import.meta.env.VITE_BACKEND_KEY;
       
-      const response = await fetch(`${supabaseUrl}/functions/v1/vercel-api`, {
+      const response = await fetch(`${backendClientUrl}/functions/v1/vercel-api`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${supabaseKey}`
+          'Authorization': `Bearer ${backendClientKey}`
         },
         body: JSON.stringify({
           action: 'get_events',
@@ -469,14 +469,14 @@ class DeploymentMonitorService {
         const [owner, repo] = project.link.repo.split('/');
         
         // Fetch commit details from GitHub
-        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-        const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+        const backendClientUrl = import.meta.env.VITE_BACKEND_URL;
+        const backendClientKey = import.meta.env.VITE_BACKEND_KEY;
         
-        const response = await fetch(`${supabaseUrl}/functions/v1/github-api`, {
+        const response = await fetch(`${backendClientUrl}/functions/v1/github-api`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${supabaseKey}`
+            'Authorization': `Bearer ${backendClientKey}`
           },
           body: JSON.stringify({
             action: 'get_commit',

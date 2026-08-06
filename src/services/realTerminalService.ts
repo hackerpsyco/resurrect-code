@@ -17,15 +17,15 @@ export class RealTerminalService {
   private baseUrl: string;
 
   constructor() {
-    // Use your existing Supabase edge function
-    this.baseUrl = 'https://eahpikunzsaacibikwtj.supabase.co/functions/v1';
+    // Use your existing BackendClient edge function
+    this.baseUrl = 'https://eahpikunzsaacibikwtj.backendClient.co/functions/v1';
   }
 
   private getAuthHeaders() {
     return {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-      'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY
+      'Authorization': `Bearer ${import.meta.env.VITE_BACKEND_KEY}`,
+      'apikey': import.meta.env.VITE_BACKEND_KEY
     };
   }
 

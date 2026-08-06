@@ -10,7 +10,7 @@ const PORT = process.env.PORT || 5000;
 
 // Middleware
 app.use(cors({ 
-  origin: ['http://localhost:8080', 'https://www.innoalaxy.in', 'https://resurrect-code.vercel.app'], 
+  origin: ['http://localhost:8080', 'https://www.innoalaxy.in'], 
   credentials: true 
 }));
 app.use(express.json());
@@ -21,10 +21,7 @@ const pool = new Pool({
   ssl: { rejectUnauthorized: false }
 });
 
-// Run startup migrations
-pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS total_tokens INT DEFAULT 0;')
-  .then(() => console.log('✅ total_tokens safe column added successfully!'))
-  .catch(err => console.error('❌ Startup Migration Failed:', err.message));
+// Startup migrations removed to prevent concurrent locking in serverless, use /api/admin/setup-table manually if needed.
 
 app.get('/api/admin/setup-table', async (req, res) => {
   try {
@@ -42,7 +39,7 @@ app.get('/api/admin/setup-table', async (req, res) => {
 // 1. Redirect to GitHub
 app.get('/api/auth/github', (req, res) => {
   const clientId = process.env.GITHUB_CLIENT_ID;
-  const redirectUri = process.env.GITHUB_REDIRECT_URI || 'https://resurrect-code-lzgz.vercel.app/api/auth/github/callback';
+  const redirectUri = process.env.GITHUB_REDIRECT_URI || 'https://resurrect-code-j5om.vercel.app/api/auth/github/callback';
   const scope = 'repo workflow read:user';
   
   if (!clientId) {
@@ -342,7 +339,7 @@ app.post('/api/monitor', authenticateToken, async (req, res) => {
 
     // B. Install Github Webhook Autopilot
     const [owner, repoName] = repo_full_name.split('/');
-    const webhookUrl = `${process.env.BACKEND_URL || 'https://resurrect-code-lzgz.vercel.app'}/api/webhook/github`;
+    const webhookUrl = `${process.env.BACKEND_URL || 'https://resurrect-code-j5om.vercel.app'}/api/webhook/github`;
 
     const webhookResponse = await fetch(`https://api.github.com/repos/${owner}/${repoName}/hooks`, {
       method: 'POST',

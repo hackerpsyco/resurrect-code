@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { VSCodeLayout } from "@/components/dashboard/ide/VSCodeLayout";
 import { ConnectProjectDialog } from "@/components/dashboard/ConnectProjectDialog";
@@ -37,7 +38,9 @@ import {
   Loader2,
   RefreshCw,
   Github,
-  Globe
+  Globe,
+  Copy,
+  Check
 } from "lucide-react";
 // Toast removed for clean UI
 import { useGitHub } from "@/hooks/useGitHub";
@@ -49,8 +52,8 @@ import { toast } from "sonner";
 import { NewUserOnboarding } from "@/components/onboarding/NewUserOnboarding";
 import { WelcomeMessage } from "@/components/dashboard/WelcomeMessage";
 import { userStorageService } from "@/services/userStorageService";
-// import { supabase } from "@/lib/supabase"
-import { supabase } from '@/lib/mockSupabase';
+// import { backendClient } from "@/lib/backendClient"
+import { backendClient } from '@/lib/mockBackend';
 import ConnectGitHub from "@/components/ConnectGitHub";
 
 interface Project {
@@ -106,7 +109,7 @@ const automatedFixes: any[] = []; // Empty - will be populated from user's actua
 
 const activityLog: any[] = []; // Empty - will be populated from user's actual activity
 
-const API_URL = import.meta.env.VITE_API_URL || 'https://resurrect-code-lzgz.vercel.app';
+const API_URL = import.meta.env.VITE_API_URL || 'https://resurrect-code-j5om.vercel.app';
 
 export default function Dashboard() {
   const { user, signOut, loading } = useAuth();
@@ -232,6 +235,8 @@ export default function Dashboard() {
   const [hasSelectedGithubRepos, setHasSelectedGithubRepos] = useState(false);
   const [incidents, setIncidents] = useState<any[]>([]);
   const [monitoredRepos, setMonitoredRepos] = useState<string[]>([]);
+  const [addingWebhookRepo, setAddingWebhookRepo] = useState<string | null>(null);
+  const [copiedUrl, setCopiedUrl] = useState(false);
   const [recentCommits, setRecentCommits] = useState<any[]>([]);
   const [totalTokens, setTotalTokens] = useState<number>(0);
   
@@ -319,7 +324,7 @@ export default function Dashboard() {
               
               // Also fetch monitored repos
               try {
-                const monitoredResponse = await fetch(`${import.meta.env.VITE_API_URL || 'https://resurrect-code-lzgz.vercel.app'}/api/monitored-repos`, {
+                const monitoredResponse = await fetch(`${import.meta.env.VITE_API_URL || 'https://resurrect-code-j5om.vercel.app'}/api/monitored-repos`, {
                   headers: { 'Authorization': `Bearer ${jwtToken}` }
                 });
                 if (monitoredResponse.ok) {
@@ -488,7 +493,7 @@ export default function Dashboard() {
       if (projects.length > 0) {
         const firstProject = projects[0];
         try {
-          const response = await fetch(`${import.meta.env.VITE_API_URL || 'https://resurrect-code-lzgz.vercel.app'}/api/github-api`, {
+          const response = await fetch(`${import.meta.env.VITE_API_URL || 'https://resurrect-code-j5om.vercel.app'}/api/github-api`, {
             method: 'POST',
             headers: { 
               'Authorization': `Bearer ${localStorage.getItem('token')}`, 
@@ -514,7 +519,7 @@ export default function Dashboard() {
       const jwtToken = localStorage.getItem('token');
       if (jwtToken) {
         try {
-          const response = await fetch(`${import.meta.env.VITE_API_URL || 'https://resurrect-code-lzgz.vercel.app'}/api/user/me`, {
+          const response = await fetch(`${import.meta.env.VITE_API_URL || 'https://resurrect-code-j5om.vercel.app'}/api/user/me`, {
             headers: { 'Authorization': `Bearer ${jwtToken}` }
           });
           if (response.ok) {
@@ -716,11 +721,8 @@ export default function Dashboard() {
       return;
     }
     
-    // Show loading toast
-    const loadingToast = toast.loading("Setting up monitoring and webhook...");
-    
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'https://resurrect-code-lzgz.vercel.app'}/api/monitor`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'https://resurrect-code-j5om.vercel.app'}/api/monitor`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -733,24 +735,15 @@ export default function Dashboard() {
       });
 
       const data = await response.json();
-      toast.dismiss(loadingToast);
 
       if (response.ok && data.success) {
-        toast.success(data.message || `✅ Monitoring ${repo.full_name} - Webhook installed!`);
-        setMonitoredRepos(prev => [...prev, repo.full_name]);
-        
-        // Show additional info about what was set up
-        setTimeout(() => {
-          toast.info("📬 Webhook will automatically trigger AI code review on every commit", {
-            duration: 5000
-          });
-        }, 1000);
+        toast.success(data.message || `Monitoring ${repo.full_name}`);
+        setMonitoredRepos(prev => [...prev, repo.full_name]); // ✅ Append State updating UI instantly
       } else {
         console.error("Monitor Server Error Data:", data);
         toast.error(data.error || "Failed to configure monitoring");
       }
     } catch (err) {
-      toast.dismiss(loadingToast);
       console.error('Monitor trigger error:', err);
       toast.error("Failed to configure monitoring");
     }
@@ -944,34 +937,104 @@ export default function Dashboard() {
                         <div className="flex items-center gap-2">
                           {(() => {
                             const isMonitored = monitoredRepos.includes(`${project.owner}/${project.repo}`);
-                            const hasGitHubToken = !!localStorage.getItem('github_token');
-                            
-                            return (
+                            return isMonitored ? (
+                              <Popover>
+                                <PopoverTrigger asChild>
+                                  <Button 
+                                    size="sm" 
+                                    variant="outline" 
+                                    className="h-7 text-xs border-gray-500 text-gray-500 hover:bg-transparent"
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    Monitored
+                                  </Button>
+                                </PopoverTrigger>
+                                <PopoverContent 
+                                  className="w-80 p-4 bg-[#161b22] border-[#30363d] text-white shadow-lg rounded-lg" 
+                                  onClick={(e) => e.stopPropagation()} 
+                                  align="end"
+                                >
+                                  <div className="space-y-3">
+                                    <h4 className="font-semibold text-sm">Webhook Setup Guidance</h4>
+                                    <p className="text-xs text-[#7d8590]"> Add this webhook in GitHub project settings for monitoring. </p>
+                                    
+                                    <div>
+                                      <p className="text-xs font-medium mb-1">Payload URL *</p>
+                                      <div className="flex items-center gap-2">
+                                        <div className="flex-1 bg-[#0d1117] border border-[#30363d] rounded px-2 py-1 text-xs truncate">
+                                          https://resurrect-code-j5om.vercel.app/api/webhook/github
+                                        </div>
+                                        <Button 
+                                          size="sm" 
+                                          variant="ghost" 
+                                          className="h-7 w-7 p-0 hover:bg-[#21262d]"
+                                          onClick={() => {
+                                            navigator.clipboard.writeText("https://resurrect-code-j5om.vercel.app/api/webhook/github");
+                                            toast.success("URL copied to clipboard");
+                                          }}
+                                        >
+                                          <Copy className="w-3.5 h-3.5" />
+                                        </Button>
+                                      </div>
+                                    </div>
+
+                                    <div>
+                                      <p className="text-xs font-medium">Content type *</p>
+                                      <p className="text-xs text-[#7d8590] mt-0.5">application/json</p>
+                                    </div>
+
+                                    <div className="flex flex-col gap-2 pt-2 border-t border-[#30363d]">
+                                      <Button 
+                                        size="sm" 
+                                        className="w-full text-xs h-8 bg-[#238636] hover:bg-[#2ea043] font-medium"
+                                        disabled={addingWebhookRepo === `${project.owner}/${project.repo}`}
+                                        onClick={async () => {
+                                          setAddingWebhookRepo(`${project.owner}/${project.repo}`);
+                                          try {
+                                            await githubService.createWebhook(project.owner!, project.repo!, {
+                                              name: "web",
+                                              config: {
+                                                url: "https://resurrect-code-j5om.vercel.app/api/webhook/github",
+                                                content_type: "json"
+                                              },
+                                              events: ["push", "pull_request", "check_run", "check_suite"]
+                                            });
+                                            toast.success("Webhook added successfully!");
+                                          } catch (error: any) {
+                                            console.error("Failed to add webhook:", error);
+                                            toast.error(`Auto-add failed: ${error.message || "Unknown error"}. Please add manually.`);
+                                          } finally {
+                                            setAddingWebhookRepo(null);
+                                          }
+                                        }}
+                                      >
+                                        {addingWebhookRepo === `${project.owner}/${project.repo}` ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" /> : null}
+                                        Add Automatically
+                                      </Button>
+                                      <Button 
+                                        size="sm" 
+                                        variant="outline" 
+                                        className="w-full text-xs h-8 border-[#30363d] hover:bg-[#21262d] flex items-center justify-center gap-1"
+                                        onClick={() => window.open(`https://github.com/${project.owner}/${project.repo}/settings/hooks/new`, '_blank')}
+                                      >
+                                        <ExternalLink className="w-3.5 h-3.5" />
+                                        Manual Setup
+                                      </Button>
+                                    </div>
+                                  </div>
+                                </PopoverContent>
+                              </Popover>
+                            ) : (
                               <Button 
                                 size="sm" 
                                 variant="outline" 
-                                disabled={isMonitored || !hasGitHubToken}
-                                className={`h-7 text-xs transition-all ${
-                                  isMonitored 
-                                    ? 'border-green-500 text-green-500 bg-green-500/10 cursor-default' 
-                                    : !hasGitHubToken
-                                    ? 'border-gray-600 text-gray-600 cursor-not-allowed'
-                                    : 'border-[#238636] text-[#238636] hover:bg-[#238636] hover:text-white cursor-pointer'
-                                }`}
+                                className="h-7 text-xs border-[#238636] text-[#238636] hover:bg-[#238636] hover:text-white"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  if (!isMonitored && hasGitHubToken) {
-                                    monitorRepo({ 
-                                      full_name: `${project.owner}/${project.repo}`, 
-                                      id: project.id, 
-                                      name: project.name 
-                                    });
-                                  } else if (!hasGitHubToken) {
-                                    toast.error("GitHub token required. Please reconnect in Settings.");
-                                  }
+                                  monitorRepo({ full_name: `${project.owner}/${project.repo}`, id: project.id, name: project.name });
                                 }}
                               >
-                                {isMonitored ? "✓ Monitored" : "Monitor"}
+                                Monitor
                               </Button>
                             );
                           })()}
@@ -1299,7 +1362,7 @@ export default function Dashboard() {
             githubService.clearToken();
             vercelService.clearToken();
             
-            // Sign out from Supabase
+            // Sign out from BackendClient
             await signOut();
             
             console.log('✅ User logged out and all data cleared');

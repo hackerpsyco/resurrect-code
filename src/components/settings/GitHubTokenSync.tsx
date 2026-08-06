@@ -3,12 +3,12 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, CheckCircle, AlertCircle, Zap } from 'lucide-react';
-import { syncGitHubTokenToSupabase, verifyGitHubTokenInSupabase } from '@/services/githubTokenSync';
+import { syncGitHubTokenToBackendClient, verifyGitHubTokenInBackendClient } from '@/services/githubTokenSync';
 
 export function GitHubTokenSync() {
   const [isSyncing, setIsSyncing] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
-  const [tokenInSupabase, setTokenInSupabase] = useState(false);
+  const [tokenInBackendClient, setTokenInBackendClient] = useState(false);
   const [tokenInLocalStorage, setTokenInLocalStorage] = useState(false);
 
   // Check on mount
@@ -23,9 +23,9 @@ export function GitHubTokenSync() {
       const hasLocalToken = !!localStorage.getItem('github_token');
       setTokenInLocalStorage(hasLocalToken);
 
-      // Check Supabase
-      const hasSupabaseToken = await verifyGitHubTokenInSupabase();
-      setTokenInSupabase(hasSupabaseToken);
+      // Check BackendClient
+      const hasBackendClientToken = await verifyGitHubTokenInBackendClient();
+      setTokenInBackendClient(hasBackendClientToken);
     } finally {
       setIsVerifying(false);
     }
@@ -34,9 +34,9 @@ export function GitHubTokenSync() {
   const handleSync = async () => {
     setIsSyncing(true);
     try {
-      const success = await syncGitHubTokenToSupabase();
+      const success = await syncGitHubTokenToBackendClient();
       if (success) {
-        setTokenInSupabase(true);
+        setTokenInBackendClient(true);
       }
     } finally {
       setIsSyncing(false);
@@ -51,7 +51,7 @@ export function GitHubTokenSync() {
           GitHub Token Sync
         </CardTitle>
         <CardDescription>
-          Sync your GitHub token to Supabase for scheduled analysis
+          Sync your GitHub token to BackendClient for scheduled analysis
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -75,36 +75,36 @@ export function GitHubTokenSync() {
             </Badge>
           </div>
 
-          {/* Supabase Status */}
+          {/* BackendClient Status */}
           <div className="flex items-center justify-between p-3 bg-[#0d1117] rounded-lg border border-[#30363d]">
             <div className="flex items-center gap-3">
-              {tokenInSupabase ? (
+              {tokenInBackendClient ? (
                 <CheckCircle className="w-5 h-5 text-green-400" />
               ) : (
                 <AlertCircle className="w-5 h-5 text-red-400" />
               )}
               <div>
-                <p className="text-sm font-medium text-white">Supabase Metadata</p>
+                <p className="text-sm font-medium text-white">BackendClient Metadata</p>
                 <p className="text-xs text-[#7d8590]">GitHub token in user metadata</p>
               </div>
             </div>
-            <Badge className={tokenInSupabase ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}>
-              {tokenInSupabase ? '✅ Synced' : '❌ Not synced'}
+            <Badge className={tokenInBackendClient ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}>
+              {tokenInBackendClient ? '✅ Synced' : '❌ Not synced'}
             </Badge>
           </div>
         </div>
 
         {/* Info Box */}
-        {tokenInLocalStorage && !tokenInSupabase && (
+        {tokenInLocalStorage && !tokenInBackendClient && (
           <div className="p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg">
             <p className="text-xs text-blue-400">
-              💡 Your GitHub token is in browser storage but not synced to Supabase. 
+              💡 Your GitHub token is in browser storage but not synced to BackendClient. 
               Click "Sync Now" to enable scheduled analysis.
             </p>
           </div>
         )}
 
-        {tokenInSupabase && (
+        {tokenInBackendClient && (
           <div className="p-3 bg-green-500/10 border border-green-500/30 rounded-lg">
             <p className="text-xs text-green-400">
               ✅ Your GitHub token is synced! Scheduled analysis will work.
@@ -124,7 +124,7 @@ export function GitHubTokenSync() {
         <div className="flex gap-2">
           <Button
             onClick={handleSync}
-            disabled={isSyncing || !tokenInLocalStorage || tokenInSupabase}
+            disabled={isSyncing || !tokenInLocalStorage || tokenInBackendClient}
             className="flex-1 bg-blue-600 hover:bg-blue-700"
           >
             {isSyncing ? (
@@ -132,7 +132,7 @@ export function GitHubTokenSync() {
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                 Syncing...
               </>
-            ) : tokenInSupabase ? (
+            ) : tokenInBackendClient ? (
               '✅ Already Synced'
             ) : (
               '🔄 Sync Now'
@@ -159,7 +159,7 @@ export function GitHubTokenSync() {
           </p>
           <ul className="list-disc list-inside space-y-1">
             <li>Your GitHub token is stored in browser storage when you connect</li>
-            <li>Click "Sync Now" to save it to Supabase</li>
+            <li>Click "Sync Now" to save it to BackendClient</li>
             <li>Edge functions can then access it for scheduled analysis</li>
             <li>Once synced, scheduled analysis will work automatically</li>
           </ul>

@@ -1,8 +1,8 @@
 // import { supabase } from '../lib/supabase'
-import { supabase } from '@/lib/mockSupabase';
+import { backendClient } from '@/lib/mockBackend';
 
 export default function ConnectGitHub() {
-  const connect = () => supabase.auth.signInWithOAuth({
+  const connect = () => backendClient.auth.signInWithOAuth({
     provider: 'github',
     options: {
       scopes: 'repo workflow read:user',

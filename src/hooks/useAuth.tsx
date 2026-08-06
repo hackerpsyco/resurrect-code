@@ -1,7 +1,7 @@
 import { useState, useEffect, createContext, useContext, ReactNode } from "react";
-import { User, Session } from "@supabase/supabase-js";
-// import { supabase } from "@/integrations/supabase/client"
-import { supabase } from '@/lib/mockSupabase';
+import { User, Session } from "@backendClient/backendClient-js";
+// import { backendClient } from "@/integrations/backendClient/client"
+import { backendClient } from '@/lib/mockBackend';
 
 interface AuthContextType {
   user: User | null;
@@ -22,7 +22,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     // Set up auth state listener FIRST
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+    const { data: { subscription } } = backendClient.auth.onAuthStateChange(
       (event, session) => {
         console.log('🔐 Auth state change:', { event, user: session?.user?.email });
         setSession(session);
@@ -50,7 +50,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     );
 
     // Check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    backendClient.auth.getSession().then(({ data: { session } }) => {
       console.log('🔐 Initial session check:', { user: session?.user?.email });
       setSession(session);
       setUser(session?.user ?? null);
@@ -69,7 +69,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     sessionStorage.setItem(`auth_isSignup_${email}`, isSignup ? 'true' : 'false');
     
     // For signup: create user, for login: just send OTP
-    const { error } = await supabase.auth.signInWithOtp({
+    const { error } = await backendClient.auth.signInWithOtp({
       email,
       options: {
         shouldCreateUser: isSignup, // Create user on signup
@@ -101,7 +101,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     
     try {
       // Step 1: Verify OTP - this automatically signs in the user
-      const { data: otpData, error: otpError } = await supabase.auth.verifyOtp({
+      const { data: otpData, error: otpError } = await backendClient.auth.verifyOtp({
         email,
         token,
         type: 'email',
@@ -120,7 +120,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         localStorage.setItem('is_new_user', 'true');
         
         // Update user metadata
-        const { error: updateError } = await supabase.auth.updateUser({
+        const { error: updateError } = await backendClient.auth.updateUser({
           data: { 
             signup_method: 'otp',
             created_at: new Date().toISOString()
@@ -151,7 +151,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signInWithGoogle = async () => {
     console.log('🔐 Google OAuth signin attempt');
     
-    const { data, error } = await supabase.auth.signInWithOAuth({
+    const { data, error } = await backendClient.auth.signInWithOAuth({
       provider: 'google',
       options: {
         redirectTo: `${window.location.origin}/auth/callback`,
@@ -171,7 +171,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    await backendClient.auth.signOut();
     localStorage.removeItem('is_new_user');
   };
 

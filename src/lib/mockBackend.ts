@@ -1,4 +1,4 @@
-export const supabase = {
+export const backendClient = {
   auth: {
     onAuthStateChange: (cb: any) => {
       // Return subscription interface
@@ -8,6 +8,7 @@ export const supabase = {
       return { data: { session: null }, error: null };
     },
     signInWithOtp: async () => ({ error: null }),
+    signInWithOAuth: async () => ({ error: null }),
     verifyOtp: async () => ({ data: {}, error: null }),
     signOut: async () => {}
   },

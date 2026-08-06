@@ -14,8 +14,8 @@ export class GitOperations {
 
   // Helper method to call GitHub API directly
   private async callGitHubAPI(body: Record<string, unknown>) {
-    const { supabase } = await import("@/integrations/supabase/client");
-    const { data, error } = await supabase.functions.invoke("github-api", { body });
+    const { backendClient } = await import("@/integrations/backendClient/client");
+    const { data, error } = await backendClient.functions.invoke("github-api", { body });
     if (error) throw new Error(error.message);
     if (!data.success) throw new Error(data.error);
     return data.data;

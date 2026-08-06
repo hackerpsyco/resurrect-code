@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react";
-// import { supabase } from "@/integrations/supabase/client"
-import { supabase } from '@/lib/mockSupabase';
+// import { backendClient } from "@/integrations/backendClient/client"
+import { backendClient } from '@/lib/mockBackend';
 import { toast } from "sonner";
 
 interface ErrorInfo {
@@ -70,7 +70,7 @@ export function useAIAgent() {
       setCurrentStep("analyze");
       updateStep("analyze", { status: "running" });
       
-      const { data: analyzeData, error: analyzeError } = await supabase.functions.invoke(
+      const { data: analyzeData, error: analyzeError } = await backendClient.functions.invoke(
         "ai-agent",
         {
           body: {
@@ -96,7 +96,7 @@ export function useAIAgent() {
       setCurrentStep("search");
       updateStep("search", { status: "running" });
 
-      const { data: searchData, error: searchError } = await supabase.functions.invoke(
+      const { data: searchData, error: searchError } = await backendClient.functions.invoke(
         "ai-agent",
         {
           body: {
@@ -123,7 +123,7 @@ export function useAIAgent() {
       setCurrentStep("generate");
       updateStep("generate", { status: "running" });
 
-      const { data: fixData, error: fixError } = await supabase.functions.invoke(
+      const { data: fixData, error: fixError } = await backendClient.functions.invoke(
         "ai-agent",
         {
           body: {
@@ -153,7 +153,7 @@ export function useAIAgent() {
         for (const change of fixResult.changes) {
           try {
             // Fetch original file content
-            const { data: fileData } = await supabase.functions.invoke("github-api", {
+            const { data: fileData } = await backendClient.functions.invoke("github-api", {
               body: {
                 action: "get_file",
                 owner,
@@ -201,7 +201,7 @@ export function useAIAgent() {
       updateStep("pr", { status: "running" });
 
       // Create branch and PR
-      const { error: prError } = await supabase.functions.invoke(
+      const { error: prError } = await backendClient.functions.invoke(
         "github-api",
         {
           body: {
@@ -219,7 +219,7 @@ export function useAIAgent() {
       }
 
       // Create the PR (reuse fixResult from above)
-      const { data: pullRequest, error: pullError } = await supabase.functions.invoke(
+      const { data: pullRequest, error: pullError } = await backendClient.functions.invoke(
         "github-api",
         {
           body: {
@@ -299,7 +299,7 @@ export function useAIAgent() {
 
     try {
       // Create branch
-      await supabase.functions.invoke("github-api", {
+      await backendClient.functions.invoke("github-api", {
         body: {
           action: "create_branch",
           owner,
@@ -311,7 +311,7 @@ export function useAIAgent() {
 
       // Update files
       for (const change of pendingChanges) {
-        await supabase.functions.invoke("github-api", {
+        await backendClient.functions.invoke("github-api", {
           body: {
             action: "update_file",
             owner,
@@ -325,7 +325,7 @@ export function useAIAgent() {
       }
 
       // Create PR
-      const { data: pullRequest, error: pullError } = await supabase.functions.invoke("github-api", {
+      const { data: pullRequest, error: pullError } = await backendClient.functions.invoke("github-api", {
         body: {
           action: "create_pr",
           owner,

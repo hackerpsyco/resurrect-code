@@ -106,7 +106,7 @@ class AutomatedActionService {
       const workflowAction = await this.createAction(deployment.id, 'trigger_workflow',
         'Triggering automated error fixing workflow');
       
-      // Trigger automation via Supabase Edge Function
+      // Trigger automation via BackendClient Edge Function
       await this.triggerAutomationWorkflow(deployment, error, fixStrategy);
       workflowAction.status = 'completed';
       workflowAction.result = 'Automation workflow triggered successfully';
@@ -278,7 +278,7 @@ export default ${pascalCaseName};
     console.log('🔄 Triggering automation workflow...');
     
     try {
-      await this.triggerWorkflowViaSupabase(deployment, error, strategy);
+      await this.triggerWorkflowViaBackendClient(deployment, error, strategy);
       console.log('✅ Automation workflow triggered successfully');
     } catch (err) {
       console.error('❌ Failed to trigger automation workflow:', err);
@@ -287,14 +287,14 @@ export default ${pascalCaseName};
   }
 
   /**
-   * Trigger automation via Supabase Edge Function
+   * Trigger automation via BackendClient Edge Function
    */
-  private async triggerWorkflowViaSupabase(deployment: RealDeployment, error: DeploymentError, strategy: FixStrategy): Promise<void> {
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-    const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+  private async triggerWorkflowViaBackendClient(deployment: RealDeployment, error: DeploymentError, strategy: FixStrategy): Promise<void> {
+    const backendClientUrl = import.meta.env.VITE_BACKEND_URL;
+    const backendClientKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-    if (!supabaseUrl || !supabaseKey) {
-      console.warn('⚠️ Supabase not configured, simulating automation workflow...');
+    if (!backendClientUrl || !backendClientKey) {
+      console.warn('⚠️ BackendClient not configured, simulating automation workflow...');
       return new Promise((resolve) => setTimeout(resolve, 2000));
     }
 
@@ -303,11 +303,11 @@ export default ${pascalCaseName};
       const projectId = await this.getVercelProjectId(deployment.name);
       
       // We use the webhook handler as the generic entry point for automation
-      const response = await fetch(`${supabaseUrl}/functions/v1/webhook-handler`, {
+      const response = await fetch(`${backendClientUrl}/functions/v1/webhook-handler`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${supabaseKey}`
+          'Authorization': `Bearer ${backendClientKey}`
         },
         body: JSON.stringify({
           action: 'trigger_workflow',
@@ -328,10 +328,10 @@ export default ${pascalCaseName};
       }
 
       const result = await response.json();
-      console.log('✅ Automation workflow triggered via Supabase:', result.data);
+      console.log('✅ Automation workflow triggered via BackendClient:', result.data);
       
     } catch (error) {
-      console.error('❌ Supabase automation trigger failed:', error);
+      console.error('❌ BackendClient automation trigger failed:', error);
     }
   }
 
@@ -341,11 +341,11 @@ export default ${pascalCaseName};
   private async createFixPR(deployment: RealDeployment, strategy: FixStrategy): Promise<{ number: number; url: string }> {
     console.log('📝 Creating GitHub PR with automated fix...');
 
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-    const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+    const backendClientUrl = import.meta.env.VITE_BACKEND_URL;
+    const backendClientKey = import.meta.env.VITE_BACKEND_KEY;
 
-    if (!supabaseUrl || !supabaseKey) {
-      throw new Error('Supabase configuration missing for GitHub integration');
+    if (!backendClientUrl || !backendClientKey) {
+      throw new Error('BackendClient configuration missing for GitHub integration');
     }
 
     try {
@@ -357,11 +357,11 @@ export default ${pascalCaseName};
       // Step 1: Create fix branch
       const branchName = `resurrect-fix-${Date.now()}`;
       
-      await fetch(`${supabaseUrl}/functions/v1/github-api`, {
+      await fetch(`${backendClientUrl}/functions/v1/github-api`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${supabaseKey}`
+          'Authorization': `Bearer ${backendClientKey}`
         },
         body: JSON.stringify({
           action: 'create_branch',
@@ -381,11 +381,11 @@ export default ${pascalCaseName};
           fileContent = await this.generateFixedFileContent(file.path, strategy.type);
         }
 
-        await fetch(`${supabaseUrl}/functions/v1/github-api`, {
+        await fetch(`${backendClientUrl}/functions/v1/github-api`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${supabaseKey}`
+            'Authorization': `Bearer ${backendClientKey}`
           },
           body: JSON.stringify({
             action: 'update_file',
@@ -400,11 +400,11 @@ export default ${pascalCaseName};
       }
 
       // Step 3: Create PR
-      const prResponse = await fetch(`${supabaseUrl}/functions/v1/github-api`, {
+      const prResponse = await fetch(`${backendClientUrl}/functions/v1/github-api`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${supabaseKey}`
+          'Authorization': `Bearer ${backendClientKey}`
         },
         body: JSON.stringify({
           action: 'create_pr',

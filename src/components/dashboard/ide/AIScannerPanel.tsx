@@ -15,7 +15,7 @@ interface AIScannerPanelProps {
   onFixApplied?: (newContent: string) => void;
 }
 
-const API_URL = import.meta.env.VITE_API_URL || 'https://resurrect-code-lzgz.vercel.app';
+const API_URL = import.meta.env.VITE_API_URL || 'https://resurrect-code-j5om.vercel.app';
 
 export function AIScannerPanel({ currentFile, onFixApplied }: AIScannerPanelProps) {
   const [loading, setLoading] = useState(false);
